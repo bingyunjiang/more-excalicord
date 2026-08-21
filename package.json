@@ -8,7 +8,8 @@
     "deploy:local": "bash scripts/deploy-local.sh",
     "sync:from-live": "bash scripts/sync-from-live.sh",
     "verify:deploy": "bash scripts/verify-deploy.sh",
-    "status": "bash scripts/status.sh"
+    "status": "bash scripts/status.sh",
+    "pack:release": "bash scripts/package-release.sh"
   },
   "keywords": [
     "excalidraw",

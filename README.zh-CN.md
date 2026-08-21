@@ -4,6 +4,27 @@ more-excalicord 是一个本地 Excalidraw 增强插件，用于把同一张白�
 
 它可以放在 /Users/Bing/.codex/skills 目录下便于本机管理，但它不是 Codex skill。仓库中故意不保留 SKILL.md 和 agents/openai.yaml，避免被 Codex 当成技能自动调用。
 
+## 适合谁
+
+- 想把 Excalidraw 白板当成幻灯片演示的人
+- 想在本地白板里录制讲解视频的人
+- 想要摄像头画中画、提词器和白板视图控制的人
+- 想保留本地优先，不上传白板内容的人
+
+## 快速开始
+
+如果你第一次使用，按这个顺序看：
+
+1. [快速开始](docs/quickstart.zh-CN.md)
+2. [安装与部署](docs/install.zh-CN.md)
+3. [使用说明](docs/user-guide.zh-CN.md)
+4. [常见问题](docs/troubleshooting.zh-CN.md)
+
+如果你是维护者，再看：
+
+- [开发与同步](docs/developer-guide.zh-CN.md)
+- [GitHub 发布检查清单](docs/release-checklist.zh-CN.md)
+
 ## 当前功能
 
 - 悬浮幻灯片栏：新增、切换、总览、白板控制、录制入口
@@ -42,6 +63,7 @@ more-excalicord 是一个本地 Excalidraw 增强插件，用于把同一张白�
     npm run verify:deploy
     npm run sync:from-live
     npm run status
+    npm run pack:release
 
 含义：
 
@@ -50,6 +72,7 @@ more-excalicord 是一个本地 Excalidraw 增强插件，用于把同一张白�
 - verify:deploy：比较仓库源码与运行目录哈希是否一致
 - sync:from-live：从当前运行目录回收最新版源码到仓库
 - status：查看 Git 状态和部署一致性
+- pack:release：生成 GitHub Release 可上传的 zip 包
 
 ## 不要提交的内容
 

@@ -9,6 +9,11 @@ required_files=(
   "$repo_root/src/native-bridge.js"
   "$repo_root/server/no-cache-server.js"
   "$repo_root/package.json"
+  "$repo_root/README.md"
+  "$repo_root/README.zh-CN.md"
+  "$repo_root/docs/quickstart.zh-CN.md"
+  "$repo_root/docs/install.zh-CN.md"
+  "$repo_root/docs/troubleshooting.zh-CN.md"
 )
 
 for file in "${required_files[@]}"; do
@@ -17,6 +22,11 @@ for file in "${required_files[@]}"; do
     exit 1
   fi
 done
+
+if [ -f "$repo_root/SKILL.md" ] || [ -f "$repo_root/agents/openai.yaml" ]; then
+  echo "this is a web plugin repository, not a Codex skill; remove SKILL.md and agents/openai.yaml"
+  exit 1
+fi
 
 if find "$repo_root" -path "$repo_root/examples" -prune -o \( -name "scene.excalidraw" -o -name "scene.json" \) -print | grep -q .; then
   echo "scene files must not be committed"

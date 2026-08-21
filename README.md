@@ -6,6 +6,20 @@ more-excalicord is a local Excalidraw enhancement plugin for slide-style whitebo
 
 This repository may live under /Users/Bing/.codex/skills for local organization, but it is not a Codex skill. It intentionally does not include SKILL.md or agents/openai.yaml.
 
+## Start here
+
+Chinese documentation is the primary user documentation:
+
+1. [快速开始](docs/quickstart.zh-CN.md)
+2. [安装与部署](docs/install.zh-CN.md)
+3. [使用说明](docs/user-guide.zh-CN.md)
+4. [常见问题](docs/troubleshooting.zh-CN.md)
+
+Maintainers should also read:
+
+- [开发与同步](docs/developer-guide.zh-CN.md)
+- [GitHub 发布检查清单](docs/release-checklist.zh-CN.md)
+
 ## What is included
 
 - Slide toolbar based on Excalidraw frames
@@ -28,6 +42,7 @@ Use these commands:
     npm run verify:deploy
     npm run sync:from-live
     npm run status
+    npm run pack:release
 
 ## Do not commit
 
