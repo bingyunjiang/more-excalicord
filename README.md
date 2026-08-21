@@ -33,6 +33,14 @@ Use these commands:
 
 Do not commit scene.excalidraw, scene.json, local recordings, browser caches, backups, or personal whiteboard content.
 
+## Example scenes
+
+Sanitized example whiteboards can be placed under examples/, for example:
+
+    examples/demo-scene.excalidraw
+
+Example files may be committed. Real working scenes and runtime scene.excalidraw / scene.json files should stay local.
+
 ## License
 
 MIT

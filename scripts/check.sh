@@ -18,7 +18,7 @@ for file in "${required_files[@]}"; do
   fi
 done
 
-if find "$repo_root" -name "scene.excalidraw" -o -name "scene.json" | grep -q .; then
+if find "$repo_root" -path "$repo_root/examples" -prune -o \( -name "scene.excalidraw" -o -name "scene.json" \) -print | grep -q .; then
   echo "scene files must not be committed"
   exit 1
 fi

@@ -61,6 +61,14 @@ more-excalicord 是一个本地 Excalidraw 增强插件，用于把同一张白�
 - 个人白板内容
 - 密钥、账号、token 或 .env 文件
 
+## 示例白板
+
+可以把脱敏后的示例白板放在 examples/ 目录下，例如：
+
+    examples/demo-scene.excalidraw
+
+示例文件可以提交到 GitHub；真实工作白板和本地运行目录中的 scene.excalidraw / scene.json 不要提交。
+
 ## GitHub 建议
 
 首次同步建议先创建 private 仓库。确认 README、License、功能边界和截图材料后，再决定是否公开。
