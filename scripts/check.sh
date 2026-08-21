@@ -9,7 +9,6 @@ required_files=(
   "$repo_root/src/native-bridge.js"
   "$repo_root/server/no-cache-server.js"
   "$repo_root/package.json"
-  "$repo_root/SKILL.md"
 )
 
 for file in "${required_files[@]}"; do

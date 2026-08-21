@@ -2,6 +2,8 @@
 
 more-excalicord 是一个本地 Excalidraw 增强插件，用于把同一张白板中的 Frame 组织成“幻灯片”，并提供录制、摄像头、提词器、白板控制和演示播放能力。
 
+它可以放在 /Users/Bing/.codex/skills 目录下便于本机管理，但它不是 Codex skill。仓库中故意不保留 SKILL.md 和 agents/openai.yaml，避免被 Codex 当成技能自动调用。
+
 ## 当前功能
 
 - 悬浮幻灯片栏：新增、切换、总览、白板控制、录制入口

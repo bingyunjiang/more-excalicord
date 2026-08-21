@@ -4,6 +4,8 @@ more-excalicord is a local Excalidraw enhancement plugin for slide-style whitebo
 
 中文说明见 README.zh-CN.md。
 
+This repository may live under /Users/Bing/.codex/skills for local organization, but it is not a Codex skill. It intentionally does not include SKILL.md or agents/openai.yaml.
+
 ## What is included
 
 - Slide toolbar based on Excalidraw frames
