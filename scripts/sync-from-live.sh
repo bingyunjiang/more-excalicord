@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-runtime_root="/Users/Bing/.local/share/excalidraw"
+runtime_root="${MORE_EXCALICORD_RUNTIME_ROOT:-$HOME/.local/share/excalidraw}"
 public_recorder="$runtime_root/public/recorder"
 
 cp "$public_recorder/studio-recorder.js" "$repo_root/src/studio-recorder.js"

@@ -10,7 +10,6 @@ required_files=(
   "$repo_root/server/no-cache-server.js"
   "$repo_root/package.json"
   "$repo_root/README.md"
-  "$repo_root/README.zh-CN.md"
   "$repo_root/docs/quickstart.zh-CN.md"
   "$repo_root/docs/install.zh-CN.md"
   "$repo_root/docs/troubleshooting.zh-CN.md"
@@ -24,7 +23,7 @@ for file in "${required_files[@]}"; do
 done
 
 if [ -f "$repo_root/SKILL.md" ] || [ -f "$repo_root/agents/openai.yaml" ]; then
-  echo "this is a web plugin repository, not a Codex skill; remove SKILL.md and agents/openai.yaml"
+  echo "unexpected automation metadata found; remove SKILL.md and agents/openai.yaml"
   exit 1
 fi
 

@@ -4,9 +4,11 @@
 
 当前脚本默认适配 macOS 上的本地 Excalidraw 目录：
 
-    /Users/Bing/.local/share/excalidraw
+    ~/.local/share/excalidraw
 
-这是开发者本机路径。其他用户需要根据自己的安装位置调整 scripts/deploy-local.sh。
+如果你的本地 Excalidraw 安装在其他位置，设置环境变量即可：
+
+    export MORE_EXCALICORD_RUNTIME_ROOT="/path/to/excalidraw"
 
 ## 仓库内容
 
@@ -22,7 +24,7 @@
 1. 下载仓库。
 2. 进入仓库目录。
 3. 执行 npm run check。
-4. 确认本地 Excalidraw 目录存在。
+4. 确认本地 Excalidraw 目录存在，或设置 MORE_EXCALICORD_RUNTIME_ROOT。
 5. 执行 npm run deploy:local。
 6. 打开 http://localhost:5001/ 验收。
 

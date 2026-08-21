@@ -4,19 +4,21 @@
 
 ## 1. 你需要先知道
 
-more-excalicord 不是独立网页应用，也不是 Codex skill。它是给本地 Excalidraw 增加幻灯片、录制、摄像头、提词器和白板控制能力的本地增强插件。
+more-excalicord 不是独立网页应用。它是给自托管 Excalidraw 增加幻灯片、录制、摄像头、提词器和白板控制能力的本地增强插件。
 
-它需要一个本地 Excalidraw 运行目录，默认位置是：
+它需要一个本地 Excalidraw 运行目录。脚本默认使用：
 
-    /Users/Bing/.local/share/excalidraw
+    ~/.local/share/excalidraw
 
-如果你的本地 Excalidraw 不在这个位置，需要先改 scripts/deploy-local.sh 里的 runtime_root。
+如果你的本地 Excalidraw 不在这个位置，可以通过环境变量指定：
+
+    export MORE_EXCALICORD_RUNTIME_ROOT="/path/to/excalidraw"
 
 ## 2. 下载
 
 推荐方式：
 
-    git clone <你的 GitHub 仓库地址>
+    git clone https://github.com/bingyunjiang/more-excalicord.git
     cd more-excalicord
 
 如果不会用 Git，也可以在 GitHub 页面点击 Code -> Download ZIP，解压后进入目录。

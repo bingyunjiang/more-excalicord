@@ -2,7 +2,7 @@
 
 ## 发布前
 
-- README.md 和 README.zh-CN.md 能说明项目用途
+- README.md 能说明项目用途
 - docs/quickstart.zh-CN.md 能指导新用户下载和部署
 - docs/install.zh-CN.md 能说明本地路径和验收点
 - docs/troubleshooting.zh-CN.md 覆盖常见失败
