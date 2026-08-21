@@ -10,6 +10,7 @@ required_files=(
   "$repo_root/server/no-cache-server.js"
   "$repo_root/package.json"
   "$repo_root/README.md"
+  "$repo_root/CHANGELOG.md"
   "$repo_root/scripts/env.sh"
   "$repo_root/scripts/preflight.sh"
   "$repo_root/scripts/configure-local.sh"
@@ -37,6 +38,17 @@ fi
 
 if grep -nE "title=.*Frame|aria-label.*Frame|toast\\([^)]*Frame|confirm\\([^)]*Frame|prompt\\([^)]*Frame" "$repo_root/src/studio-recorder.js" >/dev/null 2>&1; then
   echo "user-facing Frame wording may remain in src/"
+  exit 1
+fi
+
+package_version="$(node -e "console.log(require(process.argv[1]).version)" "$repo_root/package.json")"
+display_version="v$package_version"
+if ! grep -q "$display_version" "$repo_root/README.md"; then
+  echo "README.md does not mention $display_version"
+  exit 1
+fi
+if ! grep -q "$display_version" "$repo_root/CHANGELOG.md"; then
+  echo "CHANGELOG.md does not mention $display_version"
   exit 1
 fi
 

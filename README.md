@@ -360,6 +360,7 @@ more-excalicord 是本地 Excalidraw 的增强插件。部署前建议先准备�
 | [常见问题](docs/troubleshooting.zh-CN.md) | 页面不生效、部署不一致和录制问题 |
 | [开发与同步](docs/developer-guide.zh-CN.md) | 源码仓库、部署目录和 Git 工作流 |
 | [发布检查清单](docs/release-checklist.zh-CN.md) | 发布前检查、打包和发布后复验 |
+| [版本历史](CHANGELOG.md) | 版本发布记录和主要变更 |
 | [本地文件映射](references/local-runtime.md) | 源码文件部署到 Excalidraw 应用目录的对应关系 |
 
 ## More 系列
@@ -377,8 +378,16 @@ more-excalicord 是本地 Excalidraw 的增强插件。部署前建议先准备�
 | [more-excalidraw-feishu](https://github.com/bingyunjiang/more-excalidraw-feishu) | Excalidraw 到飞书白板的本地转换和写回 |
 | [more-feishu-excalidraw](https://github.com/bingyunjiang/more-feishu-excalidraw) | 飞书文档到 Excalidraw 白板的结构化转换 |
 
+## 版本历史
+
+| 版本 | 日期 | 定义 | 说明 |
+| --- | --- | --- | --- |
+| [v0.1.0](CHANGELOG.md#v010---2026-08-21) | 2026-08-21 | 初版发布版本 | 首次公开发布，包含 Frame 幻灯片、白板控制、录屏范围、摄像头画中画、摄像头合成进视频、提词器、部署预检和示例截图 |
+
+完整记录见 [CHANGELOG.md](CHANGELOG.md)。
+
 ## 版本与许可
 
-- 当前版本：<code>v0.1.0</code>，见 [package.json](package.json)；
+- 当前版本：<code>v0.1.0</code>，初版发布版本，见 [package.json](package.json) 和 [CHANGELOG.md](CHANGELOG.md)；
 - 许可证：[MIT License](LICENSE)；
 - 当前主要面向自托管 Excalidraw 和本地录制场景。

@@ -3,6 +3,7 @@
 ## 发布前
 
 - README.md 能说明项目用途
+- CHANGELOG.md 记录当前版本历史，且当前版本定义清楚
 - docs/quickstart.zh-CN.md 能指导新用户下载、预检、配置和部署
 - docs/install.zh-CN.md 能说明前置条件、本地路径、Codex/大模型辅助部署和验收点
 - docs/troubleshooting.zh-CN.md 覆盖常见失败
@@ -28,6 +29,7 @@
 - About 中写清楚：Local Excalidraw enhancement plugin
 - Topics 可添加：excalidraw, whiteboard, slides, recording, local-first
 - public 仓库发布前确认 README、examples、截图、部署文档和 .gitignore 无敏感内容
+- 发布版本时确认 package.json、README.md 和 CHANGELOG.md 中的版本号一致
 
 ## 发布后
 
