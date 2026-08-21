@@ -7,6 +7,7 @@
 - docs/quickstart.zh-CN.md 能指导新用户下载、预检、配置和部署
 - docs/install.zh-CN.md 能说明前置条件、本地路径、Codex/大模型辅助部署和验收点
 - docs/troubleshooting.zh-CN.md 覆盖常见失败
+- assets/brand/ 包含 logo、icon、favicon 和 social preview
 - examples/ 只包含脱敏示例
 - 没有 scene.excalidraw / scene.json
 - 没有录屏成片、缓存、备份和密钥

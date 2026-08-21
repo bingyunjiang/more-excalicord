@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="more-excalicord favicon">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
+  <rect x="13" y="15" width="34" height="24" rx="5" fill="#fff" opacity="0.96"/>
+  <path d="M20 24h16M20 31h11" stroke="#4f46e5" stroke-width="3" stroke-linecap="round"/>
+  <rect x="18" y="43" width="24" height="6" rx="3" fill="#c4b5fd"/>
+  <circle cx="47" cy="42" r="9" fill="#ef4444" stroke="#fff" stroke-width="4"/>
+</svg>

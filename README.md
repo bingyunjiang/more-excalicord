@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="assets/brand/more-excalicord-logo.svg" alt="more-excalicord logo" width="560"><br>
   <strong>more-excalicord</strong><br>
   <em>给 Excalidraw 加上画中画录屏、提词器、幻灯片</em>
 </p>
@@ -340,6 +341,7 @@ more-excalicord 是本地 Excalidraw 的增强插件。部署前建议先准备�
 | <code>src/vendor/</code> | 摄像头美颜相关的本地前端依赖 |
 | <code>server/no-cache-server.js</code> | 本地服务脚本，用于无缓存刷新和场景保存 |
 | <code>scripts/</code> | 检查、部署、同步、状态和发布打包脚本 |
+| <code>assets/brand/</code> | logo、图标、favicon 和分享封面等品牌资源 |
 | <code>docs/</code> | 用户和维护文档 |
 | <code>examples/</code> | 可公开展示的示例白板 |
 
@@ -361,6 +363,7 @@ more-excalicord 是本地 Excalidraw 的增强插件。部署前建议先准备�
 | [开发与同步](docs/developer-guide.zh-CN.md) | 源码仓库、部署目录和 Git 工作流 |
 | [发布检查清单](docs/release-checklist.zh-CN.md) | 发布前检查、打包和发布后复验 |
 | [版本历史](CHANGELOG.md) | 版本发布记录和主要变更 |
+| [品牌资源](assets/brand/) | logo、图标、favicon 和分享封面 |
 | [本地文件映射](references/local-runtime.md) | 源码文件部署到 Excalidraw 应用目录的对应关系 |
 
 ## More 系列
