@@ -1,6 +1,6 @@
 <p align="center">
   <strong>more-excalicord</strong><br>
-  <em>给 Excalidraw 加上画中画、提词器和三种范围录屏</em>
+  <em>给 Excalidraw 加上画中画录屏、提词器、幻灯片</em>
 </p>
 
 <p align="center">
