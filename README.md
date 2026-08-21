@@ -201,31 +201,79 @@ more-excalicord 读取当前 Excalidraw 场景中的 Frame，并把它们按画�
 
 这些示例资产可公开展示。个人白板、未脱敏项目材料和录屏成片建议只保存在自己的工作目录中。
 
+## 部署前置条件
+
+more-excalicord 是本地 Excalidraw 的增强插件。部署前建议先准备好下面几项：
+
+| 前置条件 | 作用 | 如何提前检查或配置 |
+| --- | --- | --- |
+| Node.js 18+ 与 npm | 运行检查、预检和部署脚本 | <code>node -v</code>、<code>npm -v</code>，缺失时先安装 Node.js |
+| Git 或 ZIP 下载能力 | 获取本仓库源码 | 推荐 <code>git clone</code>；不会用 Git 时可下载 ZIP |
+| 自托管 Excalidraw 运行目录 | more-excalicord 会把脚本、样式和本地服务复制进去 | 默认 <code>~/.local/share/excalidraw</code>；其他位置用 <code>npm run configure:local -- --runtime-root /path/to/excalidraw</code> |
+| 可访问的本地 Excalidraw 页面 | 浏览器验收插件是否生效 | 部署后打开 <code>http://localhost:5001/</code> |
+| 浏览器录制权限 | 使用屏幕/窗口录制、摄像头、麦克风 | 首次录制时按浏览器或系统提示允许屏幕录制、摄像头和麦克风 |
+| 可选：Codex、Claude Code、Cursor 等本地大模型助手 | 让大模型帮你检查路径、执行命令、解释报错 | 给它本仓库目录和下面的部署提示词，让它先运行预检再部署 |
+
+推荐先执行一次预检；它会提前检查命令、Node 版本、运行目录、写入权限和本地页面状态：
+
+    npm run preflight
+
 ## 3 分钟开始
 
-### 1. 准备 Excalidraw 本地服务
+### 1. 下载源码
 
-more-excalicord 需要一个可访问的本地 Excalidraw 服务。默认开发脚本会把插件文件部署到配置好的 Excalidraw 应用目录；如果你的 Excalidraw 安装位置不同，请先按 [安装与部署](docs/install.zh-CN.md) 调整部署路径。
+    git clone https://github.com/bingyunjiang/more-excalicord.git
+    cd more-excalicord
 
-### 2. 检查仓库
+### 2. 配置本地 Excalidraw 运行目录
+
+如果你的 Excalidraw 运行目录就是默认位置，可以直接运行：
+
+    npm run setup:local
+
+如果你的运行目录不同，先写入本地配置文件 <code>.env.local</code>：
+
+    npm run configure:local -- --runtime-root /path/to/excalidraw
+    npm run preflight
+
+<code>.env.local</code> 会被 Git 忽略，不会上传到仓库。
+
+### 3. 检查仓库
 
     npm run check
 
 看到 <code>check ok</code> 表示源码语法、关键文件、CSS 括号和提交边界检查通过。
 
-### 3. 部署插件
+### 4. 部署插件
 
     npm run deploy:local
 
-部署脚本会把插件脚本、样式和本地服务文件复制到 Excalidraw 应用目录，并做一次一致性检查。
+部署脚本会先运行预检，再把插件脚本、样式和本地服务文件复制到 Excalidraw 应用目录，并做一次一致性检查。
 
-### 4. 打开白板验收
+### 5. 打开白板验收
 
 在浏览器打开：
 
     http://localhost:5001/
 
 页面出现 more-excalicord 悬浮栏后，至少检查一次：新增幻灯片、打开幻灯片总览、打开白板控制、打开录制面板。录制相关改动建议分别试录屏幕/窗口、白板画布和当前幻灯片三种范围；如果开启摄像头，还要确认画中画是否显示、是否按预期合成进成片。
+
+## 用 Codex 等大模型辅助部署
+
+如果你使用 Codex、Claude Code、Cursor、ChatGPT Desktop 这类能读写本地文件并执行终端命令的大模型助手，可以把下面这段提示词交给它。这样用户不需要先理解每个脚本的细节，大模型会先检查前置条件，再配置和部署。
+
+~~~text
+请帮我在本机部署 more-excalicord。仓库目录是当前目录。
+要求：
+1. 先运行 npm run preflight，检查 Node.js/npm、本地 Excalidraw 运行目录、写入权限和 http://localhost:5001/ 状态。
+2. 如果运行目录不是 ~/.local/share/excalidraw，先问我真实路径，然后运行 npm run configure:local -- --runtime-root <真实路径>。
+3. 运行 npm run check，再运行 npm run deploy:local，最后运行 npm run verify:deploy。
+4. 部署后提示我打开 http://localhost:5001/，检查右侧 more-excalicord 工具栏、录制面板、三种录制范围、摄像头画中画和摄像头合成进视频。
+5. 不要提交个人白板、录屏、密钥、.env.local 或本机缓存文件。
+6. 如果缺少 Node.js、自托管 Excalidraw 或浏览器录制权限，先说明缺什么，再给出安装或配置步骤；不要跳过预检直接部署。
+~~~
+
+大模型适合处理路径判断、终端报错和重复验证；但摄像头授权、屏幕录制授权、真实 MP4/WebM 回放仍需要用户在本机确认。
 
 ## 开发与维护
 
@@ -248,6 +296,9 @@ more-excalicord 需要一个可访问的本地 Excalidraw 服务。默认开发�
 
 | 命令 | 用途 |
 | --- | --- |
+| <code>npm run preflight</code> | 部署前检查 Node.js、npm、本地 Excalidraw 目录、写入权限和本地页面状态 |
+| <code>npm run configure:local -- --runtime-root /path/to/excalidraw</code> | 写入本机部署目录配置，不上传到 Git |
+| <code>npm run setup:local</code> | 使用默认运行目录写入配置并执行预检 |
 | <code>npm run check</code> | 检查 JS 语法、CSS 括号、关键文件和不应提交的场景文件 |
 | <code>npm run deploy:local</code> | 把插件源码部署到本地 Excalidraw 服务 |
 | <code>npm run verify:deploy</code> | 比较仓库源码与已部署文件是否一致 |

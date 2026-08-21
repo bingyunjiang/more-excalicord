@@ -5,6 +5,9 @@
   "description": "Local Excalidraw enhancement plugin for slide navigation, recording, camera, teleprompter, and whiteboard controls.",
   "scripts": {
     "check": "node --check src/studio-recorder.js && node --check src/native-bridge.js && node --check server/no-cache-server.js && bash scripts/check.sh",
+    "preflight": "bash scripts/preflight.sh",
+    "configure:local": "bash scripts/configure-local.sh",
+    "setup:local": "bash scripts/configure-local.sh --auto && bash scripts/preflight.sh",
     "deploy:local": "bash scripts/deploy-local.sh",
     "sync:from-live": "bash scripts/sync-from-live.sh",
     "verify:deploy": "bash scripts/verify-deploy.sh",

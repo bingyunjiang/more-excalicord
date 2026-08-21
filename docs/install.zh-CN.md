@@ -10,6 +10,29 @@
 
     export MORE_EXCALICORD_RUNTIME_ROOT="/path/to/excalidraw"
 
+也可以使用本仓库提供的配置脚本写入本机配置：
+
+    npm run configure:local -- --runtime-root /path/to/excalidraw
+
+配置会保存到 .env.local；该文件被 Git 忽略，不会上传。
+
+## 前置条件
+
+| 前置条件 | 检查命令 | 缺失时怎么处理 |
+| --- | --- | --- |
+| Node.js 18+ | node -v | 先安装 Node.js，再重新打开终端 |
+| npm | npm -v | 通常随 Node.js 一起安装 |
+| bash、perl、shasum | npm run preflight | macOS 通常自带；缺失时先安装对应命令行工具 |
+| 自托管 Excalidraw 运行目录 | npm run preflight | 先安装或准备本地 Excalidraw，再用 configure:local 指向目录 |
+| 本地页面 | 打开 http://localhost:5001/ | 启动或重启本地 Excalidraw 服务 |
+| 浏览器录制权限 | 首次录制时浏览器会提示 | 允许屏幕录制、摄像头和麦克风 |
+
+推荐部署前先运行：
+
+    npm run preflight
+
+预检会提前报告缺少的命令、运行目录、写入权限和本地页面状态，避免部署到一半才失败。
+
 ## 仓库内容
 
 - src/studio-recorder.js：主要网页插件逻辑
@@ -19,14 +42,36 @@
 - server/no-cache-server.js：本地服务脚本，支持场景保存和版本刷新
 - scripts/：检查、部署、同步和发布脚本
 
-## 安装步骤
+## 推荐安装步骤
 
 1. 下载仓库。
 2. 进入仓库目录。
-3. 执行 npm run check。
-4. 确认本地 Excalidraw 目录存在，或设置 MORE_EXCALICORD_RUNTIME_ROOT。
-5. 执行 npm run deploy:local。
-6. 打开 http://localhost:5001/ 验收。
+3. 配置运行目录：默认目录运行 npm run setup:local；自定义目录运行 npm run configure:local -- --runtime-root /path/to/excalidraw。
+4. 执行 npm run preflight。
+5. 执行 npm run check。
+6. 执行 npm run deploy:local。
+7. 执行 npm run verify:deploy。
+8. 打开 http://localhost:5001/ 验收。
+
+## 用 Codex 等大模型辅助部署
+
+如果用户不熟悉终端，可以让 Codex、Claude Code、Cursor 或 ChatGPT Desktop 这类本地大模型助手代为部署。建议给大模型明确边界：先检查前置条件，再配置路径，再部署，最后让用户做浏览器和视频回放验收。
+
+可复制的提示词：
+
+    请帮我部署 more-excalicord。当前目录就是仓库根目录。先运行 npm run preflight，检查 Node.js/npm、自托管 Excalidraw 运行目录、写入权限和 http://localhost:5001/ 状态。如果运行目录不是 ~/.local/share/excalidraw，先问我真实路径，再运行 npm run configure:local -- --runtime-root <真实路径>。然后依次运行 npm run check、npm run deploy:local、npm run verify:deploy。不要提交 .env.local、个人白板、录屏、密钥或缓存文件。部署后提示我打开 http://localhost:5001/，检查 more-excalicord 工具栏、录制面板、屏幕/窗口录制、白板录制、当前幻灯片录制、摄像头画中画和摄像头合成进视频。
+
+如果大模型提示缺少 Node.js 或本地 Excalidraw，它应该先指导用户安装或配置这些前置条件，而不是继续执行部署。
+
+## 部署过程中的配置文件
+
+| 文件或变量 | 用途 | 是否提交 |
+| --- | --- | --- |
+| .env.local | 保存 MORE_EXCALICORD_RUNTIME_ROOT | 不提交 |
+| MORE_EXCALICORD_RUNTIME_ROOT | 指向本地 Excalidraw 运行目录 | 不提交 |
+| ~/.local/share/excalidraw | 默认运行目录 | 不提交 |
+
+部署脚本会读取 .env.local；如果没有该文件，就使用默认目录。
 
 ## 验收点
 

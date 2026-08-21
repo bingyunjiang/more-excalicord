@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-runtime_root="${MORE_EXCALICORD_RUNTIME_ROOT:-$HOME/.local/share/excalidraw}"
+source "$repo_root/scripts/env.sh"
 
 pairs=(
   "src/studio-recorder.js:$runtime_root/public/recorder/studio-recorder.js"

@@ -2,7 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-runtime_root="${MORE_EXCALICORD_RUNTIME_ROOT:-$HOME/.local/share/excalidraw}"
+source "$repo_root/scripts/env.sh"
+bash "$repo_root/scripts/preflight.sh" --deploy
 public_recorder="$runtime_root/public/recorder"
 build_recorder="$runtime_root/excalidraw-app/build/recorder"
 server_target="$runtime_root/excalidraw-app/no-cache-server.js"
