@@ -84,6 +84,10 @@ more-excalicord 的录屏不是一个简单“开始/停止”按钮，而是一
   <img src="docs/assets/readme/01-whiteboard-with-slide-rail.png" alt="more-excalicord 幻灯片导航栏" width="100%">
 </p>
 
+<p align="center">
+  <img src="docs/assets/readme/09-focus-slide-navigation.png" alt="more-excalicord 幻灯片导航局部放大，显示新增、总览、白板控制、页码和录制入口" width="100%">
+</p>
+
 more-excalicord 读取当前 Excalidraw 场景中的 Frame，并把它们按画布坐标组织成幻灯片序列。导航栏不会把白板拆成多个文件，而是在同一张白板上提供类似 PPT 的页切换体验。
 
 - 数字按钮直接跳转到对应幻灯片；
@@ -95,6 +99,10 @@ more-excalicord 读取当前 Excalidraw 场景中的 Frame，并把它们按画�
 
 <p align="center">
   <img src="docs/assets/readme/02-slide-overview.png" alt="more-excalicord 幻灯片总览，显示 6 张真实内容预览卡片" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/assets/readme/10-focus-slide-overview.png" alt="more-excalicord 幻灯片总览局部放大，显示真实缩略图、搜索、重命名、删除和排序" width="100%">
 </p>
 
 总览面板显示的不是占位图，而是每个 Frame 的真实内容缩略图。它适合在录屏或汇报前快速检查页序、标题和内容完整性。
@@ -109,6 +117,10 @@ more-excalicord 读取当前 Excalidraw 场景中的 Frame，并把它们按画�
 
 <p align="center">
   <img src="docs/assets/readme/04-whiteboard-controls.png" alt="more-excalicord 白板控制视图页" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/assets/readme/11-focus-whiteboard-controls.png" alt="more-excalicord 白板控制局部放大，显示总览、聚焦、缩放、历史和播放演示" width="100%">
 </p>
 
 白板控制把演示时常用的视图动作放在一个轻量面板里，不必再去 Excalidraw 原生菜单里寻找。
@@ -127,6 +139,10 @@ more-excalicord 读取当前 Excalidraw 场景中的 Frame，并把它们按画�
   <img src="docs/assets/readme/03-slide-settings.png" alt="more-excalicord 白板控制设置页" width="100%">
 </p>
 
+<p align="center">
+  <img src="docs/assets/readme/12-focus-slide-settings.png" alt="more-excalicord 幻灯片设置局部放大，显示默认幻灯片、鸟瞰、吸附、网格和工具栏位置" width="100%">
+</p>
+
 设置页用于控制幻灯片行为和界面位置，默认尽量让用户少操心。
 
 - 空画板可自动创建一张 16:9 默认幻灯片；
@@ -139,6 +155,10 @@ more-excalicord 读取当前 Excalidraw 场景中的 Frame，并把它们按画�
 
 <p align="center">
   <img src="docs/assets/readme/05-recording-panel.png" alt="more-excalicord 录制面板，包含提词器、摄像头和录制设置" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/assets/readme/13-focus-recording-panel.png" alt="more-excalicord 录制面板局部放大，显示录制范围、摄像头合成、保存位置、格式和快捷键" width="100%">
 </p>
 
 录制面板把讲解录制需要的配置集中在一起。你可以先选画幅，再选录制范围，最后决定是否开启摄像头画中画、是否把摄像头合成进成片。截图中的状态显示保存位置为 <code>~/Movies/Excalicord</code>，画幅为 16:9，输出尺寸为 1920×1080。
@@ -181,6 +201,10 @@ more-excalicord 读取当前 Excalidraw 场景中的 Frame，并把它们按画�
   <img src="docs/assets/readme/06-teleprompter.png" alt="more-excalicord 提词器打开状态" width="100%">
 </p>
 
+<p align="center">
+  <img src="docs/assets/readme/14-focus-teleprompter.png" alt="more-excalicord 提词器局部放大，显示讲稿、速度、字号、透明度和录制时隐藏" width="100%">
+</p>
+
 提词器适合课程录制、论文流程讲解和技术汇报。它可以独立打开，也可以在录制时选择隐藏，避免进入画面。
 
 - 粘贴讲稿后自动滚动；
@@ -193,6 +217,10 @@ more-excalicord 读取当前 Excalidraw 场景中的 Frame，并把它们按画�
 
 <p align="center">
   <img src="docs/assets/readme/07-presentation-mode.png" alt="more-excalicord 演示播放模式" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/assets/readme/15-focus-presentation-controls.png" alt="more-excalicord 演示模式局部放大，显示页码、上一页、下一页和退出演示" width="100%">
 </p>
 
 演示模式会隐藏日常编辑辅助，只保留当前页、页码、上一页、下一页和退出演示等必要控件。它适合投屏、讲课和录制当前白板内容。
