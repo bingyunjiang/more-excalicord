@@ -30,7 +30,7 @@
 
 ## 真实插件截图
 
-下面截图来自部署后的 <code>http://localhost:5001/</code> 页面。演示白板使用 [examples/more-paper-workflow-video-rich-sketch-20260815.excalidraw](examples/more-paper-workflow-video-rich-sketch-20260815.excalidraw)，包含 284 个元素、6 个 Frame，用来展示多页白板在 more-excalicord 中的真实操作状态。
+下面截图来自部署后的 <code>http://localhost:5001/</code> 页面，演示白板使用 [examples/more-paper-workflow-video-rich-sketch-20260815.excalidraw](examples/more-paper-workflow-video-rich-sketch-20260815.excalidraw)。
 
 <p align="center">
   <img src="docs/assets/readme/01-whiteboard-with-slide-rail.png" alt="more-excalicord 在 Excalidraw 白板右侧显示幻灯片导航栏" width="100%">
