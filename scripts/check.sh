@@ -179,12 +179,16 @@ if grep -q '文字轨' "$repo_root/src/studio-recorder.js"; then
 fi
 for script_contract in \
   '载入讲稿文件…' \
-  '讲稿只用于录制前提词；录后的逐字稿和字幕仍以实际音频为准'; do
+  '讲稿在提词器面板内载入或编辑；录后的逐字稿和字幕仍以实际音频为准'; do
   if ! grep -q "$script_contract" "$repo_root/src/studio-recorder.js"; then
     echo "script preparation contract missing: $script_contract"
     exit 1
   fi
 done
+if grep -q 'id="ec-script-import"' "$repo_root/src/studio-recorder.js"; then
+  echo "duplicate script import button remains in recording panel"
+  exit 1
+fi
 if grep -qE '保存 SRT|用字幕载入提词器|id="ec-subtitle-(import|export|file)"|id="ec-subtitle-to-script"' "$repo_root/src/studio-recorder.js"; then
   echo "recording-prep subtitle-track controls remain visible in studio-recorder.js"
   exit 1

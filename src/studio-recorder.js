@@ -1157,8 +1157,8 @@
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-tele" aria-hidden="true">Aa</span><span>提词器 / 讲稿</span></span></div>',
     '    <div class="ec-row"><label>面板</label><button class="ec-btn ec-btn-ghost" id="ec-tele-toggle" style="flex:1">打开提词器</button></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-tele-hide"/> 录制时隐藏（不入镜）</label></div>',
-    '    <div class="ec-row"><label>讲稿</label><button class="ec-btn ec-btn-ghost" id="ec-script-import" style="flex:1">载入讲稿文件…</button><input id="ec-script-import-file" type="file" accept=".md,.markdown,.txt,.srt,.vtt,text/markdown,text/plain,text/vtt,application/x-subrip" hidden/></div>',
-    '    <p class="ec-sub" id="ec-script-status">讲稿只用于录制前提词；录后的逐字稿和字幕仍以实际音频为准。</p>',
+    '    <input id="ec-script-import-file" type="file" accept=".md,.markdown,.txt,.srt,.vtt,text/markdown,text/plain,text/vtt,application/x-subrip" hidden/>',
+    '    <p class="ec-sub" id="ec-script-status">讲稿在提词器面板内载入或编辑；录后的逐字稿和字幕仍以实际音频为准。</p>',
     "  </div>",
     '  <div class="ec-section ec-camera-section">',
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头画中画</span></span></div>',
@@ -7191,7 +7191,7 @@
   }
 
   function updateScriptStatus(message) {
-    if (scriptStatus) scriptStatus.textContent = message || "讲稿只用于录制前提词；录后的逐字稿和字幕仍以实际音频为准。";
+    if (scriptStatus) scriptStatus.textContent = message || "讲稿在提词器面板内载入或编辑；录后的逐字稿和字幕仍以实际音频为准。";
   }
 
   function applyLoadedV011Project() {
@@ -7518,7 +7518,7 @@
     var segments = state.v011.text.subtitles && Array.isArray(state.v011.text.subtitles.segments)
       ? state.v011.text.subtitles.segments
       : [];
-    scriptStatus.textContent = message || ("讲稿只用于录制前提词；录后的逐字稿和字幕仍以实际音频为准。");
+    scriptStatus.textContent = message || ("讲稿在提词器面板内载入或编辑；录后的逐字稿和字幕仍以实际音频为准。");
   }
 
   function exportSubtitleTrack() {
@@ -7558,7 +7558,7 @@
     scriptImportFileInput.click();
   }
 
-  scriptImportBtn.addEventListener("click", openScriptImportPicker);
+  if (scriptImportBtn) scriptImportBtn.addEventListener("click", openScriptImportPicker);
   scriptImportFileInput.addEventListener("change", function () {
     var file = scriptImportFileInput.files && scriptImportFileInput.files[0];
     if (!file) return;

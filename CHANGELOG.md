@@ -43,6 +43,7 @@
 
 - 提词器讲稿保存到本地 v0.1.1 项目模型；
 - 增加“保存为讲稿”和“载入讲稿文件…”操作，支持 md、txt、srt 和 vtt；SRT/VTT 只在看起来像字幕文件时抽取文本作为讲稿，不在录制前建立字幕轨；
+- 讲稿文件载入入口收敛到提词器面板内，录制主面板只保留“打开提词器”和“录制时隐藏”；
 - 增加本地 faster-whisper 词级转写服务，识别结果来自实际录音，支持 Frame/白板文字和讲稿术语上下文。
 - 原始逐字稿、校正版和修改记录分别保存到 `text/transcript.raw.json`、`text/transcript.corrected.json`、`text/transcript.corrections.json`，校对不会覆盖原始 ASR。
 - 可从校正版生成字幕、逐条编辑，并保存/导出 SRT 与 VTT；字幕烧录支持中文字体。
