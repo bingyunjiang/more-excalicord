@@ -4355,7 +4355,8 @@
     if (screenLightIntensity) {
       state.camera.screenLightIntensity = clamp(parseFloat(screenLightIntensity.value) || 0, 0, 1);
     }
-    var enabled = !!(state.camera.enabled && state.camera.screenLightEnabled);
+    var cameraRequested = !!(state.camera.enabled || (camEnable && camEnable.checked));
+    var enabled = !!(cameraRequested && state.camera.screenLightEnabled);
     var intensity = clamp(state.camera.screenLightIntensity || 0, 0, 1);
     screenLight.style.setProperty("--ec-screen-light", String(intensity));
     screenLight.style.opacity = enabled ? String(intensity) : "0";
@@ -4626,6 +4627,7 @@
           toast("摄像头开启失败：" + (err && err.message ? err.message : err));
         }
         camEnable.checked = false;
+        updateScreenLight();
         updateCameraDetailsVisibility();
       });
   }
