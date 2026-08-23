@@ -2809,6 +2809,11 @@
   opacity: var(--ec-screen-light);
 }
 
+.ec-screen-light[hidden] {
+  display: none !important;
+  opacity: 0 !important;
+}
+
 .ec-toast {
   position: fixed;
   left: 50%;

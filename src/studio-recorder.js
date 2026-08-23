@@ -382,7 +382,7 @@
     var projectWebcam = project.edits && project.edits.webcam || {};
     state.camera.screenLightEnabled = projectWebcam.screenLightEnabled === true;
     state.camera.screenLightIntensity = Number.isFinite(Number(projectWebcam.screenLightIntensity))
-      ? clamp(Number(projectWebcam.screenLightIntensity), 0.2, 1)
+      ? clamp(Number(projectWebcam.screenLightIntensity), 0, 1)
       : 0.55;
     state.settings.background = project.edits && project.edits.appearance && typeof project.edits.appearance.background === "string"
       ? project.edits.appearance.background
@@ -465,7 +465,9 @@
     };
     existing.edits.webcam = Object.assign({}, existing.edits.webcam, {
       screenLightEnabled: !!state.camera.screenLightEnabled,
-      screenLightIntensity: Number(state.camera.screenLightIntensity || 0.55),
+      screenLightIntensity: Number.isFinite(Number(state.camera.screenLightIntensity))
+        ? Number(state.camera.screenLightIntensity)
+        : 0.55,
     });
     existing.edits.appearance = Object.assign({}, existing.edits.appearance, {
       background: bgInput && bgInput.value ? bgInput.value : state.settings.background,
@@ -1176,7 +1178,7 @@
     '    <div class="ec-row"><label>补光</label><label class="ec-toggle"><input type="checkbox" id="ec-light-toggle"/> 虚拟补光</label></div>',
     '    <div class="ec-row" id="ec-light-row" style="display:none"><label>强度</label><input type="range" id="ec-light-intensity" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-light-intensity-v">0.35</span></div>',
     '    <div class="ec-row"><label>屏幕补光</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 显示屏幕补光圈</label></div>',
-    '    <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0.2" max="1" step="0.05" value="0.55"/><span class="ec-value" id="ec-screen-light-intensity-v">0.55</span></div>',
+    '    <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0" max="1" step="0.05" value="0.55"/><span class="ec-value" id="ec-screen-light-intensity-v">0.55</span></div>',
     '    <p class="ec-sub" id="ec-screen-light-note" style="display:none;margin:2px 0 0">用于借屏幕柔光照亮人脸；如果录制整个浏览器页面，补光圈也可能进入画面。</p>',
     '    <p class="ec-sub" id="ec-faceapi-status" style="margin:2px 0 0;display:none">人脸检测模型加载中…（本地运行）</p>',
     '    <div class="ec-row"><label>镜像</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-mirror" checked/> 左右翻转</label></div>',
@@ -4306,13 +4308,20 @@
   }
 
   function updateScreenLight() {
+    if (screenLightToggle) state.camera.screenLightEnabled = !!screenLightToggle.checked;
+    if (screenLightIntensity) {
+      state.camera.screenLightIntensity = clamp(parseFloat(screenLightIntensity.value) || 0, 0, 1);
+    }
     var enabled = !!(state.camera.enabled && state.camera.screenLightEnabled);
+    var intensity = clamp(state.camera.screenLightIntensity || 0, 0, 1);
     screenLight.style.display = enabled ? "block" : "none";
+    screenLight.hidden = !enabled;
     screenLight.setAttribute("aria-hidden", enabled ? "false" : "true");
-    screenLight.style.setProperty("--ec-screen-light", String(clamp(state.camera.screenLightIntensity || 0.55, 0.2, 1)));
+    screenLight.style.setProperty("--ec-screen-light", String(intensity));
+    screenLight.style.opacity = enabled ? String(intensity) : "0";
     if (screenLightRow) screenLightRow.style.display = screenLightToggle && screenLightToggle.checked ? "flex" : "none";
     if (screenLightNote) screenLightNote.style.display = screenLightToggle && screenLightToggle.checked ? "block" : "none";
-    if (screenLightIntensityV) screenLightIntensityV.textContent = Number(state.camera.screenLightIntensity || 0.55).toFixed(2);
+    if (screenLightIntensityV) screenLightIntensityV.textContent = Number(intensity).toFixed(2);
   }
 
   function applyBeautyFrame(video, w, h) {
@@ -4677,13 +4686,11 @@
     lightIntensityV.textContent = Number(lightIntensity.value).toFixed(2);
   });
   screenLightToggle.addEventListener("change", function () {
-    state.camera.screenLightEnabled = screenLightToggle.checked;
     updateScreenLight();
     v011ScheduleSave("screen-light");
     toast(screenLightToggle.checked ? "屏幕补光圈已开启" : "屏幕补光圈已关闭");
   });
   screenLightIntensity.addEventListener("input", function () {
-    state.camera.screenLightIntensity = parseFloat(screenLightIntensity.value);
     updateScreenLight();
     v011ScheduleSave("screen-light-intensity");
   });
@@ -7201,7 +7208,7 @@
     if (bgStyleSel) bgStyleSel.value = state.settings.backgroundStyle || "warm-gradient";
     if (micDeviceSel) micDeviceSel.value = state.mic.deviceId || "";
     if (screenLightToggle) screenLightToggle.checked = !!state.camera.screenLightEnabled;
-    if (screenLightIntensity) screenLightIntensity.value = String(state.camera.screenLightIntensity || 0.55);
+    if (screenLightIntensity) screenLightIntensity.value = String(Number.isFinite(Number(state.camera.screenLightIntensity)) ? state.camera.screenLightIntensity : 0.55);
     updateScreenLight();
     updateCursorSettingsUI();
     smartCameraChk.checked = !!state.smartCamera.enabled;
