@@ -37,6 +37,7 @@ var migrated = core.normalizeProject({
   edits: {
     cuts: [{ start: 2, end: 3 }],
     camera: { enabled: false, strength: "dynamic", keyframes: [] },
+    webcam: { screenLightEnabled: true, screenLightIntensity: 0.7 },
   },
 });
 assert.strictEqual(migrated.schemaVersion, 2);
@@ -52,6 +53,8 @@ assert.strictEqual(migrated.edits[0].subtitles.segments[0].startMs, 0);
 assert.strictEqual(migrated.edits[0].subtitles.segments[0].endMs, 1000);
 assert.strictEqual(migrated.edits[0].camera.enabled, false);
 assert.strictEqual(migrated.edits[0].camera.strength, "dynamic");
+assert.strictEqual(migrated.edits[0].webcam.screenLightEnabled, true);
+assert.strictEqual(migrated.edits[0].webcam.screenLightIntensity, 0.7);
 var legacyRoundTrip = core.projectV2ToLegacyRuntime(migrated);
 assert.strictEqual(legacyRoundTrip.schemaVersion, 1);
 assert.strictEqual(legacyRoundTrip.recording.media[0].path, "recordings/legacy.mp4");
@@ -60,6 +63,7 @@ assert.strictEqual(legacyRoundTrip.text.subtitles.segments[0].start, 0);
 assert.strictEqual(legacyRoundTrip.text.subtitles.segments[0].end, 1);
 assert.strictEqual(legacyRoundTrip.edits.camera.enabled, false);
 assert.strictEqual(legacyRoundTrip.edits.camera.strength, "dynamic");
+assert.strictEqual(legacyRoundTrip.edits.webcam.screenLightEnabled, true);
 var mergedRoundTrip = core.mergeLegacyRuntimeIntoProjectV2(migrated, legacyRoundTrip);
 assert.strictEqual(mergedRoundTrip.schemaVersion, 2);
 assert.strictEqual(mergedRoundTrip.recordings.length, 1);

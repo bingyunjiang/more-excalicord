@@ -53,6 +53,8 @@
       skinSat: 0,
       lightEnabled: false,
       lightIntensity: 0.35,
+      screenLightEnabled: false,
+      screenLightIntensity: 0.55,
       compositePosition: "bottom-right",
       raf: null,
     },
@@ -249,6 +251,10 @@
           pointerShape: "system",
           sound: "off",
         },
+        webcam: {
+          screenLightEnabled: false,
+          screenLightIntensity: 0.55,
+        },
         annotations: [],
         audio: { microphoneDeviceId: "" },
         appearance: { background: "#f4f1ea", backgroundStyle: "warm-gradient" },
@@ -373,6 +379,11 @@
     state.cursor.highlightStyle = typeof projectCursor.highlightStyle === "string" ? projectCursor.highlightStyle : "halo";
     state.cursor.pointerShape = typeof projectCursor.pointerShape === "string" ? projectCursor.pointerShape : "system";
     state.cursor.sound = typeof projectCursor.sound === "string" ? projectCursor.sound : "off";
+    var projectWebcam = project.edits && project.edits.webcam || {};
+    state.camera.screenLightEnabled = projectWebcam.screenLightEnabled === true;
+    state.camera.screenLightIntensity = Number.isFinite(Number(projectWebcam.screenLightIntensity))
+      ? clamp(Number(projectWebcam.screenLightIntensity), 0.2, 1)
+      : 0.55;
     state.settings.background = project.edits && project.edits.appearance && typeof project.edits.appearance.background === "string"
       ? project.edits.appearance.background
       : state.settings.background;
@@ -452,6 +463,10 @@
       pointerShape: state.cursor.pointerShape || "system",
       sound: state.cursor.sound || "off",
     };
+    existing.edits.webcam = Object.assign({}, existing.edits.webcam, {
+      screenLightEnabled: !!state.camera.screenLightEnabled,
+      screenLightIntensity: Number(state.camera.screenLightIntensity || 0.55),
+    });
     existing.edits.appearance = Object.assign({}, existing.edits.appearance, {
       background: bgInput && bgInput.value ? bgInput.value : state.settings.background,
       backgroundStyle: bgStyleSel && bgStyleSel.value ? bgStyleSel.value : state.settings.backgroundStyle,
@@ -1160,6 +1175,9 @@
     '    <div class="ec-row" id="ec-beauty-sat-row" style="display:none"><label>饱和</label><input type="range" id="ec-beauty-sat" min="-1" max="1" step="0.1" value="0"/><span class="ec-value" id="ec-beauty-sat-v">0</span></div>',
     '    <div class="ec-row"><label>补光</label><label class="ec-toggle"><input type="checkbox" id="ec-light-toggle"/> 虚拟补光</label></div>',
     '    <div class="ec-row" id="ec-light-row" style="display:none"><label>强度</label><input type="range" id="ec-light-intensity" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-light-intensity-v">0.35</span></div>',
+    '    <div class="ec-row"><label>屏幕补光</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 显示屏幕补光圈</label></div>',
+    '    <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0.2" max="1" step="0.05" value="0.55"/><span class="ec-value" id="ec-screen-light-intensity-v">0.55</span></div>',
+    '    <p class="ec-sub" id="ec-screen-light-note" style="display:none;margin:2px 0 0">用于借屏幕柔光照亮人脸；如果录制整个浏览器页面，补光圈也可能进入画面。</p>',
     '    <p class="ec-sub" id="ec-faceapi-status" style="margin:2px 0 0;display:none">人脸检测模型加载中…（本地运行）</p>',
     '    <div class="ec-row"><label>镜像</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-mirror" checked/> 左右翻转</label></div>',
     '    </div>',
@@ -4010,6 +4028,13 @@
     '<div class="ec-bubble-resize" title="拖动右下角调整大小"></div>';
   document.body.appendChild(bubble);
 
+  var screenLight = document.createElement("div");
+  screenLight.className = "ec-screen-light";
+  screenLight.id = "excalicord-screen-light";
+  screenLight.style.display = "none";
+  screenLight.setAttribute("aria-hidden", "true");
+  document.body.appendChild(screenLight);
+
   var beautyCanvas = document.createElement("canvas");
   beautyCanvas.style.display = "none";
   beautyCanvas.style.width = "0";
@@ -4128,6 +4153,11 @@
   var lightRow = shadow.getElementById("ec-light-row");
   var lightIntensity = shadow.getElementById("ec-light-intensity");
   var lightIntensityV = shadow.getElementById("ec-light-intensity-v");
+  var screenLightToggle = shadow.getElementById("ec-screen-light-toggle");
+  var screenLightRow = shadow.getElementById("ec-screen-light-row");
+  var screenLightIntensity = shadow.getElementById("ec-screen-light-intensity");
+  var screenLightIntensityV = shadow.getElementById("ec-screen-light-intensity-v");
+  var screenLightNote = shadow.getElementById("ec-screen-light-note");
   var faceapiStatus = shadow.getElementById("ec-faceapi-status");
 
   /* face-api lazy init (local models only) */
@@ -4272,6 +4302,17 @@
     }
     state.camera.enabled = false;
     bubble.style.display = "none";
+    updateScreenLight();
+  }
+
+  function updateScreenLight() {
+    var enabled = !!(state.camera.enabled && state.camera.screenLightEnabled);
+    screenLight.style.display = enabled ? "block" : "none";
+    screenLight.setAttribute("aria-hidden", enabled ? "false" : "true");
+    screenLight.style.setProperty("--ec-screen-light", String(clamp(state.camera.screenLightIntensity || 0.55, 0.2, 1)));
+    if (screenLightRow) screenLightRow.style.display = screenLightToggle && screenLightToggle.checked ? "flex" : "none";
+    if (screenLightNote) screenLightNote.style.display = screenLightToggle && screenLightToggle.checked ? "block" : "none";
+    if (screenLightIntensityV) screenLightIntensityV.textContent = Number(state.camera.screenLightIntensity || 0.55).toFixed(2);
   }
 
   function applyBeautyFrame(video, w, h) {
@@ -4522,6 +4563,7 @@
         state.camera.video = video;
         return video.play().then(function () {
           bubble.style.display = "block";
+          updateScreenLight();
           if (!options.silentSuccess) toast("摄像头已开启");
           renderCameraLoop();
         });
@@ -4634,6 +4676,18 @@
     state.camera.lightIntensity = parseFloat(lightIntensity.value);
     lightIntensityV.textContent = Number(lightIntensity.value).toFixed(2);
   });
+  screenLightToggle.addEventListener("change", function () {
+    state.camera.screenLightEnabled = screenLightToggle.checked;
+    updateScreenLight();
+    v011ScheduleSave("screen-light");
+    toast(screenLightToggle.checked ? "屏幕补光圈已开启" : "屏幕补光圈已关闭");
+  });
+  screenLightIntensity.addEventListener("input", function () {
+    state.camera.screenLightIntensity = parseFloat(screenLightIntensity.value);
+    updateScreenLight();
+    v011ScheduleSave("screen-light-intensity");
+  });
+  updateScreenLight();
 
   /* ============ Recording ============ */
   var recStart = shadow.getElementById("ec-rec-start");
@@ -7146,6 +7200,9 @@
     if (bgInput) bgInput.value = state.settings.background || "#f4f1ea";
     if (bgStyleSel) bgStyleSel.value = state.settings.backgroundStyle || "warm-gradient";
     if (micDeviceSel) micDeviceSel.value = state.mic.deviceId || "";
+    if (screenLightToggle) screenLightToggle.checked = !!state.camera.screenLightEnabled;
+    if (screenLightIntensity) screenLightIntensity.value = String(state.camera.screenLightIntensity || 0.55);
+    updateScreenLight();
     updateCursorSettingsUI();
     smartCameraChk.checked = !!state.smartCamera.enabled;
     if (smartSlideFocusChk) smartSlideFocusChk.checked = state.smartCamera.slideFocus !== false;

@@ -2790,6 +2790,25 @@
   font-size: 12px;
 }
 
+.ec-screen-light {
+  --ec-screen-light: 0.55;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483638;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      rgba(255, 255, 255, 0.58) 0 14%,
+      rgba(255, 248, 224, 0.38) 22%,
+      rgba(226, 232, 255, 0.22) 36%,
+      rgba(255, 255, 255, 0.12) 52%,
+      transparent 72%
+    );
+  mix-blend-mode: screen;
+  opacity: var(--ec-screen-light);
+}
+
 .ec-toast {
   position: fixed;
   left: 50%;

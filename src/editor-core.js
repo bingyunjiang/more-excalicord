@@ -298,6 +298,8 @@
         scale: clamp(finite(webcam.scale, 0.2), 0.05, 1),
         shape: typeof webcam.shape === "string" ? webcam.shape : "rounded",
         mirror: webcam.mirror !== false,
+        screenLightEnabled: webcam.screenLightEnabled === true,
+        screenLightIntensity: clamp(finite(webcam.screenLightIntensity, 0.55), 0.2, 1),
       },
       annotations: Array.isArray(source.annotations) ? clone(source.annotations) : [],
       audio: isObject(source.audio) ? clone(source.audio) : {},
@@ -367,6 +369,7 @@
         subtitles: { segments: legacyText.subtitles.segments },
         camera: legacyEdits.camera,
         cursor: legacyEdits.cursor,
+        webcam: legacyEdits.webcam,
         annotations: legacyEdits.annotations,
         audio: legacyEdits.audio,
         appearance: legacyEdits.appearance,
@@ -607,6 +610,7 @@
         }) : [],
         camera: edit ? clone(edit.camera) : { enabled: false, strength: "gentle", keyframes: [] },
         cursor: edit ? Object.assign({ highlight: edit.cursor.visible !== false }, clone(edit.cursor)) : { highlight: true },
+        webcam: edit ? clone(edit.webcam) : {},
         annotations: edit ? clone(edit.annotations) : [],
         audio: edit ? clone(edit.audio) : {},
         appearance: edit ? clone(edit.appearance) : {},
@@ -731,6 +735,9 @@
       }
       if (isObject(legacyEdits.cursor)) {
         activeEdit.cursor = Object.assign({}, activeEdit.cursor, clone(legacyEdits.cursor));
+      }
+      if (isObject(legacyEdits.webcam)) {
+        activeEdit.webcam = Object.assign({}, activeEdit.webcam, clone(legacyEdits.webcam));
       }
       activeEdit.annotations = Array.isArray(legacyEdits.annotations) ? clone(legacyEdits.annotations) : activeEdit.annotations;
       activeEdit.audio = isObject(legacyEdits.audio) ? clone(legacyEdits.audio) : activeEdit.audio;
