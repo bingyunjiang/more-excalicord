@@ -4146,9 +4146,9 @@
     zIndex: "2147483638",
     pointerEvents: "none",
     background:
-      "linear-gradient(90deg, rgba(255,255,255,1) 0 7%, rgba(255,255,255,0.82) 10%, rgba(255,255,255,0.38) 15%, transparent 25%, transparent 75%, rgba(255,255,255,0.38) 85%, rgba(255,255,255,0.82) 90%, rgba(255,255,255,1) 93% 100%), linear-gradient(180deg, rgba(255,255,255,1) 0 8%, rgba(255,255,255,0.86) 12%, rgba(255,255,255,0.42) 18%, transparent 29%, transparent 71%, rgba(255,255,255,0.42) 82%, rgba(255,255,255,0.86) 88%, rgba(255,255,255,1) 92% 100%)",
-    boxShadow: "inset 0 0 160px rgba(255,255,255,0.72), inset 0 0 62px rgba(255,255,255,0.92)",
-    mixBlendMode: "normal",
+      "radial-gradient(ellipse 68% 64% at 50% 42%, rgba(255,255,255,1) 0 18%, rgba(255,255,255,0.96) 30%, rgba(255,255,255,0.78) 44%, rgba(255,255,255,0.50) 58%, rgba(255,255,255,0.24) 70%, transparent 84%), radial-gradient(ellipse 96% 92% at 50% 42%, rgba(255,255,255,0.34) 0 48%, rgba(255,255,255,0.16) 68%, transparent 92%)",
+    boxShadow: "inset 0 0 92px rgba(255,255,255,0.48)",
+    mixBlendMode: "screen",
     opacity: "0",
   });
   screenLight.hidden = true;
