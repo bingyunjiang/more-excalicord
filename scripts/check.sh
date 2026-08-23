@@ -140,6 +140,11 @@ for recording_panel_contract in \
   'id="ec-cursor-sound"' \
   'id="ec-screen-light-toggle"' \
   '显示屏幕补光圈' \
+  '人像优化' \
+  '启用调节' \
+  '亮肤' \
+  '肤色冷暖' \
+  '饱和度' \
   'id="ec-mini-recorder"' \
   '屏幕/窗口录制会记录鼠标停留和点击；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。'; do
   if ! grep -q "$recording_panel_contract" "$repo_root/src/studio-recorder.js"; then
@@ -147,6 +152,10 @@ for recording_panel_contract in \
     exit 1
   fi
 done
+if grep -q '磨皮美白' "$repo_root/src/studio-recorder.js"; then
+  echo "beauty toggle label must cover all portrait controls, not only smoothing/whitening"
+  exit 1
+fi
 for recording_panel_css in \
   '.ec-whiteboard-actions' \
   '.ec-cursor-options' \
