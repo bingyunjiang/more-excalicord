@@ -320,20 +320,101 @@
 
 .ec-editor-cursor-overlay {
   --cursor-size: 1;
+  --cursor-main: rgba(105, 101, 219, 0.86);
+  --cursor-soft: rgba(105, 101, 219, 0.22);
   position: absolute;
   z-index: 4;
-  width: calc(22px * var(--cursor-size));
-  height: calc(22px * var(--cursor-size));
-  border: 2px solid #fff;
+  width: calc(50px * var(--cursor-size));
+  height: calc(50px * var(--cursor-size));
   border-radius: 50%;
-  background: rgba(255, 118, 88, 0.5);
-  box-shadow: 0 0 0 7px rgba(255, 118, 88, 0.18);
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
 
+.ec-editor-cursor-overlay::before,
+.ec-editor-cursor-overlay::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+
+.ec-editor-cursor-overlay::before {
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--cursor-main);
+  border-radius: 999px;
+  background: var(--cursor-soft);
+  box-shadow: 0 0 0 6px rgba(105, 101, 219, 0.08), 0 0 18px rgba(105, 101, 219, 0.28);
+  transform: translate(-50%, -50%);
+}
+
+.ec-editor-cursor-overlay.ec-cursor-style-spotlight::before {
+  width: 46px;
+  height: 46px;
+  border: 0;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.42) 0 22%, rgba(105, 101, 219, 0.22) 26% 58%, transparent 64%);
+  box-shadow: 0 0 24px rgba(105, 101, 219, 0.32);
+}
+
+.ec-editor-cursor-overlay.ec-cursor-style-ring::before {
+  width: 34px;
+  height: 34px;
+  border: 4px solid var(--cursor-main);
+  background: transparent;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.24), 0 0 16px rgba(105, 101, 219, 0.28);
+}
+
+.ec-editor-cursor-overlay.ec-cursor-style-dot::before {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  background: var(--cursor-main);
+  box-shadow: 0 0 0 7px rgba(105, 101, 219, 0.14);
+}
+
+.ec-editor-cursor-overlay::after {
+  width: 15px;
+  height: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.35);
+  border-radius: 2px 8px 8px 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.24);
+  clip-path: polygon(0 0, 100% 50%, 57% 58%, 74% 100%, 55% 100%, 39% 62%, 0 82%);
+  transform: translate(-2px, -1px);
+}
+
+.ec-editor-cursor-overlay.ec-cursor-shape-dot::after {
+  width: 8px;
+  height: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.84);
+  clip-path: none;
+  transform: translate(-50%, -50%);
+}
+
+.ec-editor-cursor-overlay.ec-cursor-shape-crosshair::after {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, transparent 0 46%, rgba(15, 23, 42, 0.86) 46% 54%, transparent 54%),
+    linear-gradient(0deg, transparent 0 46%, rgba(15, 23, 42, 0.86) 46% 54%, transparent 54%);
+  box-shadow: none;
+  clip-path: none;
+  transform: translate(-50%, -50%);
+}
+
+.ec-editor-cursor-overlay.ec-cursor-shape-none::after {
+  display: none;
+}
+
 .ec-editor-cursor-overlay.has-click {
-  box-shadow: 0 0 0 13px rgba(101, 221, 202, 0.28);
+  --cursor-main: rgba(20, 184, 166, 0.9);
+  --cursor-soft: rgba(20, 184, 166, 0.22);
 }
 
 .ec-editor-cursor-overlay[hidden] {

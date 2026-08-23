@@ -416,7 +416,19 @@
       cursor.style.left = (clamp(pointer.x, 0, 1) * 100) + "%";
       cursor.style.top = (clamp(pointer.y, 0, 1) * 100) + "%";
       cursor.style.setProperty("--cursor-size", String(edit.cursor.size || 1));
-      cursor.classList.toggle("has-click", pointer.type === "click" && sourceMs - recordingEventTimeMs(pointer) < 360);
+      cursor.classList.remove(
+        "ec-cursor-style-halo",
+        "ec-cursor-style-spotlight",
+        "ec-cursor-style-ring",
+        "ec-cursor-style-dot",
+        "ec-cursor-shape-system",
+        "ec-cursor-shape-dot",
+        "ec-cursor-shape-crosshair",
+        "ec-cursor-shape-none",
+      );
+      cursor.classList.add("ec-cursor-style-" + (edit.cursor.highlightStyle || "halo"));
+      cursor.classList.add("ec-cursor-shape-" + (edit.cursor.pointerShape || "system"));
+      cursor.classList.toggle("has-click", edit.cursor.clickEffect !== false && pointer.type === "click" && sourceMs - recordingEventTimeMs(pointer) < 360);
     }
     var webcam = session.webcamVideo;
     var recordingHasWebcam = recording.assets && recording.assets.webcam && recording.assets.webcam.path && !recording.legacyComposite;
@@ -847,6 +859,9 @@
     target.appendChild(sectionTitle("光标", "使用录制事件重放光标，样式调整不会改写原始视频。"));
     target.appendChild(controlRow("显示光标", checkbox(edit.cursor.visible, "cursor.visible")));
     target.appendChild(controlRow("点击强调", checkbox(edit.cursor.clickEffect, "cursor.clickEffect")));
+    target.appendChild(controlRow("高亮形式", selectControl(edit.cursor.highlightStyle || "halo", [["halo", "光环"], ["spotlight", "聚光"], ["ring", "圆环"], ["dot", "圆点"]], "cursor.highlightStyle")));
+    target.appendChild(controlRow("鼠标形状", selectControl(edit.cursor.pointerShape || "system", [["system", "系统指针"], ["dot", "圆点指针"], ["crosshair", "十字指针"], ["none", "不显示指针形状"]], "cursor.pointerShape")));
+    target.appendChild(controlRow("鼠标声音", selectControl(edit.cursor.sound || "off", [["off", "关闭"], ["soft", "轻提示音"], ["click", "清脆点击音"]], "cursor.sound"), "保存为项目偏好；录制时由录制面板播放提示音"));
     target.appendChild(controlRow("光标大小", range(edit.cursor.size || 1, 0.5, 2.5, 0.05, "cursor.size")));
     target.appendChild(controlRow("移动平滑", range(edit.cursor.smoothing || 0.55, 0, 1, 0.05, "cursor.smoothing")));
   }

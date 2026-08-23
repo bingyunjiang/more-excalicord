@@ -78,9 +78,12 @@ var storeApi = require("../src/editor-store.js");
   }]);
   assert.strictEqual(store.getActiveEdit().suggestions[0].status, "pending");
 
-  store.updateCursor({ size: 1.5, smoothing: 0.8 });
+  store.updateCursor({ size: 1.5, smoothing: 0.8, highlightStyle: "ring", pointerShape: "crosshair", sound: "soft" });
   store.updateWebcam({ position: "top-left", scale: 0.3 });
   assert.strictEqual(store.getActiveEdit().cursor.size, 1.5);
+  assert.strictEqual(store.getActiveEdit().cursor.highlightStyle, "ring");
+  assert.strictEqual(store.getActiveEdit().cursor.pointerShape, "crosshair");
+  assert.strictEqual(store.getActiveEdit().cursor.sound, "soft");
   assert.strictEqual(store.getActiveEdit().webcam.position, "top-left");
 
   await store.flush("test");

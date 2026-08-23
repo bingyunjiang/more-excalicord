@@ -119,7 +119,9 @@
       hideBubbleWhileRecording: false,
     },
     mic: {
+      deviceId: "",
       stream: null,
+      audioContext: null,
       analyser: null,
       dataArray: null,
       level: 0,
@@ -128,6 +130,12 @@
     },
     cursor: {
       highlight: true,
+      highlightStyle: "halo",
+      pointerShape: "system",
+      sound: "off",
+      soundContext: null,
+      soundDestination: null,
+      soundNodes: [],
       x: 0,
       y: 0,
     },
@@ -235,9 +243,14 @@
           strength: "gentle",
           keyframes: [],
         },
-        cursor: { highlight: true },
+        cursor: {
+          highlight: true,
+          highlightStyle: "halo",
+          pointerShape: "system",
+          sound: "off",
+        },
         annotations: [],
-        audio: {},
+        audio: { microphoneDeviceId: "" },
         appearance: { background: "#f4f1ea", backgroundStyle: "warm-gradient" },
       },
     };
@@ -312,7 +325,12 @@
       keyframes: Array.isArray(rawCamera.keyframes) ? rawCamera.keyframes : [],
     };
     var rawCursor = isPlainObject(rawEdits.cursor) ? rawEdits.cursor : {};
-    project.edits.cursor = { highlight: rawCursor.highlight !== false };
+    project.edits.cursor = {
+      highlight: rawCursor.highlight !== false,
+      highlightStyle: typeof rawCursor.highlightStyle === "string" ? rawCursor.highlightStyle : "halo",
+      pointerShape: typeof rawCursor.pointerShape === "string" ? rawCursor.pointerShape : "system",
+      sound: typeof rawCursor.sound === "string" ? rawCursor.sound : "off",
+    };
     return project;
   }
 
@@ -350,12 +368,20 @@
     state.smartCamera.keyframes = project.edits && project.edits.camera && Array.isArray(project.edits.camera.keyframes)
       ? project.edits.camera.keyframes.slice()
       : [];
+    var projectCursor = project.edits && project.edits.cursor || {};
+    state.cursor.highlight = projectCursor.highlight !== false;
+    state.cursor.highlightStyle = typeof projectCursor.highlightStyle === "string" ? projectCursor.highlightStyle : "halo";
+    state.cursor.pointerShape = typeof projectCursor.pointerShape === "string" ? projectCursor.pointerShape : "system";
+    state.cursor.sound = typeof projectCursor.sound === "string" ? projectCursor.sound : "off";
     state.settings.background = project.edits && project.edits.appearance && typeof project.edits.appearance.background === "string"
       ? project.edits.appearance.background
       : state.settings.background;
     state.settings.backgroundStyle = project.edits && project.edits.appearance && typeof project.edits.appearance.backgroundStyle === "string"
       ? project.edits.appearance.backgroundStyle
       : state.settings.backgroundStyle;
+    state.mic.deviceId = project.edits && project.edits.audio && typeof project.edits.audio.microphoneDeviceId === "string"
+      ? project.edits.audio.microphoneDeviceId
+      : "";
     return project;
   }
 
@@ -420,10 +446,18 @@
       strength: state.smartCamera.strength,
       keyframes: state.smartCamera.keyframes.slice(),
     };
-    existing.edits.cursor = { highlight: !!state.cursor.highlight };
+    existing.edits.cursor = {
+      highlight: !!state.cursor.highlight,
+      highlightStyle: state.cursor.highlightStyle || "halo",
+      pointerShape: state.cursor.pointerShape || "system",
+      sound: state.cursor.sound || "off",
+    };
     existing.edits.appearance = Object.assign({}, existing.edits.appearance, {
       background: bgInput && bgInput.value ? bgInput.value : state.settings.background,
       backgroundStyle: bgStyleSel && bgStyleSel.value ? bgStyleSel.value : state.settings.backgroundStyle,
+    });
+    existing.edits.audio = Object.assign({}, existing.edits.audio, {
+      microphoneDeviceId: state.mic.deviceId || "",
     });
     return existing;
   }
@@ -1099,10 +1133,9 @@
     '  <p class="ec-sub">白板 + 摄像头 + 提词器，录制原始素材（本地运行，不上传）</p>',
     '  <div class="ec-section">',
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true">▣</span><span>项目</span></span></div>',
-    '    <div class="ec-row"><label>项目根</label><button class="ec-btn ec-btn-ghost" id="ec-project-folder-choose" style="flex:1">设置项目文件夹…</button><button class="ec-btn ec-btn-ghost" id="ec-project-folder-open">在 Finder 中显示</button></div>',
+    '    <div class="ec-row"><label>项目</label><button class="ec-btn ec-btn-ghost" id="ec-project-folder-choose" style="flex:1">设置项目文件夹…</button><button class="ec-btn ec-btn-ghost" id="ec-project-folder-open">在 Finder 中显示</button></div>',
     '    <div class="ec-project-path" id="ec-project-folder-path" title="未选择项目文件夹"><span>项目文件夹</span><strong>未选择</strong></div>',
-    '    <div class="ec-row"><label>打开</label><button class="ec-btn ec-btn-ghost" id="ec-project-file-open" style="flex:1">打开 Excalidraw 文件…</button></div>',
-    '    <div class="ec-row"><label>保存</label><button class="ec-btn ec-btn-ghost" id="ec-project-whiteboard-save" style="flex:1">保存白板</button><input id="ec-project-file-input" type="file" accept=".excalidraw,application/json" hidden/></div>',
+    '    <div class="ec-row ec-whiteboard-actions"><label>白板</label><button class="ec-btn ec-btn-ghost" id="ec-project-file-open">打开 Excalidraw 文件…</button><button class="ec-btn ec-btn-ghost" id="ec-project-whiteboard-save">保存白板</button><input id="ec-project-file-input" type="file" accept=".excalidraw,application/json" hidden/></div>',
     '    <p class="ec-sub" id="ec-project-status">先设置项目文件夹；打开与保存均由你明确执行。</p>',
     "  </div>",
     '  <div class="ec-section">',
@@ -1143,8 +1176,13 @@
     '    <div class="ec-row"><label>合成</label><label class="ec-toggle"><input type="checkbox" id="ec-compose" title="录制时把摄像头圆框直接合成进视频文件，不依赖屏幕里的气泡位置"/> 摄像头合成进视频</label></div>',
     '    <div class="ec-row" id="ec-composite-position-row"><label>摄像头位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 录制时隐藏屏幕上的气泡（与合成进视频无关）</label></div>',
-    '    <div class="ec-row" id="ec-mic-row"><label>录音</label><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
-    '    <div class="ec-row"><label>光标</label><label class="ec-toggle"><input type="checkbox" id="ec-cursor-highlight" checked/> 录制中鼠标高亮</label></div>',
+    '    <div class="ec-row ec-mic-row" id="ec-mic-row"><label>麦克风</label><select id="ec-mic-device"><option value="">默认麦克风</option></select><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
+    '    <div class="ec-row"><label>光标</label><label class="ec-toggle"><input type="checkbox" id="ec-cursor-highlight" checked/> 录制中显示光标效果</label></div>',
+    '    <div class="ec-cursor-options" id="ec-cursor-options">',
+    '      <div class="ec-row ec-cursor-detail"><label>高亮</label><select id="ec-cursor-highlight-style"><option value="halo">光环</option><option value="spotlight">聚光</option><option value="ring">圆环</option><option value="dot">圆点</option></select></div>',
+    '      <div class="ec-row ec-cursor-detail"><label>指针</label><select id="ec-cursor-shape"><option value="system">系统指针</option><option value="dot">圆点指针</option><option value="crosshair">十字指针</option><option value="none">不显示指针形状</option></select></div>',
+    '      <div class="ec-row ec-cursor-detail"><label>声音</label><select id="ec-cursor-sound"><option value="off">关闭</option><option value="soft">轻提示音</option><option value="click">清脆点击音</option></select></div>',
+    '    </div>',
     '    <div class="ec-row"><label>智能镜头</label><label class="ec-toggle"><input type="checkbox" id="ec-smart-camera"/> 开启录后镜头建议</label></div>',
     '    <div class="ec-smart-camera-options" id="ec-smart-camera-options" style="display:none">',
     '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-slide-focus" checked/> 幻灯片聚焦</label>',
@@ -1152,7 +1190,7 @@
     '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-click-focus" checked/> 点击时聚焦</label>',
     '      <div class="ec-row ec-smart-camera-detail"><label>强度</label><select id="ec-smart-camera-strength"><option value="gentle">轻微</option><option value="medium">适中</option><option value="strong">明显</option></select></div>',
     '      <div class="ec-row ec-smart-camera-detail"><label>速度</label><select id="ec-smart-camera-speed"><option value="slow">慢</option><option value="standard">标准</option><option value="fast">快</option></select></div>',
-    '      <p class="ec-sub" id="ec-smart-camera-hint">幻灯片聚焦用于白板；鼠标智能聚焦可用于屏幕、窗口和白板录制。</p>',
+    '      <p class="ec-sub" id="ec-smart-camera-hint">录制时只记录镜头线索；缩放节奏和焦点可在录后编辑里调整。</p>',
     '    </div>',
     '    <div class="ec-reccontrols"><span class="ec-rec-indicator" id="ec-indicator"></span><span class="ec-timer" id="ec-timer">00:00</span></div>',
     '    <div class="ec-reccontrols ec-rec-actions">',
@@ -1163,6 +1201,12 @@
     '    <div class="ec-row ec-export-row" style="margin-top:4px"><label style="flex:0 0 auto">原始录制</label><button class="ec-btn ec-btn-ghost" id="ec-export" style="flex:1">保存录制</button><button class="ec-btn ec-btn-ghost" id="ec-export-open">播放原始录制</button></div>',
     "  </div>",
     "</div>",
+    '<div class="ec-mini-recorder" id="ec-mini-recorder" aria-hidden="true">',
+    '  <span class="ec-mini-dot" id="ec-mini-indicator"></span><span class="ec-mini-timer" id="ec-mini-timer">00:00</span>',
+    '  <button type="button" class="ec-mini-btn ec-mini-start" id="ec-mini-start" title="录制中">开始</button>',
+    '  <button type="button" class="ec-mini-btn ec-mini-pause" id="ec-mini-pause" title="暂停或继续录制">暂停</button>',
+    '  <button type="button" class="ec-mini-btn ec-mini-stop" id="ec-mini-stop" title="停止录制">停止</button>',
+    '</div>',
     '<div class="ec-toast" id="ec-toast"></div>',
     '<div class="ec-source-modal" id="ec-source-modal" aria-hidden="true">',
     '  <div class="ec-source-dialog" role="dialog" aria-modal="true" aria-label="选择录制来源">',
@@ -4059,6 +4103,7 @@
   var camEnable = shadow.getElementById("ec-cam-enable");
   var cameraDetails = shadow.getElementById("ec-camera-details");
   var camDevice = shadow.getElementById("ec-cam-device");
+  var micDeviceSel = shadow.getElementById("ec-mic-device");
   var camShape = shadow.getElementById("ec-cam-shape");
   var camSize = shadow.getElementById("ec-cam-size");
   var camSizeV = shadow.getElementById("ec-cam-size-v");
@@ -4155,21 +4200,59 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
       return;
     }
+    while (camDevice.options.length > 1) camDevice.remove(1);
     navigator.mediaDevices
       .enumerateDevices()
       .then(function (devices) {
+        var index = 1;
         devices.forEach(function (d) {
           if (d.kind === "videoinput") {
             var opt = document.createElement("option");
             opt.value = d.deviceId;
-            opt.textContent = d.label || "摄像头 " + camDevice.options.length;
+            opt.textContent = d.label || "摄像头 " + index;
             camDevice.appendChild(opt);
+            index += 1;
           }
         });
+        if (state.camera.deviceId && Array.prototype.some.call(camDevice.options, function (option) { return option.value === state.camera.deviceId; })) {
+          camDevice.value = state.camera.deviceId;
+        }
+      })
+      .catch(function () {});
+  }
+
+  function listMicrophones() {
+    if (!micDeviceSel || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      return;
+    }
+    while (micDeviceSel.options.length > 1) micDeviceSel.remove(1);
+    navigator.mediaDevices
+      .enumerateDevices()
+      .then(function (devices) {
+        var index = 1;
+        devices.forEach(function (d) {
+          if (d.kind === "audioinput") {
+            var opt = document.createElement("option");
+            opt.value = d.deviceId;
+            opt.textContent = d.label || "麦克风 " + index;
+            micDeviceSel.appendChild(opt);
+            index += 1;
+          }
+        });
+        if (state.mic.deviceId && Array.prototype.some.call(micDeviceSel.options, function (option) { return option.value === state.mic.deviceId; })) {
+          micDeviceSel.value = state.mic.deviceId;
+        }
       })
       .catch(function () {});
   }
   listCameras();
+  listMicrophones();
+  if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === "function") {
+    navigator.mediaDevices.addEventListener("devicechange", function () {
+      listCameras();
+      listMicrophones();
+    });
+  }
 
   function stopCamera() {
     if (state.camera.raf) {
@@ -4560,6 +4643,12 @@
   var recOpen = shadow.getElementById("ec-export-open");
   var timerEl = shadow.getElementById("ec-timer");
   var indicator = shadow.getElementById("ec-indicator");
+  var miniRecorder = shadow.getElementById("ec-mini-recorder");
+  var miniTimer = shadow.getElementById("ec-mini-timer");
+  var miniIndicator = shadow.getElementById("ec-mini-indicator");
+  var miniStart = shadow.getElementById("ec-mini-start");
+  var miniPause = shadow.getElementById("ec-mini-pause");
+  var miniStop = shadow.getElementById("ec-mini-stop");
   var ratioSel = shadow.getElementById("ec-ratio");
   var ratioV = shadow.getElementById("ec-ratio-v");
   var customSizeRow = shadow.getElementById("ec-custom-size-row");
@@ -4576,6 +4665,11 @@
   var composeChk = shadow.getElementById("ec-compose");
   var compositePositionSel = shadow.getElementById("ec-composite-position");
   var hideBubbleChk = shadow.getElementById("ec-hide-bubble");
+  var cursorHighlightChk = shadow.getElementById("ec-cursor-highlight");
+  var cursorOptions = shadow.getElementById("ec-cursor-options");
+  var cursorHighlightStyleSel = shadow.getElementById("ec-cursor-highlight-style");
+  var cursorShapeSel = shadow.getElementById("ec-cursor-shape");
+  var cursorSoundSel = shadow.getElementById("ec-cursor-sound");
   var smartCameraChk = shadow.getElementById("ec-smart-camera");
   var smartCameraOptions = shadow.getElementById("ec-smart-camera-options");
   var smartSlideFocusChk = shadow.getElementById("ec-smart-slide-focus");
@@ -4595,6 +4689,15 @@
   compositePositionSel.addEventListener("change", function () {
     state.camera.compositePosition = compositePositionSel.value || "bottom-right";
   });
+  if (micDeviceSel) {
+    micDeviceSel.addEventListener("change", function () {
+      state.mic.deviceId = micDeviceSel.value || "";
+      if (state.rec.active) {
+        toast("麦克风选择会在下一次录制开始时生效");
+      }
+      v011ScheduleSave("microphone-device");
+    });
+  }
 
   var RATIOS = {
     youtube: [1920, 1080],
@@ -4717,8 +4820,8 @@
     if (smartClickFocusChk) smartClickFocusChk.checked = state.smartCamera.clickFocus !== false;
     if (smartCameraHint) {
       smartCameraHint.textContent = canSlideFocus
-        ? "幻灯片聚焦会利用白板 Frame；鼠标智能聚焦会根据停留和点击生成镜头建议。"
-        : "当前为屏幕/窗口录制：保留鼠标智能聚焦；幻灯片聚焦不适用。若浏览器最小化，系统级鼠标轨迹需后续原生增强。";
+        ? "录制时记录幻灯片切换、鼠标停留和点击；录后可调整镜头焦点、倍率和节奏。"
+        : "屏幕/窗口录制会记录鼠标停留和点击；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。";
     }
   }
 
@@ -4877,7 +4980,7 @@
     state.rec.recordingReadyDispatched = false;
     state.rec.lastExt = "webm";
     state.rec.lastMime = "video/webm";
-    timerEl.textContent = "00:00";
+    updateRecordingTimers();
     resetSavedOutputMarkers();
     updateOutputActions();
   }
@@ -5658,7 +5761,7 @@
             state.rec.paused = status.state === "paused";
             state.rec.seconds = Math.max(0, Math.floor(status.seconds || 0));
             state.rec.nativeOutputPath = status.outputPath || "";
-            timerEl.textContent = fmtTime(state.rec.seconds);
+            updateRecordingTimers();
             if (!state.rec.timer) state.rec.timer = setInterval(tickTimer, 1000);
             setRecUI(true, state.rec.paused);
             return true;
@@ -5708,9 +5811,15 @@
     return "video/webm";
   }
 
+  function updateRecordingTimers() {
+    var value = fmtTime(state.rec.seconds);
+    timerEl.textContent = value;
+    if (miniTimer) miniTimer.textContent = value;
+  }
+
   function tickTimer() {
     state.rec.seconds += 1;
-    timerEl.textContent = fmtTime(state.rec.seconds);
+    updateRecordingTimers();
   }
 
   function setRecUI(active, paused) {
@@ -5725,7 +5834,60 @@
     indicator.classList.toggle("ec-paused", !!active && !!paused);
     launcher.classList.toggle("ec-recording", !!active && !paused);
     launcher.classList.toggle("ec-paused", !!active && !!paused);
+    if (active) {
+      panel.classList.remove("ec-open");
+      launcher.classList.remove("ec-panel-open");
+    }
+    if (miniRecorder) {
+      miniRecorder.classList.toggle("ec-open", !!active);
+      miniRecorder.classList.toggle("ec-paused", !!active && !!paused);
+      miniRecorder.setAttribute("aria-hidden", active ? "false" : "true");
+    }
+    if (miniIndicator) {
+      miniIndicator.classList.toggle("ec-paused", !!active && !!paused);
+    }
+    if (miniStart) miniStart.disabled = !!active;
+    if (miniPause) {
+      miniPause.disabled = !active;
+      miniPause.textContent = paused ? "继续" : "暂停";
+      miniPause.title = paused ? "继续录制" : "暂停录制";
+    }
+    if (miniStop) miniStop.disabled = !active;
+    updateRecordingTimers();
     updateOutputActions();
+  }
+
+  function stopCursorSoundMix() {
+    if (state.cursor.soundContext && typeof state.cursor.soundContext.close === "function") {
+      state.cursor.soundContext.close().catch(function () {});
+    }
+    state.cursor.soundContext = null;
+    state.cursor.soundDestination = null;
+    state.cursor.soundNodes = [];
+  }
+
+  function mixedBrowserAudioTracks(audioTracks) {
+    var inputTracks = (Array.isArray(audioTracks) ? audioTracks : []).filter(function (track) {
+      return track && track.readyState !== "ended";
+    });
+    stopCursorSoundMix();
+    try {
+      var ac = new (window.AudioContext || window.webkitAudioContext)();
+      var destination = ac.createMediaStreamDestination();
+      var nodes = [];
+      inputTracks.forEach(function (track) {
+        var source = ac.createMediaStreamSource(new MediaStream([track]));
+        source.connect(destination);
+        nodes.push(source);
+      });
+      state.cursor.soundContext = ac;
+      state.cursor.soundDestination = destination;
+      state.cursor.soundNodes = nodes;
+      return destination.stream.getAudioTracks();
+    } catch (e) {
+      stopCursorSoundMix();
+      return inputTracks;
+    }
   }
 
   function stopComposeLoop() {
@@ -5749,6 +5911,11 @@
       state.mic.analyser = null;
       state.mic.dataArray = null;
     }
+    if (state.mic.audioContext && typeof state.mic.audioContext.close === "function") {
+      state.mic.audioContext.close().catch(function () {});
+      state.mic.audioContext = null;
+    }
+    stopCursorSoundMix();
     cursorHighlight.style.display = "none";
   }
 
@@ -6025,6 +6192,87 @@
     return null;
   }
 
+  function drawCompositedCursor(ctx, x, y) {
+    var style = state.cursor.highlightStyle || "halo";
+    var shape = state.cursor.pointerShape || "system";
+    ctx.save();
+    ctx.translate(x, y);
+    if (style === "spotlight") {
+      var glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 34);
+      glow.addColorStop(0, "rgba(255,255,255,0.48)");
+      glow.addColorStop(0.38, "rgba(105,101,219,0.24)");
+      glow.addColorStop(1, "rgba(105,101,219,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, 34, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (style === "ring") {
+      ctx.strokeStyle = "rgba(105,101,219,0.88)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, 17, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.72)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 22, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (style === "dot") {
+      ctx.fillStyle = "rgba(105,101,219,0.88)";
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.94)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = "rgba(105,101,219,0.22)";
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(105,101,219,0.76)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (shape === "dot") {
+      ctx.fillStyle = "rgba(15,23,42,0.84)";
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.92)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else if (shape === "crosshair") {
+      ctx.strokeStyle = "rgba(15,23,42,0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-12, 0);
+      ctx.lineTo(12, 0);
+      ctx.moveTo(0, -12);
+      ctx.lineTo(0, 12);
+      ctx.stroke();
+    } else if (shape !== "none") {
+      ctx.fillStyle = "rgba(255,255,255,0.97)";
+      ctx.strokeStyle = "rgba(15,23,42,0.36)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(17, 9);
+      ctx.lineTo(10, 12);
+      ctx.lineTo(15, 24);
+      ctx.lineTo(10, 26);
+      ctx.lineTo(5, 14);
+      ctx.lineTo(0, 19);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function composeDrawLoop() {
     var video = state.rec.composeVideo;
     var ctx = state.rec.composeCtx;
@@ -6148,23 +6396,17 @@
           drawX = cx0 / (window.innerWidth || 1) * W;
           drawY = cy0 / (window.innerHeight || 1) * H;
         }
-        ctx.save();
-        ctx.fillStyle = "rgba(105,101,219,0.35)";
-        ctx.beginPath();
-        ctx.arc(drawX, drawY, 14, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "rgba(105,101,219,0.6)";
-        ctx.beginPath();
-        ctx.arc(drawX, drawY, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        drawCompositedCursor(ctx, drawX, drawY);
       }
     }
     state.rec.composeRaf = requestAnimationFrame(composeDrawLoop);
   }
 
   function requestMicAccess(callback) {
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    var audioConstraint = state.mic.deviceId
+      ? { deviceId: { exact: state.mic.deviceId } }
+      : true;
+    navigator.mediaDevices.getUserMedia({ audio: audioConstraint, video: false })
       .then(function (micStream) {
         state.mic.stream = micStream;
         try {
@@ -6173,9 +6415,11 @@
           var analyser = ac.createAnalyser();
           analyser.fftSize = 256;
           src.connect(analyser);
+          state.mic.audioContext = ac;
           state.mic.analyser = analyser;
           state.mic.dataArray = new Uint8Array(analyser.frequencyBinCount);
         } catch (e) {}
+        listMicrophones();
         if (callback) callback();
       })
       .catch(function () {
@@ -6267,7 +6511,7 @@
     state.rec.nativeOutputPath = "";
     state.rec.seconds = 0;
     state.rec.paused = false;
-    timerEl.textContent = "00:00";
+    updateRecordingTimers();
     nativeStatusEl.textContent = "正在启动桌面录制…";
 
     bridge.start({
@@ -6381,12 +6625,12 @@
       state.rec.usingDirectDisplay = false;
 
       var vTrack = cv.captureStream(30).getVideoTracks()[0];
-      var tracks = [vTrack];
-      /* add mic audio if available */
+      var inputAudioTracks = [];
       if (state.mic.stream) {
         var micTracks = state.mic.stream.getAudioTracks();
-        for (var mi = 0; mi < micTracks.length; mi++) tracks.push(micTracks[mi]);
+        for (var mi = 0; mi < micTracks.length; mi++) inputAudioTracks.push(micTracks[mi]);
       }
+      var tracks = [vTrack].concat(mixedBrowserAudioTracks(inputAudioTracks));
       var outputStream = new MediaStream(tracks);
 
       state.rec.composeRaf = requestAnimationFrame(composeDrawLoop);
@@ -6421,7 +6665,7 @@
         state.rec.active = false;
         stopComposeLoop();
         setRecUI(false, false);
-        timerEl.textContent = fmtTime(state.rec.seconds);
+        updateRecordingTimers();
         bubble.style.visibility = "visible";
         tele.style.visibility = "visible";
         updateV011ProjectStatus("原始录制已就绪；可保存录制或播放原始录制。");
@@ -6467,15 +6711,16 @@
         state.rec.seconds = 0;
         state.rec.paused = false;
 
-        var directTracks = displayStream.getTracks().slice();
+        var directVideoTracks = displayStream.getVideoTracks().slice();
+        var directAudioTracks = displayStream.getAudioTracks().slice();
         if (state.mic.stream) {
           state.mic.stream.getAudioTracks().forEach(function (track) {
-            if (!directTracks.some(function (item) { return item.id === track.id; })) {
-              directTracks.push(track);
+            if (!directAudioTracks.some(function (item) { return item.id === track.id; })) {
+              directAudioTracks.push(track);
             }
           });
         }
-        var outputStream = new MediaStream(directTracks);
+        var outputStream = new MediaStream(directVideoTracks.concat(mixedBrowserAudioTracks(directAudioTracks)));
         var isDesktopSurface =
           displaySurface === "monitor" || displaySurface === "window";
         var useComposedOutput = composeChk.checked && !isDesktopSurface;
@@ -6514,8 +6759,15 @@
           state.rec.composeCtx = ctx;
           state.rec.composeVideo = video;
           var vTrack = cv.captureStream(30).getVideoTracks()[0];
-          var audioTracks = displayStream.getAudioTracks();
-          var tracks = [vTrack].concat(audioTracks);
+          var audioTracks = displayStream.getAudioTracks().slice();
+          if (state.mic.stream) {
+            state.mic.stream.getAudioTracks().forEach(function (track) {
+              if (!audioTracks.some(function (item) { return item.id === track.id; })) {
+                audioTracks.push(track);
+              }
+            });
+          }
+          var tracks = [vTrack].concat(mixedBrowserAudioTracks(audioTracks));
           outputStream = new MediaStream(tracks);
           state.rec.composeRaf = requestAnimationFrame(composeDrawLoop);
           if (hideBubbleChk.checked && state.camera.enabled) {
@@ -6558,7 +6810,7 @@
           state.rec.timer = null;
           state.rec.active = false;
           setRecUI(false, false);
-          timerEl.textContent = fmtTime(state.rec.seconds);
+          updateRecordingTimers();
           stopComposeLoop();
           bubble.style.visibility = "visible";
           tele.style.visibility = "visible";
@@ -6850,6 +7102,9 @@
   recStart.addEventListener("click", startRecording);
   recPause.addEventListener("click", pauseRecording);
   recStop.addEventListener("click", stopRecording);
+  if (miniStart) miniStart.addEventListener("click", startRecording);
+  if (miniPause) miniPause.addEventListener("click", pauseRecording);
+  if (miniStop) miniStop.addEventListener("click", stopRecording);
   recExport.addEventListener("click", exportRecording);
   recOpen.addEventListener("click", openRecording);
 
@@ -6890,6 +7145,8 @@
     restoreV011RecordingSettings();
     if (bgInput) bgInput.value = state.settings.background || "#f4f1ea";
     if (bgStyleSel) bgStyleSel.value = state.settings.backgroundStyle || "warm-gradient";
+    if (micDeviceSel) micDeviceSel.value = state.mic.deviceId || "";
+    updateCursorSettingsUI();
     smartCameraChk.checked = !!state.smartCamera.enabled;
     if (smartSlideFocusChk) smartSlideFocusChk.checked = state.smartCamera.slideFocus !== false;
     if (smartMouseFocusChk) smartMouseFocusChk.checked = state.smartCamera.mouseFocus !== false;
@@ -7001,15 +7258,15 @@
     }
     var currentElements = readElementsSafe().filter(function (element) { return element && !element.isDeleted; });
     if (currentElements.length && !window.confirm("打开单个 Excalidraw 文件会替换当前画布。未保存的修改可能丢失，是否继续？")) {
-      updateV011ProjectStatus("已取消打开单文件；项目根和当前画布未改变。");
+      updateV011ProjectStatus("已取消打开单文件；项目文件夹和当前画布未改变。");
       return;
     }
     setProjectActionBusy(projectFileOpenBtn, true, "打开中…");
     file.text().then(parseProjectScene).then(function (scene) {
       applyLoadedProjectFiles(null, scene);
       state.rec.projectFolder.loadedOnce = false;
-      updateV011ProjectStatus("已打开单个 Excalidraw 文件；项目根保持不变。保存白板可写入当前项目。");
-      toast("Excalidraw 文件已打开；项目根未改变");
+      updateV011ProjectStatus("已打开单个 Excalidraw 文件；项目文件夹保持不变。保存白板可写入当前项目。");
+      toast("Excalidraw 文件已打开；项目文件夹未改变");
     }).catch(function (error) {
       updateV011ProjectStatus("单文件打开失败：" + (error.message || error) + "；当前画布未改变。");
       toast("打开 Excalidraw 文件失败：" + (error.message || error));
@@ -7375,8 +7632,59 @@
   );
 
   /* ============ Cursor highlight ============ */
-  var cursorHighlightChk = shadow.getElementById("ec-cursor-highlight");
-  state.cursor.highlight = true;
+  function updateCursorSettingsUI() {
+    if (cursorHighlightChk) cursorHighlightChk.checked = state.cursor.highlight !== false;
+    if (cursorHighlightStyleSel) cursorHighlightStyleSel.value = state.cursor.highlightStyle || "halo";
+    if (cursorShapeSel) cursorShapeSel.value = state.cursor.pointerShape || "system";
+    if (cursorSoundSel) cursorSoundSel.value = state.cursor.sound || "off";
+    if (cursorOptions) cursorOptions.style.display = state.cursor.highlight === false ? "none" : "block";
+    cursorHighlight.classList.remove(
+      "ec-cursor-style-halo",
+      "ec-cursor-style-spotlight",
+      "ec-cursor-style-ring",
+      "ec-cursor-style-dot",
+      "ec-cursor-shape-system",
+      "ec-cursor-shape-dot",
+      "ec-cursor-shape-crosshair",
+      "ec-cursor-shape-none",
+    );
+    cursorHighlight.classList.add("ec-cursor-style-" + (state.cursor.highlightStyle || "halo"));
+    cursorHighlight.classList.add("ec-cursor-shape-" + (state.cursor.pointerShape || "system"));
+    if (!state.rec.active || state.cursor.highlight === false) cursorHighlight.style.display = "none";
+  }
+
+  function saveCursorSettings(reason) {
+    updateCursorSettingsUI();
+    v011ScheduleSave(reason || "cursor-setting");
+  }
+
+  function playCursorClickSound() {
+    if (!state.rec.active || state.cursor.sound === "off") return;
+    try {
+      var ac = state.cursor.soundContext || new (window.AudioContext || window.webkitAudioContext)();
+      var osc = ac.createOscillator();
+      var gain = ac.createGain();
+      var now = ac.currentTime;
+      osc.type = state.cursor.sound === "click" ? "square" : "sine";
+      osc.frequency.value = state.cursor.sound === "click" ? 920 : 620;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(state.cursor.sound === "click" ? 0.045 : 0.025, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + (state.cursor.sound === "click" ? 0.075 : 0.12));
+      osc.connect(gain);
+      if (state.cursor.soundDestination) {
+        gain.connect(state.cursor.soundDestination);
+      } else {
+        gain.connect(ac.destination);
+      }
+      osc.start(now);
+      osc.stop(now + 0.14);
+      if (!state.cursor.soundContext) {
+        setTimeout(function () { ac.close().catch(function () {}); }, 220);
+      }
+    } catch (e) {}
+  }
+
+  updateCursorSettingsUI();
 
   document.addEventListener("mousemove", function (ev) {
     state.cursor.x = ev.clientX;
@@ -7406,12 +7714,27 @@
       sourceScope: scopeSel ? scopeSel.value : "screen",
       button: Number(ev.button) || 0,
     });
+    cursorHighlight.classList.add("ec-cursor-clicking");
+    setTimeout(function () { cursorHighlight.classList.remove("ec-cursor-clicking"); }, 180);
+    playCursorClickSound();
   }, true);
 
   cursorHighlightChk.addEventListener("change", function () {
     state.cursor.highlight = cursorHighlightChk.checked;
-    if (!state.rec.active) return;
-    cursorHighlight.style.display = cursorHighlightChk.checked ? "block" : "none";
+    if (state.rec.active) cursorHighlight.style.display = cursorHighlightChk.checked ? "block" : "none";
+    saveCursorSettings("cursor-highlight");
+  });
+  cursorHighlightStyleSel.addEventListener("change", function () {
+    state.cursor.highlightStyle = cursorHighlightStyleSel.value || "halo";
+    saveCursorSettings("cursor-highlight-style");
+  });
+  cursorShapeSel.addEventListener("change", function () {
+    state.cursor.pointerShape = cursorShapeSel.value || "system";
+    saveCursorSettings("cursor-shape");
+  });
+  cursorSoundSel.addEventListener("change", function () {
+    state.cursor.sound = cursorSoundSel.value || "off";
+    saveCursorSettings("cursor-sound");
   });
 
   /* ============ Keyboard shortcuts ============ */
@@ -7505,6 +7828,10 @@
   panelCollapse.addEventListener("click", function () {
     setPanelOpen(false);
   });
+
+  if (new URLSearchParams(window.location.search).get("excalicordPanel") === "open") {
+    setTimeout(function () { setPanelOpen(true); }, 500);
+  }
 
   /* ============ Page unload safety ============ */
   window.addEventListener("beforeunload", function () {

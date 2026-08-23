@@ -285,6 +285,9 @@
         size: clamp(finite(cursor.size, 1), 0.25, 4),
         smoothing: clamp(finite(cursor.smoothing, 0.55), 0, 1),
         clickEffect: cursor.clickEffect !== false,
+        highlightStyle: typeof cursor.highlightStyle === "string" ? cursor.highlightStyle : "halo",
+        pointerShape: typeof cursor.pointerShape === "string" ? cursor.pointerShape : "system",
+        sound: typeof cursor.sound === "string" ? cursor.sound : "off",
         hiddenRanges: Array.isArray(cursor.hiddenRanges) ? clone(cursor.hiddenRanges) : [],
       },
       webcam: {

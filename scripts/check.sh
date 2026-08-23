@@ -125,10 +125,37 @@ for project_control in ec-project-folder-path ec-project-folder-open ec-project-
     exit 1
   fi
 done
+if grep -q '项目根' "$repo_root/src/studio-recorder.js"; then
+  echo "recording panel must use 项目 instead of 项目根"
+  exit 1
+fi
 if grep -q 'id="ec-project-whiteboard-open"' "$repo_root/src/studio-recorder.js"; then
   echo "legacy project-folder loading button remains visible"
   exit 1
 fi
+for recording_panel_contract in \
+  'id="ec-mic-device"' \
+  'id="ec-cursor-highlight-style"' \
+  'id="ec-cursor-shape"' \
+  'id="ec-cursor-sound"' \
+  'id="ec-mini-recorder"' \
+  '屏幕/窗口录制会记录鼠标停留和点击；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。'; do
+  if ! grep -q "$recording_panel_contract" "$repo_root/src/studio-recorder.js"; then
+    echo "recording panel UX contract missing: $recording_panel_contract"
+    exit 1
+  fi
+done
+for recording_panel_css in \
+  '.ec-whiteboard-actions' \
+  '.ec-cursor-options' \
+  '.ec-mini-recorder' \
+  '.ec-cursor-style-spotlight' \
+  '.ec-cursor-shape-crosshair'; do
+  if ! grep -q "$recording_panel_css" "$repo_root/src/recorder.css"; then
+    echo "recording panel CSS contract missing: $recording_panel_css"
+    exit 1
+  fi
+done
 for user_contract in \
   '设置项目文件夹…' \
   '在 Finder 中显示' \
