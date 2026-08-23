@@ -273,6 +273,10 @@
       },
       camera: {
         enabled: camera.enabled !== false,
+        slideFocus: camera.slideFocus !== false,
+        mouseFocus: camera.mouseFocus !== false,
+        clickFocus: camera.clickFocus !== false,
+        speed: typeof camera.speed === "string" ? camera.speed : "standard",
         strength: typeof camera.strength === "string" ? camera.strength : "gentle",
         keyframes: Array.isArray(camera.keyframes) ? clone(camera.keyframes) : [],
       },
@@ -710,6 +714,12 @@
       if (isObject(legacyEdits.camera)) {
         activeEdit.camera = {
           enabled: legacyEdits.camera.enabled !== false,
+          slideFocus: legacyEdits.camera.slideFocus !== false,
+          mouseFocus: legacyEdits.camera.mouseFocus !== false,
+          clickFocus: legacyEdits.camera.clickFocus !== false,
+          speed: typeof legacyEdits.camera.speed === "string"
+            ? legacyEdits.camera.speed
+            : activeEdit.camera.speed,
           strength: typeof legacyEdits.camera.strength === "string"
             ? legacyEdits.camera.strength
             : activeEdit.camera.strength,

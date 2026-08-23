@@ -43,4 +43,21 @@ var crop = camera.cropAt([{ timeMs: 0, x: 0.9, y: 0.9, scale: 2 }], 0, 1920, 108
 assert.ok(crop.x + crop.width <= 1920.001);
 assert.ok(crop.y + crop.height <= 1080.001);
 
+var screenTrack = camera.planFromEvents([
+  { type: "frame-change", timeMs: 500, frameId: "frame-hidden" },
+  { type: "pointer", timeMs: 1200, x: 0.82, y: 0.25, insideCanvas: false },
+  { type: "click", timeMs: 2200, x: 0.20, y: 0.75, insideCanvas: false },
+], {
+  durationMs: 5000,
+  slideFocus: false,
+  mouseFocus: true,
+  clickFocus: false,
+  allowOutsideCanvas: true,
+  speed: "fast",
+});
+assert.ok(!screenTrack.some(function (item) { return item.source === "auto-frame"; }));
+assert.ok(screenTrack.some(function (item) { return item.source === "auto-pointer"; }));
+assert.ok(!screenTrack.some(function (item) { return item.source === "auto-click"; }));
+assert.ok(screenTrack.find(function (item) { return item.source === "auto-pointer"; }).transitionMs < camera.STRENGTHS.gentle.transitionMs);
+
 console.log("smart camera core tests ok");

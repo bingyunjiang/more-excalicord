@@ -65,7 +65,7 @@
 
 可复制的提示词：
 
-    请帮我部署 more-excalicord。当前目录就是仓库根目录。先运行 npm run preflight，检查 Node.js/npm、自托管 Excalidraw 运行目录、写入权限和 http://localhost:5001/ 状态。如果运行目录不是 ~/.local/share/excalidraw，先问我真实路径，再运行 npm run configure:local -- --runtime-root <真实路径>。然后依次运行 npm run check、npm run deploy:local、npm run verify:deploy。不要提交 .env.local、个人白板、录屏、密钥或缓存文件。部署后提示我打开 http://localhost:5001/，检查 more-excalicord 工具栏、录制面板、屏幕/窗口录制、白板录制、当前幻灯片录制、摄像头画中画和摄像头合成进视频。
+    请帮我部署 more-excalicord。当前目录就是仓库根目录。先运行 npm run preflight，检查 Node.js/npm、自托管 Excalidraw 运行目录、写入权限和 http://localhost:5001/ 状态。如果运行目录不是 ~/.local/share/excalidraw，先问我真实路径，再运行 npm run configure:local -- --runtime-root <真实路径>。然后依次运行 npm run check、npm run deploy:local、npm run verify:deploy。不要提交 .env.local、个人白板、录屏、密钥或缓存文件。部署后提示我打开 http://localhost:5001/，检查 more-excalicord 工具栏、录制面板、屏幕/窗口录制、白板全景录制、当前幻灯片聚焦录制、摄像头画中画和摄像头合成进视频。
 
 如果大模型提示缺少 Node.js 或本地 Excalidraw，它应该先指导用户安装或配置这些前置条件，而不是继续执行部署。
 

@@ -118,20 +118,24 @@ if [ "$project_folder_controls" != "1" ]; then
   echo "expected exactly one project folder selector, found $project_folder_controls"
   exit 1
 fi
-for project_control in ec-project-folder-path ec-project-folder-open ec-project-whiteboard-open ec-project-file-open ec-project-file-input ec-project-whiteboard-save; do
+for project_control in ec-project-folder-path ec-project-folder-open ec-project-file-open ec-project-file-input ec-project-whiteboard-save; do
   control_count="$(grep -o "id=\"$project_control\"" "$repo_root/src/studio-recorder.js" | wc -l | tr -d " ")"
   if [ "$control_count" != "1" ]; then
     echo "expected exactly one explicit project control $project_control, found $control_count"
     exit 1
   fi
 done
+if grep -q 'id="ec-project-whiteboard-open"' "$repo_root/src/studio-recorder.js"; then
+  echo "legacy project-folder loading button remains visible"
+  exit 1
+fi
 for user_contract in \
   '设置项目文件夹…' \
-  '打开项目文件夹…' \
   '在 Finder 中显示' \
   '打开 Excalidraw 文件…' \
   '保存白板' \
   '保存录制' \
+  '打开保存位置' \
   '播放原始录制' \
   '原始录制已就绪'; do
   if ! grep -q "$user_contract" "$repo_root/src/studio-recorder.js"; then
@@ -144,8 +148,8 @@ if grep -q '文字轨' "$repo_root/src/studio-recorder.js"; then
   exit 1
 fi
 for script_contract in \
-  '从 SRT/VTT 导入讲稿' \
-  '讲稿只用于提词；逐字稿和字幕在录制后根据真实音频生成'; do
+  '载入讲稿文件…' \
+  '讲稿只用于录制前提词；录后的逐字稿和字幕仍以实际音频为准'; do
   if ! grep -q "$script_contract" "$repo_root/src/studio-recorder.js"; then
     echo "script preparation contract missing: $script_contract"
     exit 1

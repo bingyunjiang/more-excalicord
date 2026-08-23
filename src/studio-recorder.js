@@ -109,10 +109,13 @@
       scrollCarry: 0,
     },
     settings: {
-      ratio: "16:9",
+      ratio: "youtube",
       format: "auto",
       scope: "screen",
       background: "#f4f1ea",
+      backgroundStyle: "warm-gradient",
+      customWidth: 1280,
+      customHeight: 720,
       hideBubbleWhileRecording: false,
     },
     mic: {
@@ -130,6 +133,10 @@
     },
     smartCamera: {
       enabled: false,
+      slideFocus: true,
+      mouseFocus: true,
+      clickFocus: true,
+      speed: "standard",
       strength: "gentle",
       targetX: 0.5,
       targetY: 0.5,
@@ -150,7 +157,9 @@
       projectId: "",
       session: null,
       recordingScope: "screen",
-      recordingRatio: "16:9",
+      recordingRatio: "youtube",
+      recordingCustomWidth: 1280,
+      recordingCustomHeight: 720,
       sessionDirty: false,
       media: [],
       saveTimer: null,
@@ -203,7 +212,7 @@
       updatedAt: new Date().toISOString(),
       recording: {
         scope: "screen",
-        ratio: "16:9",
+        ratio: "youtube",
         duration: 0,
         media: [],
       },
@@ -217,11 +226,19 @@
       },
       edits: {
         cuts: [],
-        camera: { enabled: false, strength: "gentle", keyframes: [] },
+        camera: {
+          enabled: false,
+          slideFocus: true,
+          mouseFocus: true,
+          clickFocus: true,
+          speed: "standard",
+          strength: "gentle",
+          keyframes: [],
+        },
         cursor: { highlight: true },
         annotations: [],
         audio: {},
-        appearance: {},
+        appearance: { background: "#f4f1ea", backgroundStyle: "warm-gradient" },
       },
     };
   }
@@ -287,6 +304,10 @@
     var rawCamera = isPlainObject(rawEdits.camera) ? rawEdits.camera : {};
     project.edits.camera = {
       enabled: !!rawCamera.enabled,
+      slideFocus: rawCamera.slideFocus !== false,
+      mouseFocus: rawCamera.mouseFocus !== false,
+      clickFocus: rawCamera.clickFocus !== false,
+      speed: typeof rawCamera.speed === "string" ? rawCamera.speed : "standard",
       strength: typeof rawCamera.strength === "string" ? rawCamera.strength : "gentle",
       keyframes: Array.isArray(rawCamera.keyframes) ? rawCamera.keyframes : [],
     };
@@ -313,10 +334,28 @@
     state.v011.recordingRatio = project.recording && project.recording.ratio || "16:9";
     state.tele.text = project.text.script.sourceText || "";
     state.smartCamera.enabled = !!(project.edits && project.edits.camera && project.edits.camera.enabled);
+    state.smartCamera.slideFocus = project.edits && project.edits.camera
+      ? project.edits.camera.slideFocus !== false
+      : true;
+    state.smartCamera.mouseFocus = project.edits && project.edits.camera
+      ? project.edits.camera.mouseFocus !== false
+      : true;
+    state.smartCamera.clickFocus = project.edits && project.edits.camera
+      ? project.edits.camera.clickFocus !== false
+      : true;
+    state.smartCamera.speed = project.edits && project.edits.camera && typeof project.edits.camera.speed === "string"
+      ? project.edits.camera.speed
+      : "standard";
     state.smartCamera.strength = (project.edits && project.edits.camera && project.edits.camera.strength) || "gentle";
     state.smartCamera.keyframes = project.edits && project.edits.camera && Array.isArray(project.edits.camera.keyframes)
       ? project.edits.camera.keyframes.slice()
       : [];
+    state.settings.background = project.edits && project.edits.appearance && typeof project.edits.appearance.background === "string"
+      ? project.edits.appearance.background
+      : state.settings.background;
+    state.settings.backgroundStyle = project.edits && project.edits.appearance && typeof project.edits.appearance.backgroundStyle === "string"
+      ? project.edits.appearance.backgroundStyle
+      : state.settings.backgroundStyle;
     return project;
   }
 
@@ -341,9 +380,9 @@
     var recordingScope = typeof scopeSel !== "undefined" && scopeSel
       ? scopeSel.value
       : (state.v011.recordingScope || "screen");
-    var recordingRatio = typeof ratioSel !== "undefined" && ratioSel
-      ? ratioSel.value
-      : (state.v011.recordingRatio || "16:9");
+    var recordingRatio = typeof recordingRatioValue === "function"
+      ? recordingRatioValue()
+      : (typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : (state.v011.recordingRatio || "16:9"));
     var fresh = v011DefaultProject();
     fresh.text.script.sourceText = scriptText;
     fresh.recording.scope = recordingScope;
@@ -369,15 +408,23 @@
     existing.text = state.v011.text;
     existing.text.script.sourceText = state.tele.text || existing.text.script.sourceText || "";
     existing.recording.scope = typeof scopeSel !== "undefined" && scopeSel ? scopeSel.value : existing.recording.scope;
-    existing.recording.ratio = typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : existing.recording.ratio;
+    existing.recording.ratio = typeof recordingRatioValue === "function" ? recordingRatioValue() : (typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : existing.recording.ratio);
     existing.recording.duration = state.v011.session ? state.v011.session.duration || 0 : existing.recording.duration || 0;
     existing.recording.media = state.v011.media.slice();
     existing.edits.camera = {
       enabled: !!state.smartCamera.enabled,
+      slideFocus: state.smartCamera.slideFocus !== false,
+      mouseFocus: state.smartCamera.mouseFocus !== false,
+      clickFocus: state.smartCamera.clickFocus !== false,
+      speed: state.smartCamera.speed || "standard",
       strength: state.smartCamera.strength,
       keyframes: state.smartCamera.keyframes.slice(),
     };
     existing.edits.cursor = { highlight: !!state.cursor.highlight };
+    existing.edits.appearance = Object.assign({}, existing.edits.appearance, {
+      background: bgInput && bgInput.value ? bgInput.value : state.settings.background,
+      backgroundStyle: bgStyleSel && bgStyleSel.value ? bgStyleSel.value : state.settings.backgroundStyle,
+    });
     return existing;
   }
 
@@ -689,7 +736,7 @@
       pausedSeconds: 0,
       pauseStartedAt: 0,
       scope: typeof scopeSel !== "undefined" && scopeSel ? scopeSel.value : "screen",
-      ratio: typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : "16:9",
+      ratio: typeof recordingRatioValue === "function" ? recordingRatioValue() : (typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : "16:9"),
       initialFrameId: activeId,
       events: [],
     };
@@ -742,6 +789,11 @@
         return smartCore.planFromEvents(session.events, {
           durationMs: Number(session.duration || 0) * 1000,
           strength: state.smartCamera.strength,
+          speed: state.smartCamera.speed,
+          slideFocus: ((session.scope || state.v011.recordingScope) === "canvas" || (session.scope || state.v011.recordingScope) === "frame") && state.smartCamera.slideFocus !== false,
+          mouseFocus: state.smartCamera.mouseFocus !== false,
+          clickFocus: state.smartCamera.clickFocus !== false,
+          allowOutsideCanvas: (session.scope || state.v011.recordingScope) === "screen",
           initialFrameId: session.initialFrameId || "",
         });
       } catch (error) {
@@ -755,6 +807,8 @@
     session.events.forEach(function (event) {
       if (!event || (event.type !== "pointer" && event.type !== "frame-change")) return;
       if (event.type === "frame-change") {
+        var canSlideFocus = (session.scope || state.v011.recordingScope) === "canvas" || (session.scope || state.v011.recordingScope) === "frame";
+        if (!canSlideFocus || state.smartCamera.slideFocus === false) return;
         lastFrameId = event.frameId || lastFrameId;
         track.push({
           t: event.t,
@@ -767,7 +821,10 @@
         lastT = event.t;
         return;
       }
-      if (!event.insideCanvas || event.t - lastT < 0.45) return;
+      var allowOutsideCanvas = (session.scope || state.v011.recordingScope) === "screen";
+      if (state.smartCamera.mouseFocus === false) return;
+      if (!event.insideCanvas && !allowOutsideCanvas) return;
+      if (event.t - lastT < 0.45) return;
       track.push({
         t: event.t,
         x: event.x,
@@ -812,13 +869,22 @@
 
   function v011RecordPointer(ev) {
     var point = v011CanvasPoint(ev);
-    state.smartCamera.pointerInsideCanvas = point.inside;
+    var screenScope = scopeSel && scopeSel.value === "screen";
+    var eventPoint = point;
+    if (screenScope) {
+      eventPoint = {
+        x: clamp((Number(ev && ev.clientX) || 0) / Math.max(1, window.innerWidth || 1), 0, 1),
+        y: clamp((Number(ev && ev.clientY) || 0) / Math.max(1, window.innerHeight || 1), 0, 1),
+        inside: true,
+      };
+    }
+    state.smartCamera.pointerInsideCanvas = screenScope || point.inside;
     state.smartCamera.lastPointerAt = Date.now();
     if (state.rec.paused) return;
-    if (point.inside) {
-      state.smartCamera.targetX = point.x;
-      state.smartCamera.targetY = point.y;
-      state.smartCamera.targetScale = state.smartCamera.enabled
+    if ((screenScope || point.inside) && state.smartCamera.mouseFocus !== false) {
+      state.smartCamera.targetX = eventPoint.x;
+      state.smartCamera.targetY = eventPoint.y;
+      state.smartCamera.targetScale = state.smartCamera.enabled && state.smartCamera.mouseFocus !== false
         ? ({ gentle: 1.22, medium: 1.38, strong: 1.58 }[state.smartCamera.strength] || 1.22)
         : 1;
     }
@@ -828,9 +894,10 @@
     if (now - last < 80) return;
     state.v011.session.lastPointerAt = now;
     v011RecordEvent("pointer", {
-      x: Number(point.x.toFixed(4)),
-      y: Number(point.y.toFixed(4)),
-      insideCanvas: point.inside,
+      x: Number(eventPoint.x.toFixed(4)),
+      y: Number(eventPoint.y.toFixed(4)),
+      insideCanvas: screenScope ? true : point.inside,
+      sourceScope: scopeSel ? scopeSel.value : "screen",
     });
   }
 
@@ -1032,21 +1099,21 @@
     '  <p class="ec-sub">白板 + 摄像头 + 提词器，录制原始素材（本地运行，不上传）</p>',
     '  <div class="ec-section">',
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true">▣</span><span>项目</span></span></div>',
-    '    <div class="ec-project-path"><label for="ec-project-folder-path">项目路径</label><input id="ec-project-folder-path" type="text" value="未选择" readonly aria-label="当前项目文件夹路径" title="未选择项目文件夹"/></div>',
     '    <div class="ec-row"><label>项目根</label><button class="ec-btn ec-btn-ghost" id="ec-project-folder-choose" style="flex:1">设置项目文件夹…</button><button class="ec-btn ec-btn-ghost" id="ec-project-folder-open">在 Finder 中显示</button></div>',
-    '    <div class="ec-row"><label>加载</label><button class="ec-btn ec-btn-ghost" id="ec-project-whiteboard-open" style="flex:1">打开项目文件夹…</button><button class="ec-btn ec-btn-ghost" id="ec-project-file-open">打开 Excalidraw 文件…</button></div>',
+    '    <div class="ec-project-path" id="ec-project-folder-path" title="未选择项目文件夹"><span>项目文件夹</span><strong>未选择</strong></div>',
+    '    <div class="ec-row"><label>打开</label><button class="ec-btn ec-btn-ghost" id="ec-project-file-open" style="flex:1">打开 Excalidraw 文件…</button></div>',
     '    <div class="ec-row"><label>保存</label><button class="ec-btn ec-btn-ghost" id="ec-project-whiteboard-save" style="flex:1">保存白板</button><input id="ec-project-file-input" type="file" accept=".excalidraw,application/json" hidden/></div>',
-    '    <p class="ec-sub" id="ec-project-status">先选择项目路径；打开与保存均由你明确执行。</p>',
+    '    <p class="ec-sub" id="ec-project-status">先设置项目文件夹；打开与保存均由你明确执行。</p>',
     "  </div>",
     '  <div class="ec-section">',
-    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-tele" aria-hidden="true">Aa</span><span>提词器 / 讲解准备</span></span></div>',
+    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-tele" aria-hidden="true">Aa</span><span>提词器 / 讲稿</span></span></div>',
     '    <div class="ec-row"><label>面板</label><button class="ec-btn ec-btn-ghost" id="ec-tele-toggle" style="flex:1">打开提词器</button></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-tele-hide"/> 录制时隐藏（不入镜）</label></div>',
-    '    <div class="ec-row"><label>讲稿</label><button class="ec-btn ec-btn-ghost" id="ec-script-import" style="flex:1">从 SRT/VTT 导入讲稿</button><input id="ec-script-import-file" type="file" accept=".srt,.vtt,text/vtt,text/plain" hidden/></div>',
-    '    <p class="ec-sub" id="ec-script-status">讲稿只用于提词；逐字稿和字幕在录制后根据真实音频生成。</p>',
+    '    <div class="ec-row"><label>讲稿</label><button class="ec-btn ec-btn-ghost" id="ec-script-import" style="flex:1">载入讲稿文件…</button><input id="ec-script-import-file" type="file" accept=".md,.markdown,.txt,.srt,.vtt,text/markdown,text/plain,text/vtt,application/x-subrip" hidden/></div>',
+    '    <p class="ec-sub" id="ec-script-status">讲稿只用于录制前提词；录后的逐字稿和字幕仍以实际音频为准。</p>',
     "  </div>",
     '  <div class="ec-section ec-camera-section">',
-    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头与麦克风</span></span></div>',
+    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头画中画</span></span></div>',
     '    <div class="ec-row"><label>启用</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-enable"/> 摄像头画中画</label></div>',
     '    <div class="ec-camera-details" id="ec-camera-details" aria-hidden="true" hidden>',
     '    <div class="ec-row"><label>设备</label><select id="ec-cam-device"><option value="">默认摄像头</option></select></div>',
@@ -1066,19 +1133,27 @@
     "  </div>",
     '  <div class="ec-section">',
     '    <div class="ec-section-title">' + sectionIconRecord + "</div>",
-    '    <div class="ec-row"><label>画幅</label><select id="ec-ratio"><option>16:9</option><option>4:3</option><option>1:1</option><option>9:16</option><option>3:4</option></select><span class="ec-value" id="ec-ratio-v">1920×1080</span></div>',
-    '    <div class="ec-row"><label>范围</label><select id="ec-scope"><option value="screen">选择的屏幕/窗口</option><option value="canvas">仅白板画布（连续录制）</option><option value="frame">当前幻灯片（可切换并连续录制）</option></select></div>',
+    '    <div class="ec-row"><label>画幅</label><select id="ec-ratio"><option value="youtube">YouTube / B站 横版 16:9</option><option value="wechat-video">视频号 / 小红书 竖版 9:16</option><option value="square">小红书 / 社媒 方形 1:1</option><option value="slides">课件 / 投屏 4:3</option><option value="custom">自定义画幅…</option></select><span class="ec-value" id="ec-ratio-v">1920×1080</span></div>',
+    '    <div class="ec-row ec-custom-size-row" id="ec-custom-size-row" style="display:none"><label>自定义</label><input id="ec-custom-width" type="number" min="320" max="7680" step="2" value="1280" aria-label="自定义宽度"/><span class="ec-size-separator">×</span><input id="ec-custom-height" type="number" min="320" max="7680" step="2" value="720" aria-label="自定义高度"/></div>',
+    '    <div class="ec-row"><label>范围</label><select id="ec-scope"><option value="screen">选择的屏幕/窗口</option><option value="canvas">白板全景</option><option value="frame">当前幻灯片聚焦</option></select></div>',
     '    <div id="ec-native-status-row" style="display:none"><span id="ec-native-status" class="ec-native-status">检测中…</span></div>',
     '    <div id="ec-native-source-row" style="display:none"><select id="ec-native-source"><option value="display:">自动选择主显示器</option></select></div>',
     '    <div class="ec-row"><label>格式</label><select id="ec-format"><option value="auto">自动（优先 MP4）</option><option value="video/mp4">MP4</option><option value="video/webm">WebM</option></select></div>',
-    '    <div class="ec-row"><label>背景</label><input type="color" id="ec-bg" value="#f4f1ea"/></div>',
+    '    <div class="ec-row"><label>背景</label><select id="ec-bg-style"><option value="warm-gradient">暖色渐变</option><option value="paper">纸张纹理</option><option value="dark">深色舞台</option><option value="solid">纯色</option></select><input type="color" id="ec-bg" value="#f4f1ea" title="纯色或渐变主色"/></div>',
     '    <div class="ec-row"><label>合成</label><label class="ec-toggle"><input type="checkbox" id="ec-compose" title="录制时把摄像头圆框直接合成进视频文件，不依赖屏幕里的气泡位置"/> 摄像头合成进视频</label></div>',
     '    <div class="ec-row" id="ec-composite-position-row"><label>摄像头位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 录制时隐藏屏幕上的气泡（与合成进视频无关）</label></div>',
-    '    <div class="ec-row" id="ec-mic-row"><label>麦克风</label><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
+    '    <div class="ec-row" id="ec-mic-row"><label>录音</label><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
     '    <div class="ec-row"><label>光标</label><label class="ec-toggle"><input type="checkbox" id="ec-cursor-highlight" checked/> 录制中鼠标高亮</label></div>',
-    '    <div class="ec-row"><label>智能镜头</label><label class="ec-toggle"><input type="checkbox" id="ec-smart-camera"/> Frame 聚焦 / 跟随鼠标</label></div>',
-    '    <div class="ec-row" id="ec-smart-camera-options" style="display:none"><label>镜头强度</label><select id="ec-smart-camera-strength"><option value="gentle">轻微</option><option value="medium">适中</option><option value="strong">明显</option></select></div>',
+    '    <div class="ec-row"><label>智能镜头</label><label class="ec-toggle"><input type="checkbox" id="ec-smart-camera"/> 开启录后镜头建议</label></div>',
+    '    <div class="ec-smart-camera-options" id="ec-smart-camera-options" style="display:none">',
+    '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-slide-focus" checked/> 幻灯片聚焦</label>',
+    '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-mouse-focus" checked/> 鼠标智能聚焦</label>',
+    '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-click-focus" checked/> 点击时聚焦</label>',
+    '      <div class="ec-row ec-smart-camera-detail"><label>强度</label><select id="ec-smart-camera-strength"><option value="gentle">轻微</option><option value="medium">适中</option><option value="strong">明显</option></select></div>',
+    '      <div class="ec-row ec-smart-camera-detail"><label>速度</label><select id="ec-smart-camera-speed"><option value="slow">慢</option><option value="standard">标准</option><option value="fast">快</option></select></div>',
+    '      <p class="ec-sub" id="ec-smart-camera-hint">幻灯片聚焦用于白板；鼠标智能聚焦可用于屏幕、窗口和白板录制。</p>',
+    '    </div>',
     '    <div class="ec-reccontrols"><span class="ec-rec-indicator" id="ec-indicator"></span><span class="ec-timer" id="ec-timer">00:00</span></div>',
     '    <div class="ec-reccontrols ec-rec-actions">',
     '      <button class="ec-btn ec-btn-success" id="ec-rec-start" title="开始录制（快捷键：' + shortcutLabel("R") + '）" aria-label="开始录制，快捷键 ' + shortcutLabel("R") + '">' + buttonWithShortcut("开始录制", shortcutLabel("R")) + '</button>',
@@ -3912,7 +3987,7 @@
     '<button class="ec-tele-close" title="关闭">✕</button></div>' +
     '<div class="ec-tele-body">' +
     '<textarea class="ec-tele-text" placeholder="粘贴讲稿…按空格开始/暂停自动滚动，↑↓ 手动微调"></textarea>' +
-    '<div class="ec-tele-text-actions"><button class="ec-tele-text-action" type="button" data-action="save-script">保存为讲稿</button><button class="ec-tele-text-action" type="button" data-action="load-script">载入讲稿</button></div>' +
+    '<div class="ec-tele-text-actions"><button class="ec-tele-text-action" type="button" data-action="save-script">保存为讲稿</button><button class="ec-tele-text-action" type="button" data-action="load-script">载入讲稿文件…</button></div>' +
     '<div class="ec-tele-controls"><span>速度</span><input type="range" class="ec-tele-speed" min="1" max="40" step="1" value="6"/><span>字号</span><input type="range" class="ec-tele-fs" min="12" max="48" step="1" value="22"/><span>透明</span><input type="range" class="ec-tele-opacity" min="5" max="100" step="5" value="85"/></div>' +
     '<div class="ec-tele-controls"><span class="ec-kbd">空格</span>滚动/暂停 <span class="ec-kbd">↑</span><span class="ec-kbd">↓</span>微调</div>' +
     "</div>" +
@@ -4487,19 +4562,28 @@
   var indicator = shadow.getElementById("ec-indicator");
   var ratioSel = shadow.getElementById("ec-ratio");
   var ratioV = shadow.getElementById("ec-ratio-v");
+  var customSizeRow = shadow.getElementById("ec-custom-size-row");
+  var customWidthInput = shadow.getElementById("ec-custom-width");
+  var customHeightInput = shadow.getElementById("ec-custom-height");
   var scopeSel = shadow.getElementById("ec-scope");
   var nativeStatusRow = shadow.getElementById("ec-native-status-row");
   var nativeStatusEl = shadow.getElementById("ec-native-status");
   var nativeSourceRow = shadow.getElementById("ec-native-source-row");
   var nativeSourceSel = shadow.getElementById("ec-native-source");
   var formatSel = shadow.getElementById("ec-format");
+  var bgStyleSel = shadow.getElementById("ec-bg-style");
   var bgInput = shadow.getElementById("ec-bg");
   var composeChk = shadow.getElementById("ec-compose");
   var compositePositionSel = shadow.getElementById("ec-composite-position");
   var hideBubbleChk = shadow.getElementById("ec-hide-bubble");
   var smartCameraChk = shadow.getElementById("ec-smart-camera");
   var smartCameraOptions = shadow.getElementById("ec-smart-camera-options");
+  var smartSlideFocusChk = shadow.getElementById("ec-smart-slide-focus");
+  var smartMouseFocusChk = shadow.getElementById("ec-smart-mouse-focus");
+  var smartClickFocusChk = shadow.getElementById("ec-smart-click-focus");
   var smartCameraStrength = shadow.getElementById("ec-smart-camera-strength");
+  var smartCameraSpeed = shadow.getElementById("ec-smart-camera-speed");
+  var smartCameraHint = shadow.getElementById("ec-smart-camera-hint");
   var sourceModal = shadow.getElementById("ec-source-modal");
   var sourceOptions = shadow.getElementById("ec-source-options");
   var sourceCancel = shadow.getElementById("ec-source-cancel");
@@ -4513,58 +4597,160 @@
   });
 
   var RATIOS = {
+    youtube: [1920, 1080],
+    "wechat-video": [1080, 1920],
+    square: [1080, 1080],
+    slides: [1440, 1080],
     "16:9": [1920, 1080],
     "4:3": [1440, 1080],
     "1:1": [1080, 1080],
     "9:16": [1080, 1920],
     "3:4": [1080, 1440],
   };
+
+  function parseCustomRatio(value) {
+    var match = /^custom:(\d{3,5})x(\d{3,5})$/i.exec(String(value || ""));
+    if (!match) return null;
+    return [
+      clamp(parseInt(match[1], 10) || 1280, 320, 7680),
+      clamp(parseInt(match[2], 10) || 720, 320, 7680),
+    ];
+  }
+
+  function customRecordingSize() {
+    return [
+      clamp(parseInt(customWidthInput && customWidthInput.value, 10) || state.v011.recordingCustomWidth || 1280, 320, 7680),
+      clamp(parseInt(customHeightInput && customHeightInput.value, 10) || state.v011.recordingCustomHeight || 720, 320, 7680),
+    ];
+  }
+
+  function recordingSize() {
+    if (ratioSel.value === "custom") return customRecordingSize();
+    return RATIOS[ratioSel.value] || RATIOS.youtube;
+  }
+
+  function recordingRatioValue() {
+    if (ratioSel.value !== "custom") return ratioSel.value || "youtube";
+    var size = customRecordingSize();
+    return "custom:" + size[0] + "x" + size[1];
+  }
+
   function updateRatio() {
-    var r = RATIOS[ratioSel.value] || [1920, 1080];
+    var r = recordingSize();
     ratioV.textContent = r[0] + "×" + r[1];
+    if (customSizeRow) customSizeRow.style.display = ratioSel.value === "custom" ? "flex" : "none";
   }
   function restoreV011RecordingSettings() {
     var savedScope = state.v011.recordingScope || "screen";
-    var savedRatio = state.v011.recordingRatio || "16:9";
+    var savedRatio = state.v011.recordingRatio || "youtube";
+    var customSize = parseCustomRatio(savedRatio);
     if (Array.prototype.some.call(scopeSel.options, function (option) { return option.value === savedScope; })) {
       scopeSel.value = savedScope;
     }
-    if (Array.prototype.some.call(ratioSel.options, function (option) { return option.value === savedRatio; })) {
+    if (customSize) {
+      state.v011.recordingCustomWidth = customSize[0];
+      state.v011.recordingCustomHeight = customSize[1];
+      if (customWidthInput) customWidthInput.value = String(customSize[0]);
+      if (customHeightInput) customHeightInput.value = String(customSize[1]);
+      ratioSel.value = "custom";
+    } else if (Array.prototype.some.call(ratioSel.options, function (option) { return option.value === savedRatio; })) {
       ratioSel.value = savedRatio;
+    } else if (savedRatio === "16:9") {
+      ratioSel.value = "youtube";
+    } else if (savedRatio === "9:16" || savedRatio === "3:4") {
+      ratioSel.value = "wechat-video";
+    } else if (savedRatio === "1:1") {
+      ratioSel.value = "square";
+    } else if (savedRatio === "4:3") {
+      ratioSel.value = "slides";
     }
     updateRatio();
   }
   ratioSel.addEventListener("change", function () {
     updateRatio();
-    state.v011.recordingRatio = ratioSel.value;
+    state.v011.recordingRatio = recordingRatioValue();
     v011ScheduleSave("recording-ratio");
   });
+  [customWidthInput, customHeightInput].forEach(function (input) {
+    if (!input) return;
+    input.addEventListener("input", function () {
+      var size = customRecordingSize();
+      state.v011.recordingCustomWidth = size[0];
+      state.v011.recordingCustomHeight = size[1];
+      state.v011.recordingRatio = recordingRatioValue();
+      updateRatio();
+      v011ScheduleSave("recording-custom-size");
+    });
+  });
   updateRatio();
+  if (bgStyleSel) bgStyleSel.value = state.settings.backgroundStyle || "warm-gradient";
+  if (bgInput) bgInput.value = state.settings.background || "#f4f1ea";
+  if (bgStyleSel) {
+    bgStyleSel.addEventListener("change", function () {
+      state.settings.backgroundStyle = bgStyleSel.value || "warm-gradient";
+      v011ScheduleSave("recording-background-style");
+    });
+  }
+  if (bgInput) {
+    bgInput.addEventListener("input", function () {
+      state.settings.background = bgInput.value || "#f4f1ea";
+      v011ScheduleSave("recording-background-color");
+    });
+  }
 
   function updateSmartCameraUI() {
-    var supported = scopeSel.value === "canvas" || scopeSel.value === "frame";
-    smartCameraOptions.style.display = smartCameraChk.checked && supported ? "flex" : "none";
-    smartCameraChk.disabled = !supported;
-    smartCameraChk.title = supported
-      ? "录制白板或当前幻灯片时，根据 Frame 和鼠标位置生成平滑镜头"
-      : "整个屏幕/应用窗口由系统直接采集，暂不叠加智能镜头";
-    if (!supported) {
-      smartCameraChk.checked = false;
-      state.smartCamera.enabled = false;
+    var isFrameScope = scopeSel.value === "frame";
+    var isCanvasScope = scopeSel.value === "canvas";
+    var canSlideFocus = isCanvasScope || isFrameScope;
+    smartCameraOptions.style.display = smartCameraChk.checked ? "block" : "none";
+    smartCameraChk.title = "录制时记录事件，录后生成非破坏式镜头轨";
+    if (smartSlideFocusChk) {
+      smartSlideFocusChk.disabled = !canSlideFocus;
+      smartSlideFocusChk.parentElement.title = canSlideFocus
+        ? "根据幻灯片切换生成全景/聚焦镜头"
+        : "屏幕/窗口录制没有 Excalidraw 幻灯片上下文";
+      if (!canSlideFocus) smartSlideFocusChk.checked = false;
+      else smartSlideFocusChk.checked = state.smartCamera.slideFocus !== false;
+      if (canSlideFocus) state.smartCamera.slideFocus = smartSlideFocusChk.checked;
+    }
+    if (smartMouseFocusChk) smartMouseFocusChk.checked = state.smartCamera.mouseFocus !== false;
+    if (smartClickFocusChk) smartClickFocusChk.checked = state.smartCamera.clickFocus !== false;
+    if (smartCameraHint) {
+      smartCameraHint.textContent = canSlideFocus
+        ? "幻灯片聚焦会利用白板 Frame；鼠标智能聚焦会根据停留和点击生成镜头建议。"
+        : "当前为屏幕/窗口录制：保留鼠标智能聚焦；幻灯片聚焦不适用。若浏览器最小化，系统级鼠标轨迹需后续原生增强。";
     }
   }
 
   smartCameraChk.addEventListener("change", function () {
     state.smartCamera.enabled = smartCameraChk.checked;
-    smartCameraOptions.style.display = smartCameraChk.checked ? "flex" : "none";
+    updateSmartCameraUI();
     if (state.smartCamera.enabled) {
-      toast("智能镜头已开启：白板/当前幻灯片录制时会平滑跟随讲解焦点");
+      toast("智能镜头已开启：录后会生成可调整的镜头建议");
     }
     v011ScheduleSave("smart-camera-setting");
+  });
+  [
+    [smartSlideFocusChk, "slideFocus"],
+    [smartMouseFocusChk, "mouseFocus"],
+    [smartClickFocusChk, "clickFocus"],
+  ].forEach(function (entry) {
+    var input = entry[0];
+    var key = entry[1];
+    if (!input) return;
+    input.addEventListener("change", function () {
+      state.smartCamera[key] = input.checked;
+      updateSmartCameraUI();
+      v011ScheduleSave("smart-camera-" + key);
+    });
   });
   smartCameraStrength.addEventListener("change", function () {
     state.smartCamera.strength = smartCameraStrength.value || "gentle";
     v011ScheduleSave("smart-camera-strength");
+  });
+  smartCameraSpeed.addEventListener("change", function () {
+    state.smartCamera.speed = smartCameraSpeed.value || "standard";
+    v011ScheduleSave("smart-camera-speed");
   });
   scopeSel.addEventListener("change", function () {
     state.v011.recordingScope = scopeSel.value;
@@ -4574,6 +4760,7 @@
   restoreV011RecordingSettings();
   smartCameraChk.checked = !!state.smartCamera.enabled;
   smartCameraStrength.value = state.smartCamera.strength || "gentle";
+  smartCameraSpeed.value = state.smartCamera.speed || "standard";
   updateSmartCameraUI();
 
   function cameraDiameterRatio() {
@@ -4743,12 +4930,14 @@
   }
 
   function renderProjectFolderPath() {
-    var pathInput = shadow.getElementById("ec-project-folder-path");
+    var pathDisplay = shadow.getElementById("ec-project-folder-path");
     var chooseButton = shadow.getElementById("ec-project-folder-choose");
-    if (!pathInput) return;
+    if (!pathDisplay) return;
     var displayPath = projectFolderDisplayPath();
-    pathInput.value = displayPath;
-    pathInput.title = displayPath === "未选择" ? "未选择项目文件夹" : displayPath;
+    var value = pathDisplay.querySelector("strong");
+    if (value) value.textContent = displayPath;
+    pathDisplay.title = displayPath === "未选择" ? "未选择项目文件夹" : displayPath;
+    pathDisplay.classList.toggle("ec-empty", displayPath === "未选择");
     if (chooseButton) chooseButton.textContent = "设置项目文件夹…";
   }
 
@@ -4756,9 +4945,9 @@
     updateOutputActions();
     renderProjectFolderPath();
     if (state.rec.projectFolder.mode !== "none") {
-      updateV011ProjectStatus("项目路径已设置：" + projectFolderLabel() + "；请选择打开白板或保存白板。");
+      updateV011ProjectStatus("项目文件夹已设置：" + projectFolderLabel() + "；白板、录制和成片都会写入这里。");
     } else {
-      updateV011ProjectStatus("未选择项目路径；打开与保存均不会写入其他位置。");
+      updateV011ProjectStatus("未设置项目文件夹；打开与保存均不会写入其他位置。");
     }
   }
 
@@ -4775,8 +4964,8 @@
       recOpen.textContent = "播放原始录制";
       recOpen.title = "录制完成后播放原始录制";
     } else if (state.rec.nativeRecordingReady) {
-      recExport.textContent = "显示保存位置";
-      recExport.title = "原始录制已自动保存，点击打开项目文件夹";
+      recExport.textContent = "打开保存位置";
+      recExport.title = "原始录制已自动保存，点击打开保存位置";
       recOpen.textContent = "播放原始录制";
       recOpen.title = "用系统默认播放器播放最后生成的原始录制";
     } else if (state.rec.nativeAvailable) {
@@ -4873,10 +5062,10 @@
         .then(function (folder) {
           setNativeProjectFolder(folder);
           updateProjectFolderStatus();
-          toast("已打开项目文件夹");
+          toast("已在 Finder 中显示项目文件夹");
         })
         .catch(function (error) {
-          toast("打开项目文件夹失败：" + (error.message || error));
+          toast("打开 Finder 失败：" + (error.message || error));
         });
     }
     if (state.rec.projectFolder.handle) {
@@ -5768,6 +5957,52 @@
     );
   }
 
+  function drawRecordingBackground(ctx, W, H) {
+    var color = bgInput.value || "#f4f1ea";
+    var style = bgStyleSel && bgStyleSel.value ? bgStyleSel.value : "warm-gradient";
+    if (style === "solid") {
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, W, H);
+      return;
+    }
+    if (style === "dark") {
+      var dark = ctx.createLinearGradient(0, 0, W, H);
+      dark.addColorStop(0, "#111827");
+      dark.addColorStop(0.55, "#1f2937");
+      dark.addColorStop(1, "#312e81");
+      ctx.fillStyle = dark;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "rgba(129, 140, 248, 0.16)";
+      ctx.beginPath();
+      ctx.arc(W * 0.18, H * 0.16, Math.min(W, H) * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    if (style === "paper") {
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "rgba(120, 113, 108, 0.045)";
+      for (var y = 0; y < H; y += 24) ctx.fillRect(0, y, W, 1);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+      for (var x = 0; x < W; x += 32) ctx.fillRect(x, 0, 1, H);
+      return;
+    }
+    var warm = ctx.createLinearGradient(0, 0, W, H);
+    warm.addColorStop(0, color);
+    warm.addColorStop(0.48, "#f8fafc");
+    warm.addColorStop(1, "#eef2ff");
+    ctx.fillStyle = warm;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(99, 102, 241, 0.12)";
+    ctx.beginPath();
+    ctx.arc(W * 0.82, H * 0.18, Math.min(W, H) * 0.30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(20, 184, 166, 0.10)";
+    ctx.beginPath();
+    ctx.arc(W * 0.18, H * 0.86, Math.min(W, H) * 0.24, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   function cameraRenderSource() {
     var processed = bubble.querySelector("canvas");
     if (processed && processed.width && processed.height) {
@@ -5800,8 +6035,7 @@
     if (needsVideo && !video) return;
     var W = cv.width;
     var H = cv.height;
-    ctx.fillStyle = bgInput.value || "#f4f1ea";
-    ctx.fillRect(0, 0, W, H);
+    drawRecordingBackground(ctx, W, H);
     if (scopeSel.value === "canvas" || scopeSel.value === "frame") {
       if (!drawWhiteboardSource(ctx, W, H, video)) {
         /* fallback: show placeholder if canvas content not available */
@@ -6125,7 +6359,7 @@
     var canvasOrFrame = scope === "canvas" || scope === "frame";
 
     if (scope === "frame" && !activeFrameElement()) {
-      toast("当前白板还没有幻灯片，将改为录制白板画布");
+      toast("当前白板还没有幻灯片，将改为录制白板全景");
     }
 
     /* --- canvas / frame: no screen-share dialog needed --- */
@@ -6134,7 +6368,7 @@
       state.rec.seconds = 0;
       state.rec.paused = false;
 
-      var r = RATIOS[ratioSel.value] || [1920, 1080];
+      var r = recordingSize();
       var cv = document.createElement("canvas");
       cv.width = r[0];
       cv.height = r[1];
@@ -6266,7 +6500,7 @@
           }, { once: true });
         }
         if (useComposedOutput) {
-          var r = RATIOS[ratioSel.value] || [1920, 1080];
+          var r = recordingSize();
           var cv = document.createElement("canvas");
           cv.width = r[0];
           cv.height = r[1];
@@ -6487,17 +6721,17 @@
       var openFolder = bridge.openProjectFolder || bridge.openSaveFolder;
       var openFolderRequest = openFolder
         ? openFolder()
-        : Promise.reject(new Error("桌面录制服务不支持打开项目文件夹"));
+        : Promise.reject(new Error("桌面录制服务不支持打开保存位置"));
       openFolderRequest
         .then(function (folder) {
           setNativeProjectFolder(folder);
           updateProjectFolderStatus();
           recExport.disabled = false;
-          toast("原始录制已保存，已打开项目文件夹");
+          toast("原始录制已保存，已打开保存位置");
         })
         .catch(function (error) {
           recExport.disabled = false;
-          toast("打开项目文件夹失败：" + (error.message || error));
+          toast("打开保存位置失败：" + (error.message || error));
         });
       return;
     }
@@ -6648,14 +6882,20 @@
   }
 
   function updateScriptStatus(message) {
-    if (scriptStatus) scriptStatus.textContent = message || "讲稿只用于提词；逐字稿和字幕在录制后根据真实音频生成。";
+    if (scriptStatus) scriptStatus.textContent = message || "讲稿只用于录制前提词；录后的逐字稿和字幕仍以实际音频为准。";
   }
 
   function applyLoadedV011Project() {
     teleText.value = state.tele.text || "";
     restoreV011RecordingSettings();
+    if (bgInput) bgInput.value = state.settings.background || "#f4f1ea";
+    if (bgStyleSel) bgStyleSel.value = state.settings.backgroundStyle || "warm-gradient";
     smartCameraChk.checked = !!state.smartCamera.enabled;
+    if (smartSlideFocusChk) smartSlideFocusChk.checked = state.smartCamera.slideFocus !== false;
+    if (smartMouseFocusChk) smartMouseFocusChk.checked = state.smartCamera.mouseFocus !== false;
+    if (smartClickFocusChk) smartClickFocusChk.checked = state.smartCamera.clickFocus !== false;
     smartCameraStrength.value = state.smartCamera.strength || "gentle";
+    smartCameraSpeed.value = state.smartCamera.speed || "standard";
     updateSmartCameraUI();
     updateV011ProjectStatus("已载入项目 " + state.v011.projectId + "；录制媒体按项目内相对路径关联。");
   }
@@ -6679,8 +6919,8 @@
 
   projectWhiteboardSaveBtn.addEventListener("click", function () {
     if (!selectedProjectFolderAvailable()) {
-      toast("请先选择项目路径");
-      updateV011ProjectStatus("保存白板失败：尚未选择项目路径。");
+      toast("请先设置项目文件夹");
+      updateV011ProjectStatus("保存白板失败：尚未设置项目文件夹。");
       return;
     }
     var project = v011SaveProject("manual");
@@ -6712,38 +6952,40 @@
       resetCompletedRecordingState();
       applyLoadedV011Project();
       renderProjectFolderPath();
-      updateV011ProjectStatus("新项目路径已设置：" + projectFolderLabel() + "；当前白板和讲稿尚未写入，请点击“保存白板”。");
-      toast("新项目路径已设置；旧项目录制和编辑内容未带入");
+      updateV011ProjectStatus("项目文件夹已设置：" + projectFolderLabel() + "；当前白板和讲稿尚未写入，请点击“保存白板”。");
+      toast("项目文件夹已设置；旧项目录制和编辑内容未带入");
       return true;
     });
   });
-  projectWhiteboardOpenBtn.addEventListener("click", function () {
-    if (state.rec.active || state.countdown.active) {
-      toast("请先停止录制，再打开其他项目");
-      return;
-    }
-    if (!window.confirm("打开项目文件夹可能替换当前画布。未保存的修改可能丢失，是否继续？")) {
-      return;
-    }
-    setProjectActionBusy(projectWhiteboardOpenBtn, true, "打开中…");
-    chooseProjectFolder().then(function (chosen) {
-      if (!chosen) return false;
-      state.rec.projectFolder.loadedOnce = false;
-      state.rec.projectSceneFiles = {};
-      /* Detach the previous project's relative assets before probing the new
-       * folder. A valid manifest replaces this fresh context below; an empty or
-       * incomplete folder can never inherit stale recording paths. */
-      v011BeginProjectAtNewRoot();
-      resetCompletedRecordingState();
-      applyLoadedV011Project();
-      renderProjectFolderPath();
-      var loader = state.rec.projectFolder.mode === "native"
-        ? loadProjectFromNativeFolder
-        : loadProjectFromBrowserFolder;
-      return loader({ initializeIfMissing: false, requireScene: true, explicitOpen: true });
-    })
-      .finally(function () { setProjectActionBusy(projectWhiteboardOpenBtn, false); });
-  });
+  if (projectWhiteboardOpenBtn) {
+    projectWhiteboardOpenBtn.addEventListener("click", function () {
+      if (state.rec.active || state.countdown.active) {
+        toast("请先停止录制，再打开其他项目");
+        return;
+      }
+      if (!window.confirm("读取项目文件夹可能替换当前画布。未保存的修改可能丢失，是否继续？")) {
+        return;
+      }
+      setProjectActionBusy(projectWhiteboardOpenBtn, true, "打开中…");
+      chooseProjectFolder().then(function (chosen) {
+        if (!chosen) return false;
+        state.rec.projectFolder.loadedOnce = false;
+        state.rec.projectSceneFiles = {};
+        /* Detach the previous project's relative assets before probing the new
+         * folder. A valid manifest replaces this fresh context below; an empty or
+         * incomplete folder can never inherit stale recording paths. */
+        v011BeginProjectAtNewRoot();
+        resetCompletedRecordingState();
+        applyLoadedV011Project();
+        renderProjectFolderPath();
+        var loader = state.rec.projectFolder.mode === "native"
+          ? loadProjectFromNativeFolder
+          : loadProjectFromBrowserFolder;
+        return loader({ initializeIfMissing: false, requireScene: true, explicitOpen: true });
+      })
+        .finally(function () { setProjectActionBusy(projectWhiteboardOpenBtn, false); });
+    });
+  }
   projectFolderOpenBtn.addEventListener("click", openProjectFolder);
   projectFileOpenBtn.addEventListener("click", function () {
     projectFileInput.value = "";
@@ -6862,8 +7104,8 @@
     if (!manifest && !scene) {
       if (!options.initializeIfMissing) {
         state.rec.projectFolder.loadedOnce = true;
-        updateV011ProjectStatus("项目路径中尚无可打开的白板；可点击“保存白板”创建完整项目。");
-        if (!options.silent) toast("该项目路径中尚无白板");
+        updateV011ProjectStatus("项目文件夹中尚无可打开的白板；可点击“保存白板”创建完整项目。");
+        if (!options.silent) toast("该项目文件夹中尚无白板");
         return Promise.resolve(false);
       }
       return saveProjectAssets(v011ProjectSnapshot()).then(function () {
@@ -6875,7 +7117,7 @@
     }
     if (options.requireScene && !scene) {
       state.rec.projectFolder.loadedOnce = true;
-      updateV011ProjectStatus("项目路径中没有 scene.excalidraw，当前画布未改变。");
+      updateV011ProjectStatus("项目文件夹中没有 scene.excalidraw，当前画布未改变。");
       if (!options.silent) toast("未找到可打开的白板文件");
       return Promise.resolve(false);
     }
@@ -6962,7 +7204,7 @@
     var segments = state.v011.text.subtitles && Array.isArray(state.v011.text.subtitles.segments)
       ? state.v011.text.subtitles.segments
       : [];
-    scriptStatus.textContent = message || ("讲稿只用于提词；逐字稿和字幕在录制后根据真实音频生成。");
+    scriptStatus.textContent = message || ("讲稿只用于录制前提词；录后的逐字稿和字幕仍以实际音频为准。");
   }
 
   function exportSubtitleTrack() {
@@ -6987,32 +7229,43 @@
     });
   }
 
-  scriptImportBtn.addEventListener("click", function () {
+  function scriptTextFromFile(file, rawText) {
+    var name = (file && file.name || "").toLowerCase();
+    var text = String(rawText || "").replace(/\r\n/g, "\n");
+    var looksLikeSubtitle = /\.(srt|vtt)$/.test(name) || /^WEBVTT/m.test(text) || /^\d+\s*\n\d{2}:\d{2}:/m.test(text);
+    if (!looksLikeSubtitle) return text.trim();
+    var segments = v011ParseSubtitleFile(text);
+    if (!segments.length) return text.trim();
+    return segments.map(function (segment) { return segment.text; }).join("\n").trim();
+  }
+
+  function openScriptImportPicker() {
     scriptImportFileInput.value = "";
     scriptImportFileInput.click();
-  });
+  }
+
+  scriptImportBtn.addEventListener("click", openScriptImportPicker);
   scriptImportFileInput.addEventListener("change", function () {
     var file = scriptImportFileInput.files && scriptImportFileInput.files[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      toast("讲稿文件过大，请选择 2 MB 以内的 SRT/VTT 文件");
+      toast("讲稿文件过大，请选择 2 MB 以内的 md/txt/srt/vtt 文件");
       return;
     }
     var reader = new FileReader();
     reader.onload = function () {
-      var segments = v011ParseSubtitleFile(String(reader.result || ""));
-      if (!segments.length) {
-        updateScriptStatus("未识别到有效讲稿，请检查 SRT/VTT 时间轴格式。");
-        toast("讲稿导入失败：未找到有效时间轴");
+      var text = scriptTextFromFile(file, reader.result);
+      if (!text) {
+        updateScriptStatus("未识别到有效讲稿；请选择 md、txt、srt 或 vtt 文件。");
+        toast("讲稿载入失败：文件没有可用文本");
         return;
       }
-      var text = segments.map(function (segment) { return segment.text; }).join("\n");
       teleText.value = text;
       state.tele.text = text;
       state.v011.text.script.sourceText = text;
       v011SaveProject("script-import");
-      updateScriptStatus("讲稿只用于提词；逐字稿和字幕在录制后根据真实音频生成。");
-      toast("讲稿已导入并保存");
+      updateScriptStatus("已载入讲稿：" + (file.name || "未命名文件") + "。录后逐字稿仍以实际音频为准。");
+      toast("讲稿已载入并保存");
     };
     reader.onerror = function () { toast("讲稿文件读取失败"); };
     reader.readAsText(file);
@@ -7066,13 +7319,7 @@
     v011SaveProject("script-save");
     toast("讲稿已保存，可在后续录制中继续使用");
   });
-  teleLoadScript.addEventListener("click", function () {
-    var project = v011LoadProject();
-    var text = project.text && project.text.script ? project.text.script.sourceText || "" : "";
-    teleText.value = text;
-    state.tele.text = text;
-    toast(text ? "已载入上次保存的讲稿" : "当前没有已保存的讲稿");
-  });
+  teleLoadScript.addEventListener("click", openScriptImportPicker);
   teleSpeed.addEventListener("input", function () {
     state.tele.speed = parseInt(teleSpeed.value, 10);
   });
@@ -7144,10 +7391,19 @@
   document.addEventListener("click", function (ev) {
     if (!state.rec.active) return;
     var point = v011CanvasPoint(ev);
+    var screenScope = scopeSel && scopeSel.value === "screen";
+    var eventPoint = screenScope
+      ? {
+        x: clamp((Number(ev && ev.clientX) || 0) / Math.max(1, window.innerWidth || 1), 0, 1),
+        y: clamp((Number(ev && ev.clientY) || 0) / Math.max(1, window.innerHeight || 1), 0, 1),
+        inside: true,
+      }
+      : point;
     v011RecordEvent("click", {
-      x: Number(point.x.toFixed(4)),
-      y: Number(point.y.toFixed(4)),
-      insideCanvas: point.inside,
+      x: Number(eventPoint.x.toFixed(4)),
+      y: Number(eventPoint.y.toFixed(4)),
+      insideCanvas: screenScope ? true : point.inside,
+      sourceScope: scopeSel ? scopeSel.value : "screen",
       button: Number(ev.button) || 0,
     });
   }, true);

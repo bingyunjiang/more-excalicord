@@ -815,12 +815,20 @@
   }
 
   function renderCameraInspector(target, edit, recording) {
-    target.appendChild(sectionTitle("智能镜头", "Frame 切换优先回到全景，鼠标停留与点击形成平滑聚焦；关键帧可在录后重算。"));
+    var scope = recording && recording.scope || "";
+    var canSlideFocus = scope === "canvas" || scope === "frame";
+    target.appendChild(sectionTitle("智能镜头", "幻灯片聚焦是白板专属；鼠标智能聚焦适用于屏幕、窗口和白板录制，都会写成可编辑镜头轨。"));
     target.appendChild(controlRow("启用镜头轨", checkbox(edit.camera.enabled, "camera.enabled")));
+    var slideFocusBox = checkbox(canSlideFocus && edit.camera.slideFocus !== false, "camera.slideFocus");
+    if (!canSlideFocus) slideFocusBox.disabled = true;
+    target.appendChild(controlRow("幻灯片聚焦", slideFocusBox, canSlideFocus ? "根据幻灯片切换回到全景或聚焦" : "当前录制范围没有幻灯片上下文"));
+    target.appendChild(controlRow("鼠标智能聚焦", checkbox(edit.camera.mouseFocus !== false, "camera.mouseFocus"), "根据停留和移动区域生成镜头建议"));
+    target.appendChild(controlRow("点击时聚焦", checkbox(edit.camera.clickFocus !== false, "camera.clickFocus"), "点击比普通移动拥有更高聚焦优先级"));
     target.appendChild(controlRow("镜头强度", selectControl(edit.camera.strength || "gentle", [["gentle", "轻微"], ["medium", "适中"], ["strong", "明显"]], "camera.strength")));
+    target.appendChild(controlRow("镜头速度", selectControl(edit.camera.speed || "standard", [["slow", "慢"], ["standard", "标准"], ["fast", "快"]], "camera.speed")));
     var buttons = document.createElement("div");
     buttons.className = "ec-editor-button-row";
-    buttons.appendChild(inspectorButton("根据 Frame / 鼠标重算", "generate-camera", true));
+    buttons.appendChild(inspectorButton("重算智能镜头", "generate-camera", true));
     buttons.appendChild(inspectorButton("在当前位置添加关键帧", "add-camera-keyframe", false));
     target.appendChild(buttons);
     var metric = document.createElement("div");
@@ -981,7 +989,7 @@
     var path = input.dataset.setting;
     var value = input.type === "checkbox" ? input.checked : (input.type === "range" ? Number(input.value) : input.value);
     if (path === "camera.enabled") session.store.updateCamera({ enabled: value });
-    else if (path === "camera.strength") session.store.updateCamera({ strength: value });
+    else if (path.indexOf("camera.") === 0) session.store.updateCamera((function () { var patch = {}; patch[path.slice(7)] = value; return patch; })());
     else if (path.indexOf("cursor.") === 0) session.store.updateCursor((function () { var patch = {}; patch[path.slice(7)] = value; return patch; })());
     else if (path.indexOf("webcam.") === 0) session.store.updateWebcam((function () { var patch = {}; patch[path.slice(7)] = value; return patch; })());
     else if (path === "appearance.background") session.store.updateAppearance({ background: value });
@@ -1087,10 +1095,15 @@
       var track = smartCamera.planFromEvents(events, {
         durationMs: recording.durationMs,
         strength: edit.camera.strength,
+        speed: edit.camera.speed || "standard",
+        slideFocus: (recording.scope === "canvas" || recording.scope === "frame") && edit.camera.slideFocus !== false,
+        mouseFocus: edit.camera.mouseFocus !== false,
+        clickFocus: edit.camera.clickFocus !== false,
+        allowOutsideCanvas: recording.scope === "screen",
         initialFrameId: recording.embeddedSession && recording.embeddedSession.initialFrameId,
       });
       session.store.replaceCameraKeyframes(track);
-      showToast("已根据 Frame、鼠标和点击重算镜头轨");
+      showToast("已重算智能镜头轨");
     } else if (action === "add-camera-keyframe") {
       var cameraState = smartCamera.evaluate(edit.camera.keyframes, sourceTimeMs());
       var frames = edit.camera.keyframes.concat([{
@@ -1144,7 +1157,7 @@
       }
       downloadText(JSON.stringify(manifest, null, 2), "composition.excalicord.json", "application/json");
       setSaveState("项目已保存", "saved");
-      showToast("当前项目路径不能直接调用本地渲染；已导出成片配置，原始录制未改动", "warning");
+      showToast("当前项目文件夹不能直接调用本地渲染；已导出成片配置，原始录制未改动", "warning");
       return null;
     }).catch(function (error) {
       setSaveState("导出失败", "error");

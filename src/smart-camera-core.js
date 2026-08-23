@@ -11,6 +11,11 @@
     medium: { scale: 1.38, transitionMs: 430, deadZone: 0.08 },
     strong: { scale: 1.58, transitionMs: 340, deadZone: 0.06 },
   };
+  var SPEEDS = {
+    slow: 1.35,
+    standard: 1,
+    fast: 0.72,
+  };
 
   function finite(value, fallback) {
     var number = Number(value);
@@ -82,11 +87,17 @@
     var config = options && typeof options === "object" ? options : {};
     var strength = typeof config.strength === "string" ? config.strength : "gentle";
     var preset = strengthOptions(strength);
+    var speed = SPEEDS[config.speed] || SPEEDS.standard;
+    var transitionMs = Math.max(120, Math.round(preset.transitionMs * speed));
     var durationMs = Math.max(0, finite(config.durationMs, 0));
     var minIntervalMs = Math.max(150, finite(config.minIntervalMs, 650));
     var frameSettleMs = Math.max(0, finite(config.frameSettleMs, 700));
     var idleReturnMs = Math.max(1000, finite(config.idleReturnMs, 3600));
     var maxKeyframes = Math.max(2, Math.min(5000, finite(config.maxKeyframes, 1200)));
+    var slideFocus = config.slideFocus !== false;
+    var mouseFocus = config.mouseFocus !== false;
+    var clickFocus = config.clickFocus !== false;
+    var allowOutsideCanvas = config.allowOutsideCanvas === true;
     var list = (Array.isArray(events) ? events : []).filter(function (event) {
       return event && (event.type === "pointer" || event.type === "click" || event.type === "frame-change");
     }).map(function (event) {
@@ -117,7 +128,7 @@
         x: 0.5,
         y: 0.5,
         scale: 1,
-        transitionMs: preset.transitionMs,
+        transitionMs: transitionMs,
         source: "auto-idle",
         frameId: currentFrameId,
       }, track.length);
@@ -129,6 +140,7 @@
       if (track.length >= maxKeyframes) return true;
       maybeReturnToOverview(event.timeMs);
       if (event.type === "frame-change") {
+        if (!slideFocus) return false;
         currentFrameId = typeof event.frameId === "string" ? event.frameId : currentFrameId;
         lastFrameAt = event.timeMs;
         var frameKey = normalizeKeyframe({
@@ -136,7 +148,7 @@
           x: 0.5,
           y: 0.5,
           scale: 1,
-          transitionMs: preset.transitionMs,
+          transitionMs: transitionMs,
           source: "auto-frame",
           frameId: currentFrameId,
         }, track.length);
@@ -144,10 +156,12 @@
         lastFocus = frameKey;
         return false;
       }
-      if (event.insideCanvas === false) return false;
+      var isClick = event.type === "click";
+      if (isClick && !clickFocus) return false;
+      if (!isClick && !mouseFocus) return false;
+      if (event.insideCanvas === false && !allowOutsideCanvas) return false;
       if (event.timeMs - lastFrameAt < frameSettleMs) return false;
       var target = { x: clamp(finite(event.x, 0.5), 0, 1), y: clamp(finite(event.y, 0.5), 0, 1) };
-      var isClick = event.type === "click";
       if (!isClick && event.timeMs - lastFocus.timeMs < minIntervalMs) return false;
       if (!isClick && lastFocus.scale > 1 && distance(target, lastFocus) < preset.deadZone) return false;
       var focus = normalizeKeyframe({
@@ -155,7 +169,7 @@
         x: target.x,
         y: target.y,
         scale: preset.scale,
-        transitionMs: isClick ? Math.max(220, preset.transitionMs - 90) : preset.transitionMs,
+        transitionMs: isClick ? Math.max(180, transitionMs - 90) : transitionMs,
         source: isClick ? "auto-click" : "auto-pointer",
         frameId: currentFrameId,
       }, track.length);
@@ -237,6 +251,7 @@
 
   return {
     STRENGTHS: clone(STRENGTHS),
+    SPEEDS: clone(SPEEDS),
     normalizeTrack: normalizeTrack,
     planFromEvents: planFromEvents,
     mergeManualKeyframes: mergeManualKeyframes,
