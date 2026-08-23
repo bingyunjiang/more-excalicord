@@ -1175,11 +1175,11 @@
     '    <div class="ec-row" id="ec-beauty-slim-row" style="display:none"><label>瘦脸</label><input type="range" id="ec-beauty-slim" min="0" max="1" step="0.05" value="0"/><span class="ec-value" id="ec-beauty-slim-v">0</span></div>',
     '    <div class="ec-row" id="ec-beauty-warm-row" style="display:none"><label>肤色冷暖</label><input type="range" id="ec-beauty-warm" min="-1" max="1" step="0.1" value="0"/><span class="ec-value" id="ec-beauty-warm-v">0</span></div>',
     '    <div class="ec-row" id="ec-beauty-sat-row" style="display:none"><label>饱和度</label><input type="range" id="ec-beauty-sat" min="-1" max="1" step="0.1" value="0"/><span class="ec-value" id="ec-beauty-sat-v">0</span></div>',
-    '    <div class="ec-row"><label>补光</label><label class="ec-toggle"><input type="checkbox" id="ec-light-toggle"/> 虚拟补光</label></div>',
+    '    <div class="ec-row"><label>镜头补光</label><label class="ec-toggle"><input type="checkbox" id="ec-light-toggle"/> 增强摄像头亮度</label></div>',
     '    <div class="ec-row" id="ec-light-row" style="display:none"><label>强度</label><input type="range" id="ec-light-intensity" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-light-intensity-v">0.35</span></div>',
-    '    <div class="ec-row"><label>屏幕补光</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 显示屏幕补光圈</label></div>',
+    '    <div class="ec-row"><label>屏幕柔光</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 显示补光圈</label></div>',
     '    <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0" max="1" step="0.05" value="0.55"/><span class="ec-value" id="ec-screen-light-intensity-v">0.55</span></div>',
-    '    <p class="ec-sub" id="ec-screen-light-note" style="display:none;margin:2px 0 0">用于借屏幕柔光照亮人脸；如果录制整个浏览器页面，补光圈也可能进入画面。</p>',
+    '    <p class="ec-sub" id="ec-screen-light-note" style="display:none;margin:2px 0 0">在屏幕上显示柔光圈给人脸补光；录制整个浏览器页面时可能入镜。</p>',
     '    <p class="ec-sub" id="ec-faceapi-status" style="margin:2px 0 0;display:none">人脸检测模型加载中…（本地运行）</p>',
     '    <div class="ec-row"><label>镜像</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-mirror" checked/> 左右翻转</label></div>',
     '    </div>',
@@ -4688,7 +4688,7 @@
   screenLightToggle.addEventListener("change", function () {
     updateScreenLight();
     v011ScheduleSave("screen-light");
-    toast(screenLightToggle.checked ? "屏幕补光圈已开启" : "屏幕补光圈已关闭");
+    toast(screenLightToggle.checked ? "屏幕柔光已开启" : "屏幕柔光已关闭");
   });
   screenLightIntensity.addEventListener("input", function () {
     updateScreenLight();

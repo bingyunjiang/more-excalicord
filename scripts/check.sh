@@ -139,7 +139,10 @@ for recording_panel_contract in \
   'id="ec-cursor-shape"' \
   'id="ec-cursor-sound"' \
   'id="ec-screen-light-toggle"' \
-  '显示屏幕补光圈' \
+  '镜头补光' \
+  '增强摄像头亮度' \
+  '屏幕柔光' \
+  '显示补光圈' \
   '人像优化' \
   '启用调节' \
   '亮肤' \
@@ -154,6 +157,10 @@ for recording_panel_contract in \
 done
 if grep -q '磨皮美白' "$repo_root/src/studio-recorder.js"; then
   echo "beauty toggle label must cover all portrait controls, not only smoothing/whitening"
+  exit 1
+fi
+if grep -qE '虚拟补光|屏幕补光' "$repo_root/src/studio-recorder.js"; then
+  echo "lighting labels must distinguish camera-only fill light from screen soft light"
   exit 1
 fi
 for recording_panel_css in \
