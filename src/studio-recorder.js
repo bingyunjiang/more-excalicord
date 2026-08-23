@@ -193,6 +193,7 @@
    * keeps raw transcript and corrected transcript separate.
    */
   var V011_PROJECT_KEY = "excalicord-v011-project";
+  var SCREEN_LIGHT_PREF_KEY = "excalicord-screen-light-preferences";
   var V011_PROJECT_SCHEMA = 1;
   var PROJECT_FILE_SCHEMA = 2;
 
@@ -384,6 +385,7 @@
     state.camera.screenLightIntensity = Number.isFinite(Number(projectWebcam.screenLightIntensity))
       ? clamp(Number(projectWebcam.screenLightIntensity), 0, 1)
       : 0.55;
+    applyScreenLightPreferences();
     state.settings.background = project.edits && project.edits.appearance && typeof project.edits.appearance.background === "string"
       ? project.edits.appearance.background
       : state.settings.background;
@@ -394,6 +396,36 @@
       ? project.edits.audio.microphoneDeviceId
       : "";
     return project;
+  }
+
+  function readScreenLightPreferences() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(SCREEN_LIGHT_PREF_KEY) || "null");
+      return isPlainObject(raw) ? raw : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function applyScreenLightPreferences() {
+    var prefs = readScreenLightPreferences();
+    if (!prefs) return;
+    if (typeof prefs.enabled === "boolean") state.camera.screenLightEnabled = prefs.enabled;
+    if (Number.isFinite(Number(prefs.intensity))) {
+      state.camera.screenLightIntensity = clamp(Number(prefs.intensity), 0, 1);
+    }
+  }
+
+  function saveScreenLightPreferences() {
+    try {
+      localStorage.setItem(SCREEN_LIGHT_PREF_KEY, JSON.stringify({
+        enabled: !!state.camera.screenLightEnabled,
+        intensity: Number.isFinite(Number(state.camera.screenLightIntensity))
+          ? clamp(Number(state.camera.screenLightIntensity), 0, 1)
+          : 0.55,
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch (err) {}
   }
 
   function v011LoadProject() {
@@ -4033,7 +4065,18 @@
   var screenLight = document.createElement("div");
   screenLight.className = "ec-screen-light";
   screenLight.id = "excalicord-screen-light";
-  screenLight.style.display = "none";
+  Object.assign(screenLight.style, {
+    display: "none",
+    position: "fixed",
+    inset: "0",
+    zIndex: "2147483638",
+    pointerEvents: "none",
+    background:
+      "radial-gradient(circle at 50% 42%, rgba(255,255,255,0.58) 0 14%, rgba(255,248,224,0.38) 22%, rgba(226,232,255,0.22) 36%, rgba(255,255,255,0.12) 52%, transparent 72%)",
+    mixBlendMode: "screen",
+    opacity: "0",
+  });
+  screenLight.hidden = true;
   screenLight.setAttribute("aria-hidden", "true");
   document.body.appendChild(screenLight);
 
@@ -4314,11 +4357,11 @@
     }
     var enabled = !!(state.camera.enabled && state.camera.screenLightEnabled);
     var intensity = clamp(state.camera.screenLightIntensity || 0, 0, 1);
+    screenLight.style.setProperty("--ec-screen-light", String(intensity));
+    screenLight.style.opacity = enabled ? String(intensity) : "0";
     screenLight.style.display = enabled ? "block" : "none";
     screenLight.hidden = !enabled;
     screenLight.setAttribute("aria-hidden", enabled ? "false" : "true");
-    screenLight.style.setProperty("--ec-screen-light", String(intensity));
-    screenLight.style.opacity = enabled ? String(intensity) : "0";
     if (screenLightRow) screenLightRow.style.display = screenLightToggle && screenLightToggle.checked ? "flex" : "none";
     if (screenLightNote) screenLightNote.style.display = screenLightToggle && screenLightToggle.checked ? "block" : "none";
     if (screenLightIntensityV) screenLightIntensityV.textContent = Number(intensity).toFixed(2);
@@ -4687,12 +4730,12 @@
   });
   screenLightToggle.addEventListener("change", function () {
     updateScreenLight();
-    v011ScheduleSave("screen-light");
+    saveScreenLightPreferences();
     toast(screenLightToggle.checked ? "屏幕柔光已开启" : "屏幕柔光已关闭");
   });
   screenLightIntensity.addEventListener("input", function () {
     updateScreenLight();
-    v011ScheduleSave("screen-light-intensity");
+    saveScreenLightPreferences();
   });
   updateScreenLight();
 
