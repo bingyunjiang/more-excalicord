@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://more-excalicord.local/schemas/project-excalicord-v2.schema.json",
+  "title": "more-excalicord project manifest v2",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "projectId",
+    "scene",
+    "text",
+    "recordings",
+    "edits"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "appVersion": { "type": "string" },
+    "projectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "createdAt": { "type": "string" },
+    "updatedAt": { "type": "string" },
+    "scene": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" }
+      },
+      "additionalProperties": false
+    },
+    "text": { "type": "object" },
+    "recordings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/recording" }
+    },
+    "edits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edit" }
+    },
+    "activeRecordingId": { "type": "string" },
+    "activeEditId": { "type": "string" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "asset": {
+      "type": ["object", "null"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "kind": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "bytes": { "type": "number", "minimum": 0 },
+        "baked": { "type": "boolean" }
+      },
+      "required": ["path", "kind", "mimeType", "durationMs", "bytes", "baked"],
+      "additionalProperties": false
+    },
+    "recording": {
+      "type": "object",
+      "required": ["id", "state", "durationMs", "assets", "telemetry"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "state": { "type": "string" },
+        "scope": { "type": "string" },
+        "ratio": { "type": "string" },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "assets": {
+          "type": "object",
+          "required": ["screen", "webcam", "microphone", "systemAudio"],
+          "properties": {
+            "screen": { "$ref": "#/$defs/asset" },
+            "webcam": { "$ref": "#/$defs/asset" },
+            "microphone": { "$ref": "#/$defs/asset" },
+            "systemAudio": { "$ref": "#/$defs/asset" }
+          },
+          "additionalProperties": false
+        },
+        "telemetry": {
+          "type": "object",
+          "required": ["eventsPath", "sessionPath"],
+          "properties": {
+            "eventsPath": { "type": "string" },
+            "sessionPath": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "legacyComposite": { "type": "boolean" },
+        "embeddedSession": { "type": ["object", "null"] },
+        "embeddedEvents": { "type": "array" }
+      },
+      "additionalProperties": false
+    },
+    "cut": {
+      "type": "object",
+      "required": ["id", "startMs", "endMs", "enabled", "origin"],
+      "properties": {
+        "id": { "type": "string" },
+        "startMs": { "type": "number", "minimum": 0 },
+        "endMs": { "type": "number", "minimum": 0 },
+        "enabled": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "origin": { "enum": ["manual", "ai", "recorded"] },
+        "suggestionId": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "edit": {
+      "type": "object",
+      "required": [
+        "id",
+        "recordingId",
+        "timeline",
+        "transcript",
+        "subtitles",
+        "camera",
+        "cursor",
+        "webcam",
+        "annotations",
+        "audio",
+        "appearance",
+        "exportPresets",
+        "suggestions"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "recordingId": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "timeline": {
+          "type": "object",
+          "required": ["durationMs", "cuts", "speedRegions"],
+          "properties": {
+            "durationMs": { "type": "number", "minimum": 0 },
+            "cuts": { "type": "array", "items": { "$ref": "#/$defs/cut" } },
+            "speedRegions": { "type": "array" }
+          },
+          "additionalProperties": false
+        },
+        "transcript": { "type": "object" },
+        "subtitles": { "type": "object" },
+        "camera": { "type": "object" },
+        "cursor": { "type": "object" },
+        "webcam": { "type": "object" },
+        "annotations": { "type": "array" },
+        "audio": { "type": "object" },
+        "appearance": { "type": "object" },
+        "exportPresets": { "type": "object" },
+        "suggestions": { "type": "array" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

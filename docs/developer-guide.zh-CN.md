@@ -8,7 +8,7 @@
         ↓ npm run deploy:local
     本地 Excalidraw 运行目录
 
-本地源码仓库是唯一真相，运行目录只是部署结果。
+本地源码仓库是唯一真相，运行目录只是部署结果。网页模块、渲染服务和 `native/capture-agent/macos/` 都必须先改仓库，再部署；不要把运行目录里的 Capture Agent 当作第二份源码。
 
 ## 正常开发流程
 

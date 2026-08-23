@@ -4,7 +4,7 @@
 
 ## 1. 你需要先知道
 
-more-excalicord 不是独立网页应用。它是给自托管 Excalidraw 增加幻灯片、录制、摄像头、提词器和白板控制能力的本地增强插件。
+more-excalicord 不是独立网页应用。它是给自托管 Excalidraw 增加幻灯片、项目文件、录制、提词器、逐字稿、字幕、非破坏剪辑和成片导出的本地增强插件。
 
 部署前需要准备：
 
@@ -42,6 +42,10 @@ more-excalicord 不是独立网页应用。它是给自托管 Excalidraw 增加�
     npm run configure:local -- --runtime-root /path/to/excalidraw
     npm run preflight
 
+如需根据实际录音自动生成逐字稿，再安装本地 ASR：
+
+    npm run setup:asr
+
 如果预检提示缺少 Node.js、自托管 Excalidraw 目录或写入权限，先处理这些前置条件，再继续部署。
 
 ## 4. 检查源码
@@ -62,7 +66,15 @@ more-excalicord 不是独立网页应用。它是给自托管 Excalidraw 增加�
 
     http://localhost:5001/
 
-右侧或你设置的位置会出现 more-excalicord 悬浮栏。你可以新增幻灯片、打开幻灯片总览、进入白板控制或打开录制面板。
+右侧或你设置的位置会出现 more-excalicord 悬浮栏。第一次使用建议按下面顺序操作：
+
+1. 打开录制面板并选择“设置项目文件夹…”；
+2. 用“保存白板”建立 `project.excalicord.json` 和 `scene.excalidraw`；
+3. 选择录制范围并开始、停止录制；
+4. 点击“进入录后编辑”，处理剪辑、逐字稿、字幕和镜头；
+5. 点击“导出成片”，在项目的 `exports/final.mp4` 查看结果。
+
+“打开项目文件夹…”用于加载完整项目；“打开 Excalidraw 文件…”只打开单个白板，两者不要混用。
 
 ## 7. 用 Codex 等大模型辅助部署
 

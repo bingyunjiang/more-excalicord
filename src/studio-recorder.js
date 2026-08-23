@@ -83,10 +83,17 @@
       nativeAvailable: false,
       nativeOutputPath: "",
       nativeRecordingReady: false,
+      sessionId: "",
+      recordingReadyDispatched: false,
       restoreCameraAfterNative: false,
-      nativeSaveFolder: "",
-      browserSaveDirHandle: null,
-      browserSaveDirName: "",
+      projectFolder: {
+        mode: "none",
+        path: "",
+        name: "",
+        handle: null,
+        loadedOnce: false,
+      },
+      projectSceneFiles: {},
     },
     tele: {
       open: false,
@@ -139,11 +146,13 @@
     },
     v011: {
       projectSchemaVersion: 1,
+      projectV2: null,
       projectId: "",
       session: null,
       recordingScope: "screen",
       recordingRatio: "16:9",
       sessionDirty: false,
+      media: [],
       saveTimer: null,
       text: {
         script: { sourceText: "" },
@@ -166,6 +175,22 @@
    */
   var V011_PROJECT_KEY = "excalicord-v011-project";
   var V011_PROJECT_SCHEMA = 1;
+  var PROJECT_FILE_SCHEMA = 2;
+
+  function editorCoreApi() {
+    return window.ExcalicordEditorCore || null;
+  }
+
+  function requireEditorCore() {
+    var core = editorCoreApi();
+    if (!core || typeof core.normalizeProject !== "function"
+      || typeof core.migrateV1 !== "function"
+      || typeof core.projectV2ToLegacyRuntime !== "function"
+      || typeof core.mergeLegacyRuntimeIntoProjectV2 !== "function") {
+      throw new Error("项目文件需要 EditorCore v2；请刷新页面或检查模块加载顺序");
+    }
+    return core;
+  }
 
   function v011Id(prefix) {
     return prefix + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
@@ -201,24 +226,89 @@
     };
   }
 
-  function v011LoadProject() {
-    var project = v011DefaultProject();
-    try {
-      var raw = JSON.parse(localStorage.getItem(V011_PROJECT_KEY) || "null");
-      if (raw && typeof raw === "object") {
-        project = Object.assign(project, raw);
-        project.text = Object.assign(v011DefaultProject().text, raw.text || {});
-        project.text.script = Object.assign({ sourceText: "" }, (raw.text && raw.text.script) || {});
-        project.text.transcript = Object.assign({ raw: [], corrected: [], corrections: [] }, (raw.text && raw.text.transcript) || {});
-        project.text.subtitles = Object.assign({ segments: [] }, (raw.text && raw.text.subtitles) || {});
-        project.edits = Object.assign(v011DefaultProject().edits, raw.edits || {});
-      }
-    } catch (err) {
-      project = v011DefaultProject();
+  function isPlainObject(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function v011NormalizeProject(raw, strict) {
+    if (!isPlainObject(raw)) {
+      if (strict) throw new Error("项目清单不是有效对象");
+      return v011DefaultProject();
     }
+    if (strict && raw.schemaVersion !== V011_PROJECT_SCHEMA) {
+      throw new Error("不支持的项目版本：" + String(raw.schemaVersion == null ? "未知" : raw.schemaVersion));
+    }
+    if (strict && (typeof raw.projectId !== "string" || !raw.projectId.trim() || raw.projectId.length > 200)) {
+      throw new Error("项目清单缺少有效的 projectId");
+    }
+
+    var project = v011DefaultProject();
+    project.projectId = typeof raw.projectId === "string" && raw.projectId.trim()
+      ? raw.projectId.slice(0, 200)
+      : project.projectId;
+    project.updatedAt = typeof raw.updatedAt === "string" ? raw.updatedAt : project.updatedAt;
+    if (isPlainObject(raw.recording)) {
+      project.recording.scope = typeof raw.recording.scope === "string" ? raw.recording.scope : project.recording.scope;
+      project.recording.ratio = typeof raw.recording.ratio === "string" ? raw.recording.ratio : project.recording.ratio;
+      project.recording.duration = Number(raw.recording.duration || 0);
+      project.recording.media = Array.isArray(raw.recording.media)
+        ? raw.recording.media.filter(function (item) {
+          return isPlainObject(item) && typeof item.path === "string"
+            && /^recordings\/(?:[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/)?[^/]+$/.test(item.path);
+        }).slice(-100).map(function (item) {
+          return {
+            path: item.path,
+            type: typeof item.type === "string" ? item.type : "video/mp4",
+            recordedAt: typeof item.recordedAt === "string" ? item.recordedAt : "",
+            duration: Number(item.duration || 0),
+          };
+        })
+        : [];
+    }
+    project.session = isPlainObject(raw.session) ? raw.session : null;
+    project.events = Array.isArray(raw.events) ? raw.events.slice(-30000) : [];
+
+    var rawText = isPlainObject(raw.text) ? raw.text : {};
+    var rawScript = isPlainObject(rawText.script) ? rawText.script : {};
+    var rawTranscript = isPlainObject(rawText.transcript) ? rawText.transcript : {};
+    var rawSubtitles = isPlainObject(rawText.subtitles) ? rawText.subtitles : {};
+    project.text.script.sourceText = typeof rawScript.sourceText === "string" ? rawScript.sourceText : "";
+    project.text.transcript.raw = Array.isArray(rawTranscript.raw) ? rawTranscript.raw : [];
+    project.text.transcript.corrected = Array.isArray(rawTranscript.corrected) ? rawTranscript.corrected : [];
+    project.text.transcript.corrections = Array.isArray(rawTranscript.corrections) ? rawTranscript.corrections : [];
+    project.text.subtitles.segments = Array.isArray(rawSubtitles.segments) ? rawSubtitles.segments : [];
+    project.text.dictionary = Array.isArray(rawText.dictionary) ? rawText.dictionary : [];
+
+    var rawEdits = isPlainObject(raw.edits) ? raw.edits : {};
+    project.edits.cuts = Array.isArray(rawEdits.cuts) ? rawEdits.cuts : [];
+    project.edits.annotations = Array.isArray(rawEdits.annotations) ? rawEdits.annotations : [];
+    project.edits.audio = isPlainObject(rawEdits.audio) ? rawEdits.audio : {};
+    project.edits.appearance = isPlainObject(rawEdits.appearance) ? rawEdits.appearance : {};
+    var rawCamera = isPlainObject(rawEdits.camera) ? rawEdits.camera : {};
+    project.edits.camera = {
+      enabled: !!rawCamera.enabled,
+      strength: typeof rawCamera.strength === "string" ? rawCamera.strength : "gentle",
+      keyframes: Array.isArray(rawCamera.keyframes) ? rawCamera.keyframes : [],
+    };
+    var rawCursor = isPlainObject(rawEdits.cursor) ? rawEdits.cursor : {};
+    project.edits.cursor = { highlight: rawCursor.highlight !== false };
+    return project;
+  }
+
+  function v011ApplyLegacyRuntime(project) {
+    project = v011NormalizeProject(project, false);
+    state.v011.projectSchemaVersion = V011_PROJECT_SCHEMA;
     state.v011.projectId = project.projectId || v011Id("project");
     state.v011.text = project.text;
     state.v011.session = project.session || null;
+    state.v011.media = project.recording && Array.isArray(project.recording.media)
+      ? project.recording.media.filter(function (item) {
+        return item && typeof item.path === "string"
+          && /^recordings\/(?:[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/)?[^/]+$/.test(item.path);
+      }).map(function (item) {
+        return { path: item.path, type: item.type || "video/mp4", recordedAt: item.recordedAt || "", duration: Number(item.duration || 0) };
+      })
+      : [];
     state.v011.recordingScope = project.recording && project.recording.scope || "screen";
     state.v011.recordingRatio = project.recording && project.recording.ratio || "16:9";
     state.tele.text = project.text.script.sourceText || "";
@@ -230,18 +320,46 @@
     return project;
   }
 
+  function v011LoadProject() {
+    var project = v011DefaultProject();
+    try {
+      var raw = JSON.parse(localStorage.getItem(V011_PROJECT_KEY) || "null");
+      if (raw && typeof raw === "object") project = v011NormalizeProject(raw, false);
+    } catch (err) {
+      project = v011DefaultProject();
+    }
+    return v011ApplyLegacyRuntime(project);
+  }
+
+  function v011BeginProjectAtNewRoot() {
+    /* Choosing a save root is not the same as opening a project. Keep the
+     * current whiteboard in Excalidraw and the draft script, but detach every
+     * project-relative asset from the previous root. Carrying recordings or
+     * edit ids across roots would make the new manifest point at files that do
+     * not exist below the newly selected folder. */
+    var scriptText = state.tele.text || "";
+    var recordingScope = typeof scopeSel !== "undefined" && scopeSel
+      ? scopeSel.value
+      : (state.v011.recordingScope || "screen");
+    var recordingRatio = typeof ratioSel !== "undefined" && ratioSel
+      ? ratioSel.value
+      : (state.v011.recordingRatio || "16:9");
+    var fresh = v011DefaultProject();
+    fresh.text.script.sourceText = scriptText;
+    fresh.recording.scope = recordingScope;
+    fresh.recording.ratio = recordingRatio;
+    state.v011.projectV2 = null;
+    v011ApplyLegacyRuntime(fresh);
+    state.v011.sessionDirty = false;
+    localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(fresh));
+    return fresh;
+  }
+
   function v011ProjectSnapshot() {
     var existing = v011DefaultProject();
     try {
       var raw = JSON.parse(localStorage.getItem(V011_PROJECT_KEY) || "null");
-      if (raw && typeof raw === "object") {
-        existing = Object.assign(existing, raw);
-        existing.text = Object.assign(v011DefaultProject().text, raw.text || {});
-        existing.text.script = Object.assign({ sourceText: "" }, (raw.text && raw.text.script) || {});
-        existing.text.transcript = Object.assign({ raw: [], corrected: [], corrections: [] }, (raw.text && raw.text.transcript) || {});
-        existing.text.subtitles = Object.assign({ segments: [] }, (raw.text && raw.text.subtitles) || {});
-        existing.edits = Object.assign(v011DefaultProject().edits, raw.edits || {});
-      }
+      if (raw && typeof raw === "object") existing = v011NormalizeProject(raw, false);
     } catch (err) {}
     existing.projectId = state.v011.projectId || existing.projectId;
     existing.schemaVersion = V011_PROJECT_SCHEMA;
@@ -253,6 +371,7 @@
     existing.recording.scope = typeof scopeSel !== "undefined" && scopeSel ? scopeSel.value : existing.recording.scope;
     existing.recording.ratio = typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : existing.recording.ratio;
     existing.recording.duration = state.v011.session ? state.v011.session.duration || 0 : existing.recording.duration || 0;
+    existing.recording.media = state.v011.media.slice();
     existing.edits.camera = {
       enabled: !!state.smartCamera.enabled,
       strength: state.smartCamera.strength,
@@ -260,6 +379,49 @@
     };
     existing.edits.cursor = { highlight: !!state.cursor.highlight };
     return existing;
+  }
+
+  function projectFileSnapshot() {
+    var core = requireEditorCore();
+    var legacy = v011ProjectSnapshot();
+    var base = state.v011.projectV2
+      ? core.normalizeProject(state.v011.projectV2)
+      : core.normalizeProject(legacy);
+    if (state.v011.projectV2) {
+      /* Preserve post-editor timeline/edit data while merging new runtime media. */
+      var priorLegacy = core.projectV2ToLegacyRuntime(base);
+      legacy.edits = priorLegacy.edits;
+    }
+    var project = core.mergeLegacyRuntimeIntoProjectV2(base, legacy);
+    project.recordings = (project.recordings || []).map(function (recording) {
+      if (!recording || !recording.assets) return recording;
+      var screen = recording.assets.screen;
+      /* The current recorder emits one mixed/composite asset only. Do not
+       * claim that camera, microphone, or system audio were split out. */
+      recording.assets.webcam = null;
+      recording.assets.microphone = null;
+      recording.assets.systemAudio = null;
+      if (screen && screen.path) {
+        var mediaPath = String(screen.path).replace(/\\/g, "/");
+        var pathParts = mediaPath.split("/");
+        if (pathParts.length === 3 && pathParts[0] === "recordings") {
+          recording.telemetry = Object.assign({}, recording.telemetry, {
+            sessionPath: "recordings/" + pathParts[1] + "/session.json",
+            eventsPath: "recordings/" + pathParts[1] + "/events.json",
+          });
+        }
+        recording.legacyComposite = true;
+        recording.limitations = [
+          "当前原始录制为混合媒体；摄像头、麦克风和系统音频没有独立资产",
+        ];
+      }
+      return recording;
+    });
+    if (project.schemaVersion !== PROJECT_FILE_SCHEMA) {
+      throw new Error("EditorCore 未生成合法的 schema v2 项目文件");
+    }
+    state.v011.projectV2 = project;
+    return project;
   }
 
   function v011SaveProject(reason) {
@@ -275,6 +437,203 @@
       state.v011.sessionDirty = true;
       return null;
     }
+  }
+
+  function v011RecordSavedMedia(fileName, mimeType, duration) {
+    var rawPath = String(fileName || "").replace(/\\/g, "/");
+    var name = rawPath.split("/").pop();
+    if (!name || !/^[^./][^/]*$/.test(name)) return;
+    var path = rawPath.indexOf("recordings/") === 0
+      ? rawPath
+      : "recordings/" + (state.rec.sessionId || "legacy") + "/" + name;
+    if (!/^recordings\/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/(?:[^/]+)$/.test(path)
+      && path !== "recordings/recording.mp4") return;
+    var media = state.v011.media.filter(function (item) { return item && item.path !== path; });
+    media.push({
+      path: path,
+      type: mimeType || "video/mp4",
+      recordedAt: new Date().toISOString(),
+      duration: Number(duration || state.rec.seconds || 0),
+    });
+    state.v011.media = media.slice(-100);
+    state.v011.sessionDirty = true;
+    var project = v011SaveProject("recording-saved");
+    if (project) saveProjectAssets(project).catch(function (error) {
+      updateV011ProjectStatus("原始录制已保存，但项目清单更新失败：" + (error.message || error));
+    });
+  }
+
+  function projectSubtitleSrt() {
+    var segments = state.v011.text.subtitles && state.v011.text.subtitles.segments || [];
+    return segments.map(function (segment, index) {
+      return String(index + 1) + "\n" + v011FormatSubtitleTime(segment.start, ",") + " --> "
+        + v011FormatSubtitleTime(segment.end, ",") + "\n" + segment.text + "\n";
+    }).join("\n");
+  }
+
+  function saveProjectAssetBrowser(path, content) {
+    var root = state.rec.projectFolder.handle;
+    if (!root) return Promise.reject(new Error("未选择项目文件夹"));
+    var parts = path.split("/");
+    var leaf = parts.pop();
+    return Promise.resolve(root.requestPermission ? root.requestPermission({ mode: "readwrite" }) : "granted")
+      .then(function (permission) {
+        if (permission !== "granted") throw new Error("未获得项目文件夹写入权限");
+        return parts.reduce(function (promise, part) {
+          return promise.then(function (dir) { return dir.getDirectoryHandle(part, { create: true }); });
+        }, Promise.resolve(root));
+      })
+      .then(function (dir) { return dir.getFileHandle(leaf, { create: true }); })
+      .then(function (file) { return file.createWritable(); })
+      .then(function (writable) { return writable.write(content).then(function () { return writable.close(); }); });
+  }
+
+  function deleteProjectAssetBrowser(path) {
+    var root = state.rec.projectFolder.handle;
+    if (!root) return Promise.reject(new Error("未选择项目文件夹"));
+    var parts = path.split("/");
+    var leaf = parts.pop();
+    return Promise.resolve(root.requestPermission ? root.requestPermission({ mode: "readwrite" }) : "granted")
+      .then(function (permission) {
+        if (permission !== "granted") throw new Error("未获得项目文件夹写入权限");
+        return parts.reduce(function (promise, part) {
+          return promise.then(function (dir) { return dir.getDirectoryHandle(part, { create: false }); });
+        }, Promise.resolve(root));
+      })
+      .then(function (dir) { return dir.removeEntry(leaf); })
+      .catch(function (error) {
+        if (error && error.name === "NotFoundError") return false;
+        throw error;
+      });
+  }
+
+  function ensureBrowserProjectStructure() {
+    var root = state.rec.projectFolder.handle;
+    if (!root) return Promise.reject(new Error("未选择项目文件夹"));
+    return Promise.resolve(root.requestPermission ? root.requestPermission({ mode: "readwrite" }) : "granted")
+      .then(function (permission) {
+        if (permission !== "granted") throw new Error("未获得项目文件夹写入权限");
+        return root.getDirectoryHandle("recordings", { create: true });
+      });
+  }
+
+  function sanitizeProjectAppState(appState) {
+    if (!isPlainObject(appState)) return {};
+    var clean = {};
+    function copyString(key, allowed) {
+      var value = appState[key];
+      if (typeof value !== "string") return;
+      if (allowed && allowed.indexOf(value) === -1) return;
+      clean[key] = value;
+    }
+    function copyBoolean(key) {
+      if (typeof appState[key] === "boolean") clean[key] = appState[key];
+    }
+    function copyNumber(key) {
+      if (typeof appState[key] === "number" && Number.isFinite(appState[key])) clean[key] = appState[key];
+    }
+    copyString("viewBackgroundColor");
+    copyString("theme", ["light", "dark"]);
+    copyString("name");
+    [
+      "gridModeEnabled", "objectsSnapModeEnabled", "zenModeEnabled", "viewModeEnabled",
+      "exportBackground", "exportEmbedScene", "exportWithDarkMode",
+    ].forEach(copyBoolean);
+    ["gridSize", "gridStep", "scrollX", "scrollY", "exportScale"].forEach(copyNumber);
+    if (isPlainObject(appState.zoom) && typeof appState.zoom.value === "number" && Number.isFinite(appState.zoom.value)) {
+      clean.zoom = { value: appState.zoom.value };
+    }
+    if (isPlainObject(appState.frameRendering)) {
+      clean.frameRendering = {};
+      ["enabled", "clip", "name", "outline"].forEach(function (key) {
+        if (typeof appState.frameRendering[key] === "boolean") clean.frameRendering[key] = appState.frameRendering[key];
+      });
+    }
+    return clean;
+  }
+
+  function projectSceneSnapshot() {
+    var api = getLiveExcalidrawAPI();
+    var elements = readElementsSafe();
+    var appState = readCurrentAppStateSafe();
+    var files = isPlainObject(state.rec.projectSceneFiles) ? state.rec.projectSceneFiles : {};
+    if (api) {
+      try {
+        if (typeof api.getSceneElementsIncludingDeleted === "function") {
+          elements = api.getSceneElementsIncludingDeleted();
+        } else if (typeof api.getSceneElements === "function") {
+          elements = api.getSceneElements();
+        }
+      } catch (err) {}
+      try {
+        if (typeof api.getAppState === "function") appState = api.getAppState();
+      } catch (err) {}
+      try {
+        if (typeof api.getFiles === "function") {
+          var liveFiles = api.getFiles();
+          if (isPlainObject(liveFiles)) files = Object.assign({}, files, liveFiles);
+        }
+      } catch (err) {}
+    }
+    state.rec.projectSceneFiles = files;
+    return {
+      type: "excalidraw",
+      version: 2,
+      source: "excalicord-project",
+      elements: Array.isArray(elements) ? elements : [],
+      appState: sanitizeProjectAppState(appState),
+      files: files,
+    };
+  }
+
+  function saveProjectAssets(project) {
+    var manifest;
+    try {
+      manifest = projectFileSnapshot();
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    var bridge = nativeBridge();
+    var sceneSnapshot = projectSceneSnapshot();
+    var scene = JSON.stringify(sceneSnapshot);
+    var assets = [
+      ["scene.excalidraw", scene],
+    ];
+    var hasSubtitles = !!(state.v011.text.subtitles && state.v011.text.subtitles.segments.length);
+    if (hasSubtitles) {
+      assets.push(["text/subtitles.srt", projectSubtitleSrt()]);
+    }
+    assets.push(["project.excalicord.json", JSON.stringify(manifest, null, 2)]);
+    function writeSequentially(writeAsset) {
+      return assets.reduce(function (promise, asset) {
+        return promise.then(function () { return writeAsset(asset[0], asset[1]); });
+      }, Promise.resolve());
+    }
+    if (state.rec.nativeAvailable && bridge && bridge.writeProjectFile) {
+      var nativeWrite = function (path, content) { return bridge.writeProjectFile(path, content); };
+      var nativeDelete = hasSubtitles || !bridge.deleteProjectFile
+        ? Promise.resolve(true)
+        : bridge.deleteProjectFile("text/subtitles.srt");
+      return nativeDelete
+        .then(function () { return writeSequentially(nativeWrite); })
+        .then(function () {
+          updateV011ProjectStatus("白板及 schema v2 项目内容已保存：" + projectFolderLabel());
+          return sceneSnapshot;
+        });
+    }
+    if (state.rec.projectFolder.handle) {
+      var browserDelete = hasSubtitles
+        ? Promise.resolve(true)
+        : deleteProjectAssetBrowser("text/subtitles.srt");
+      return ensureBrowserProjectStructure()
+        .then(function () { return browserDelete; })
+        .then(function () { return writeSequentially(saveProjectAssetBrowser); })
+        .then(function () {
+          updateV011ProjectStatus("白板及 schema v2 项目内容已保存：" + projectFolderLabel());
+          return sceneSnapshot;
+        });
+    }
+    return Promise.reject(new Error("未选择项目文件夹"));
   }
 
   function v011ScheduleSave(reason) {
@@ -295,7 +654,12 @@
     var session = state.v011.session;
     if (!session || !state.rec.active) return;
     if (state.rec.paused && type !== "pause" && type !== "resume") return;
-    var event = Object.assign({ type: type, t: Number(v011SessionTime().toFixed(3)) }, payload || {});
+    var timeSeconds = Number(v011SessionTime().toFixed(3));
+    var event = Object.assign({
+      type: type,
+      t: timeSeconds,
+      timeMs: Math.max(0, Math.round(timeSeconds * 1000)),
+    }, payload || {});
     session.events.push(event);
     if (session.events.length > 30000) session.events.splice(0, session.events.length - 30000);
     state.v011.sessionDirty = true;
@@ -314,9 +678,11 @@
     state.smartCamera.keyframes = [];
     state.smartCamera.pointerInsideCanvas = false;
     state.smartCamera.renderedCrop = null;
+    state.rec.sessionId = state.rec.sessionId || v011Id("session");
     state.v011.session = {
-      id: v011Id("session"),
+      id: state.rec.sessionId,
       schemaVersion: V011_PROJECT_SCHEMA,
+      clock: { timebase: "recording-start", unit: "ms" },
       startedAt: Date.now(),
       endedAt: 0,
       duration: 0,
@@ -356,13 +722,32 @@
     }
     session.endedAt = Date.now();
     session.duration = Number(v011SessionTime().toFixed(3));
-    session.events.push({ type: "session-stop", t: session.duration, duration: session.duration });
+    session.durationMs = Math.max(0, Math.round(session.duration * 1000));
+    session.events.push({
+      type: "session-stop",
+      t: session.duration,
+      timeMs: session.durationMs,
+      duration: session.duration,
+      durationMs: session.durationMs,
+    });
     state.smartCamera.keyframes = v011BuildCameraTrack(session);
     v011SaveProject("session-stop");
   }
 
   function v011BuildCameraTrack(session) {
     if (!session || !Array.isArray(session.events)) return [];
+    var smartCore = window.ExcalicordSmartCameraCore;
+    if (smartCore && typeof smartCore.planFromEvents === "function") {
+      try {
+        return smartCore.planFromEvents(session.events, {
+          durationMs: Number(session.duration || 0) * 1000,
+          strength: state.smartCamera.strength,
+          initialFrameId: session.initialFrameId || "",
+        });
+      } catch (error) {
+        /* Keep the legacy track builder as a safe fallback if the optional module fails. */
+      }
+    }
     var track = [];
     var lastT = -Infinity;
     var lastFrameId = session.initialFrameId || "";
@@ -547,7 +932,7 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260823v011c";
+  var EC_BUILD_VERSION = "20260823v011q-project-root-isolation";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
@@ -644,26 +1029,24 @@
     '</div>',
     '<div class="ec-panel" role="dialog" aria-label="more-excalicord">',
     '  <h2 class="ec-panel-header"><span class="ec-panel-title">' + panelBrandIcon + '<span>more-excalicord</span></span><button class="ec-panel-collapse" id="ec-panel-collapse" type="button" title="关闭面板（Esc）" aria-label="关闭 more-excalicord 面板，快捷键 Esc">×</button></h2>',
-    '  <p class="ec-sub">白板 + 摄像头 + 提词器，一键录屏成片（本地运行，不上传）</p>',
-    '  <div class="ec-section">',
-    '    <div class="ec-section-title">' + sectionIconTele + "</div>",
-    '    <div class="ec-row"><label>面板</label><button class="ec-btn ec-btn-ghost" id="ec-tele-toggle" style="flex:1">打开提词器</button></div>',
-    '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-tele-hide"/> 录制时隐藏（不入镜）</label></div>',
-    "  </div>",
+    '  <p class="ec-sub">白板 + 摄像头 + 提词器，录制原始素材（本地运行，不上传）</p>',
     '  <div class="ec-section">',
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true">▣</span><span>项目</span></span></div>',
-    '    <div class="ec-row"><label>本地状态</label><button class="ec-btn ec-btn-ghost" id="ec-project-save" style="flex:1">保存</button><button class="ec-btn ec-btn-ghost" id="ec-project-export">导出</button></div>',
-    '    <div class="ec-row"><label>继续编辑</label><button class="ec-btn ec-btn-ghost" id="ec-project-import" style="flex:1">载入项目 JSON</button><input id="ec-project-file" type="file" accept=".json,.excalicord.json,application/json" hidden/></div>',
-    '    <p class="ec-sub" id="ec-project-status">讲稿、事件和智能镜头设置保存在本机浏览器中。</p>',
+    '    <div class="ec-project-path"><label for="ec-project-folder-path">项目路径</label><input id="ec-project-folder-path" type="text" value="未选择" readonly aria-label="当前项目文件夹路径" title="未选择项目文件夹"/></div>',
+    '    <div class="ec-row"><label>项目根</label><button class="ec-btn ec-btn-ghost" id="ec-project-folder-choose" style="flex:1">设置项目文件夹…</button><button class="ec-btn ec-btn-ghost" id="ec-project-folder-open">在 Finder 中显示</button></div>',
+    '    <div class="ec-row"><label>加载</label><button class="ec-btn ec-btn-ghost" id="ec-project-whiteboard-open" style="flex:1">打开项目文件夹…</button><button class="ec-btn ec-btn-ghost" id="ec-project-file-open">打开 Excalidraw 文件…</button></div>',
+    '    <div class="ec-row"><label>保存</label><button class="ec-btn ec-btn-ghost" id="ec-project-whiteboard-save" style="flex:1">保存白板</button><input id="ec-project-file-input" type="file" accept=".excalidraw,application/json" hidden/></div>',
+    '    <p class="ec-sub" id="ec-project-status">先选择项目路径；打开与保存均由你明确执行。</p>',
     "  </div>",
     '  <div class="ec-section">',
-    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-tele" aria-hidden="true">Aa</span><span>文字轨</span></span></div>',
-    '    <div class="ec-row"><label>字幕</label><button class="ec-btn ec-btn-ghost" id="ec-subtitle-import" style="flex:1">导入 SRT/VTT</button><button class="ec-btn ec-btn-ghost" id="ec-subtitle-export">导出 SRT</button><input id="ec-subtitle-file" type="file" accept=".srt,.vtt,text/vtt,text/plain" hidden/></div>',
-    '    <div class="ec-row"><label>提词稿</label><button class="ec-btn ec-btn-ghost" id="ec-subtitle-to-script" style="flex:1">用字幕载入提词器</button></div>',
-    '    <p class="ec-sub" id="ec-subtitle-status">当前 0 条字幕；录后字幕应以实际音频识别为准。</p>',
+    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-tele" aria-hidden="true">Aa</span><span>提词器 / 讲解准备</span></span></div>',
+    '    <div class="ec-row"><label>面板</label><button class="ec-btn ec-btn-ghost" id="ec-tele-toggle" style="flex:1">打开提词器</button></div>',
+    '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-tele-hide"/> 录制时隐藏（不入镜）</label></div>',
+    '    <div class="ec-row"><label>讲稿</label><button class="ec-btn ec-btn-ghost" id="ec-script-import" style="flex:1">从 SRT/VTT 导入讲稿</button><input id="ec-script-import-file" type="file" accept=".srt,.vtt,text/vtt,text/plain" hidden/></div>',
+    '    <p class="ec-sub" id="ec-script-status">讲稿只用于提词；逐字稿和字幕在录制后根据真实音频生成。</p>',
     "  </div>",
     '  <div class="ec-section ec-camera-section">',
-    '    <div class="ec-section-title">' + sectionIconCamera + "</div>",
+    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头与麦克风</span></span></div>',
     '    <div class="ec-row"><label>启用</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-enable"/> 摄像头画中画</label></div>',
     '    <div class="ec-camera-details" id="ec-camera-details" aria-hidden="true" hidden>',
     '    <div class="ec-row"><label>设备</label><select id="ec-cam-device"><option value="">默认摄像头</option></select></div>',
@@ -688,23 +1071,21 @@
     '    <div id="ec-native-status-row" style="display:none"><span id="ec-native-status" class="ec-native-status">检测中…</span></div>',
     '    <div id="ec-native-source-row" style="display:none"><select id="ec-native-source"><option value="display:">自动选择主显示器</option></select></div>',
     '    <div class="ec-row"><label>格式</label><select id="ec-format"><option value="auto">自动（优先 MP4）</option><option value="video/mp4">MP4</option><option value="video/webm">WebM</option></select></div>',
-    '    <div class="ec-row ec-save-folder-row"><label>保存位置</label><button class="ec-btn ec-btn-ghost" id="ec-save-folder-choose" style="flex:1">更改位置</button><button class="ec-btn ec-btn-ghost" id="ec-save-folder-open">打开文件夹</button></div>',
-    '    <p class="ec-sub ec-save-folder-status" id="ec-save-folder-status">桌面录制会自动保存；白板和幻灯片录制按浏览器能力保存或下载。</p>',
     '    <div class="ec-row"><label>背景</label><input type="color" id="ec-bg" value="#f4f1ea"/></div>',
     '    <div class="ec-row"><label>合成</label><label class="ec-toggle"><input type="checkbox" id="ec-compose" title="录制时把摄像头圆框直接合成进视频文件，不依赖屏幕里的气泡位置"/> 摄像头合成进视频</label></div>',
     '    <div class="ec-row" id="ec-composite-position-row"><label>摄像头位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 录制时隐藏屏幕上的气泡（与合成进视频无关）</label></div>',
+    '    <div class="ec-row" id="ec-mic-row"><label>麦克风</label><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
     '    <div class="ec-row"><label>光标</label><label class="ec-toggle"><input type="checkbox" id="ec-cursor-highlight" checked/> 录制中鼠标高亮</label></div>',
     '    <div class="ec-row"><label>智能镜头</label><label class="ec-toggle"><input type="checkbox" id="ec-smart-camera"/> Frame 聚焦 / 跟随鼠标</label></div>',
     '    <div class="ec-row" id="ec-smart-camera-options" style="display:none"><label>镜头强度</label><select id="ec-smart-camera-strength"><option value="gentle">轻微</option><option value="medium">适中</option><option value="strong">明显</option></select></div>',
-    '    <div class="ec-row" id="ec-mic-row"><label>麦克风</label><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
     '    <div class="ec-reccontrols"><span class="ec-rec-indicator" id="ec-indicator"></span><span class="ec-timer" id="ec-timer">00:00</span></div>',
     '    <div class="ec-reccontrols ec-rec-actions">',
     '      <button class="ec-btn ec-btn-success" id="ec-rec-start" title="开始录制（快捷键：' + shortcutLabel("R") + '）" aria-label="开始录制，快捷键 ' + shortcutLabel("R") + '">' + buttonWithShortcut("开始录制", shortcutLabel("R")) + '</button>',
     '      <button class="ec-btn ec-btn-ghost" id="ec-rec-pause" title="暂停或继续录制（快捷键：' + shortcutLabel("P") + '）" aria-label="暂停或继续录制，快捷键 ' + shortcutLabel("P") + '" disabled>' + buttonWithShortcut("暂停", shortcutLabel("P")) + '</button>',
     '      <button class="ec-btn ec-btn-danger" id="ec-rec-stop" title="停止录制（快捷键：' + shortcutLabel("S") + '）" aria-label="停止录制，快捷键 ' + shortcutLabel("S") + '" disabled>' + buttonWithShortcut("停止", shortcutLabel("S")) + '</button>',
     "    </div>",
-    '    <div class="ec-row ec-export-row" style="margin-top:4px"><label style="flex:0 0 auto">成片</label><button class="ec-btn ec-btn-ghost" id="ec-export" style="flex:1">保存/下载</button><button class="ec-btn ec-btn-ghost" id="ec-export-open">打开成片</button></div>',
+    '    <div class="ec-row ec-export-row" style="margin-top:4px"><label style="flex:0 0 auto">原始录制</label><button class="ec-btn ec-btn-ghost" id="ec-export" style="flex:1">保存录制</button><button class="ec-btn ec-btn-ghost" id="ec-export-open">播放原始录制</button></div>',
     "  </div>",
     "</div>",
     '<div class="ec-toast" id="ec-toast"></div>',
@@ -4112,9 +4493,6 @@
   var nativeSourceRow = shadow.getElementById("ec-native-source-row");
   var nativeSourceSel = shadow.getElementById("ec-native-source");
   var formatSel = shadow.getElementById("ec-format");
-  var saveFolderChoose = shadow.getElementById("ec-save-folder-choose");
-  var saveFolderOpen = shadow.getElementById("ec-save-folder-open");
-  var saveFolderStatus = shadow.getElementById("ec-save-folder-status");
   var bgInput = shadow.getElementById("ec-bg");
   var composeChk = shadow.getElementById("ec-compose");
   var compositePositionSel = shadow.getElementById("ec-composite-position");
@@ -4280,6 +4658,23 @@
     resetSavedOutputMarkers();
   }
 
+  function dispatchRecordingReady(fileName, duration) {
+    var relativePath = recordingRelativePath(fileName);
+    var name = String(relativePath || "").split(/[\\/]/).pop();
+    if (!name || state.rec.recordingReadyDispatched) return;
+    state.rec.recordingReadyDispatched = true;
+    window.dispatchEvent(new CustomEvent("excalicord:recording-ready", {
+      detail: {
+        projectId: state.v011.projectId,
+        sessionId: state.rec.sessionId || "",
+        mediaPath: relativePath,
+        fileName: name,
+        duration: Number(duration || state.rec.seconds || 0),
+        durationMs: Number(duration || state.rec.seconds || 0) * 1000,
+      },
+    }));
+  }
+
   function resetCompletedRecordingState() {
     state.rec.chunks = [];
     state.rec.lastBlob = null;
@@ -4291,6 +4686,8 @@
     state.rec.usingDirectDisplay = false;
     state.rec.nativeRecordingReady = false;
     state.rec.nativeOutputPath = "";
+    state.rec.sessionId = v011Id("session");
+    state.rec.recordingReadyDispatched = false;
     state.rec.lastExt = "webm";
     state.rec.lastMime = "video/webm";
     timerEl.textContent = "00:00";
@@ -4308,25 +4705,61 @@
     return path;
   }
 
-  function currentRecordingUsesBrowserSave() {
-    return !state.rec.nativeAvailable;
+  function setNativeProjectFolder(folder) {
+    var path = folder && folder.path ? folder.path : "";
+    if (state.rec.projectFolder.mode !== "native" || state.rec.projectFolder.path !== path) {
+      state.rec.projectFolder.loadedOnce = false;
+      state.rec.projectSceneFiles = {};
+    }
+    state.rec.projectFolder.mode = path ? "native" : "none";
+    state.rec.projectFolder.path = path;
+    state.rec.projectFolder.name = path ? shortPath(path) : "";
+    state.rec.projectFolder.handle = null;
   }
 
-  function updateSaveFolderStatus() {
-    var usesBrowser = currentRecordingUsesBrowserSave();
-    var browserLabel = state.rec.browserSaveDirName
-      ? "浏览器录制：点击「保存/下载」会保存到 " + state.rec.browserSaveDirName
-      : (window.showDirectoryPicker
-        ? "浏览器录制：可先更改位置；未设置时使用浏览器下载"
-        : "浏览器录制：当前浏览器不支持直存，将使用浏览器下载");
-    var nativeLabel = state.rec.nativeSaveFolder
-      ? "保存位置：" + shortPath(state.rec.nativeSaveFolder) + "；白板、幻灯片和桌面成片优先保存到这里"
-      : (state.rec.nativeAvailable
-        ? "桌面录制：正在读取保存位置…"
-        : "桌面录制：保存服务未连接");
-    saveFolderStatus.textContent = usesBrowser ? browserLabel : nativeLabel;
-    saveFolderOpen.disabled = !state.rec.nativeAvailable && !state.rec.browserSaveDirHandle;
+  function setBrowserProjectFolder(handle) {
+    if (state.rec.projectFolder.mode !== "browser" || state.rec.projectFolder.handle !== handle) {
+      state.rec.projectFolder.loadedOnce = false;
+      state.rec.projectSceneFiles = {};
+    }
+    state.rec.projectFolder.mode = handle ? "browser" : "none";
+    state.rec.projectFolder.path = "";
+    state.rec.projectFolder.name = handle && handle.name ? handle.name : "";
+    state.rec.projectFolder.handle = handle || null;
+  }
+
+  function projectFolderLabel() {
+    return state.rec.projectFolder.name || shortPath(state.rec.projectFolder.path) || "未选择";
+  }
+
+  function projectFolderDisplayPath() {
+    if (state.rec.projectFolder.mode === "native" && state.rec.projectFolder.path) {
+      return state.rec.projectFolder.path;
+    }
+    if (state.rec.projectFolder.mode === "browser" && state.rec.projectFolder.name) {
+      return state.rec.projectFolder.name + "（浏览器授权目录）";
+    }
+    return "未选择";
+  }
+
+  function renderProjectFolderPath() {
+    var pathInput = shadow.getElementById("ec-project-folder-path");
+    var chooseButton = shadow.getElementById("ec-project-folder-choose");
+    if (!pathInput) return;
+    var displayPath = projectFolderDisplayPath();
+    pathInput.value = displayPath;
+    pathInput.title = displayPath === "未选择" ? "未选择项目文件夹" : displayPath;
+    if (chooseButton) chooseButton.textContent = "设置项目文件夹…";
+  }
+
+  function updateProjectFolderStatus() {
     updateOutputActions();
+    renderProjectFolderPath();
+    if (state.rec.projectFolder.mode !== "none") {
+      updateV011ProjectStatus("项目路径已设置：" + projectFolderLabel() + "；请选择打开白板或保存白板。");
+    } else {
+      updateV011ProjectStatus("未选择项目路径；打开与保存均不会写入其他位置。");
+    }
   }
 
   function hasCompletedRecording() {
@@ -4337,143 +4770,232 @@
     var hasMovie = hasCompletedRecording();
     var active = !!state.rec.active;
     if (!hasMovie) {
-      recExport.textContent = "保存/下载";
-      recExport.title = "录制完成后可保存或下载成片";
-      recOpen.textContent = "打开成片";
-      recOpen.title = "录制完成后可打开成片";
+      recExport.textContent = "保存录制";
+      recExport.title = "将原始录制保存到项目文件夹的 recordings 子文件夹";
+      recOpen.textContent = "播放原始录制";
+      recOpen.title = "录制完成后播放原始录制";
     } else if (state.rec.nativeRecordingReady) {
-      recExport.textContent = "显示位置";
-      recExport.title = "桌面录制已自动保存，点击打开保存文件夹";
-      recOpen.textContent = "打开成片";
-      recOpen.title = "用系统默认播放器打开最后生成的 MP4";
+      recExport.textContent = "显示保存位置";
+      recExport.title = "原始录制已自动保存，点击打开项目文件夹";
+      recOpen.textContent = "播放原始录制";
+      recOpen.title = "用系统默认播放器播放最后生成的原始录制";
     } else if (state.rec.nativeAvailable) {
-      recExport.textContent = "保存成片";
-      recExport.title = "保存到 more-excalicord 预设文件夹；同一段重复保存会覆盖";
-      recOpen.textContent = "打开成片";
-      recOpen.title = "先保存到预设文件夹，再用系统默认播放器打开";
-    } else if (state.rec.browserSaveDirHandle) {
-      recExport.textContent = "保存成片";
-      recExport.title = "保存到已选择的浏览器直存文件夹";
-      recOpen.textContent = "打开成片";
-      recOpen.title = "后台不可用时只能在新标签页预览";
+      recExport.textContent = "保存录制";
+      recExport.title = "保存到项目文件夹的 recordings 子文件夹；同一段重复保存会覆盖";
+      recOpen.textContent = "播放原始录制";
+      recOpen.title = "先保存原始录制，再用系统默认播放器播放";
+    } else if (state.rec.projectFolder.handle) {
+      recExport.textContent = "保存录制";
+      recExport.title = "保存到项目文件夹的 recordings 子文件夹";
+      recOpen.textContent = "播放原始录制";
+      recOpen.title = "后台不可用时只能在新标签页播放原始录制";
     } else {
-      recExport.textContent = "下载成片";
-      recExport.title = "使用浏览器下载最后生成的成片";
-      recOpen.textContent = "打开成片";
-      recOpen.title = "后台不可用时只能在新标签页预览";
+      recExport.textContent = "保存录制";
+      recExport.title = "请先在项目区选择项目文件夹";
+      recOpen.textContent = "播放原始录制";
+      recOpen.title = "后台不可用时只能在新标签页播放原始录制";
     }
     recExport.disabled = active;
     recOpen.disabled = active || !hasMovie;
   }
 
-  function refreshSaveFolderStatus() {
+  function refreshProjectFolderStatus() {
     var bridge = nativeBridge();
-    if (!bridge || !state.rec.nativeAvailable || !bridge.saveFolder) {
-      updateSaveFolderStatus();
+    var reader = bridge && (bridge.projectFolder || bridge.saveFolder);
+    if (!bridge || !state.rec.nativeAvailable || !reader) {
+      updateProjectFolderStatus();
       return Promise.resolve(false);
     }
-    return bridge.saveFolder()
+    return reader()
       .then(function (folder) {
-        state.rec.nativeSaveFolder = folder && folder.path ? folder.path : "";
-        updateSaveFolderStatus();
+        setNativeProjectFolder(folder);
+        updateProjectFolderStatus();
         return true;
       })
       .catch(function () {
-        updateSaveFolderStatus();
+        updateProjectFolderStatus();
         return false;
       });
   }
 
   function chooseBrowserSaveFolder() {
     if (!window.showDirectoryPicker) {
-      toast("当前浏览器不支持直接保存到指定文件夹，将使用浏览器下载");
+      toast("当前浏览器不支持项目文件夹，请使用支持 showDirectoryPicker 的浏览器或桌面录制服务");
       return Promise.resolve(false);
     }
     return window.showDirectoryPicker({ mode: "readwrite" })
       .then(function (handle) {
-        state.rec.browserSaveDirHandle = handle;
-        state.rec.browserSaveDirName = handle.name || "已选择文件夹";
-        updateSaveFolderStatus();
-        toast("已设置浏览器直存文件夹：" + state.rec.browserSaveDirName);
+        setBrowserProjectFolder(handle);
+        updateProjectFolderStatus();
+        toast("已设置项目文件夹：" + projectFolderLabel());
         return true;
       })
       .catch(function (error) {
         if (error && error.name !== "AbortError") {
-          toast("选择浏览器保存文件夹失败：" + (error.message || error));
+          toast("选择浏览器项目文件夹失败：" + (error.message || error));
         }
-        updateSaveFolderStatus();
+        updateProjectFolderStatus();
         return false;
       });
   }
 
-  function chooseSaveFolder() {
-    if (currentRecordingUsesBrowserSave()) {
-      return chooseBrowserSaveFolder();
-    }
+  function chooseProjectFolder() {
     var bridge = nativeBridge();
-    if (!bridge || !state.rec.nativeAvailable || !bridge.chooseSaveFolder) {
+    var chooser = bridge && (bridge.chooseProjectFolder || bridge.chooseSaveFolder);
+    if (!bridge || !state.rec.nativeAvailable || !chooser) {
       return chooseBrowserSaveFolder();
     }
-    saveFolderChoose.disabled = true;
-    saveFolderStatus.textContent = "正在选择桌面录制保存文件夹…";
-    return bridge.chooseSaveFolder()
+    updateV011ProjectStatus("正在选择项目文件夹…");
+    return chooser()
       .then(function (folder) {
-        state.rec.nativeSaveFolder = folder && folder.path ? folder.path : "";
-        updateSaveFolderStatus();
-        toast("桌面录制将直接保存到：" + shortPath(state.rec.nativeSaveFolder));
+        if (folder && folder.cancelled) {
+          updateV011ProjectStatus("已取消选择项目文件夹");
+          return false;
+        }
+        setNativeProjectFolder(folder);
+        updateProjectFolderStatus();
+        toast("已设置项目文件夹：" + projectFolderLabel());
         return true;
       })
       .catch(function (error) {
         var message = error && error.message ? error.message : String(error || "");
-        if (!/cancel/i.test(message)) toast("选择桌面录制保存文件夹失败：" + message);
-        updateSaveFolderStatus();
+        if (!/cancel/i.test(message)) toast("选择项目文件夹失败：" + message);
+        updateProjectFolderStatus();
         return false;
-      })
-      .finally(function () {
-        saveFolderChoose.disabled = false;
       });
   }
 
-  function openSaveFolder() {
+  function openProjectFolder() {
     var bridge = nativeBridge();
-    if (bridge && state.rec.nativeAvailable && bridge.openSaveFolder) {
-      return bridge.openSaveFolder()
+    var opener = bridge && (bridge.openProjectFolder || bridge.openSaveFolder);
+    if (bridge && state.rec.nativeAvailable && opener) {
+      return opener()
         .then(function (folder) {
-          state.rec.nativeSaveFolder = folder && folder.path ? folder.path : state.rec.nativeSaveFolder;
-          updateSaveFolderStatus();
-          toast("已打开后台保存文件夹");
+          setNativeProjectFolder(folder);
+          updateProjectFolderStatus();
+          toast("已打开项目文件夹");
         })
         .catch(function (error) {
-          toast("打开后台保存文件夹失败：" + (error.message || error));
+          toast("打开项目文件夹失败：" + (error.message || error));
         });
     }
-    if (state.rec.browserSaveDirHandle) {
-      toast("浏览器直存目录已设置：" + state.rec.browserSaveDirName + "；浏览器不允许直接打开系统文件夹");
+    if (state.rec.projectFolder.handle) {
+      toast("项目文件夹已设置：" + projectFolderLabel() + "；浏览器不允许直接唤起系统文件管理器");
     } else {
-      chooseBrowserSaveFolder();
+      toast("请先设置项目文件夹；浏览器不允许直接唤起系统文件管理器");
     }
     return Promise.resolve(false);
   }
 
+  function recordingRelativePath(filePath, fileName) {
+    var raw = String(filePath || "").replace(/\\/g, "/");
+    var marker = raw.indexOf("/recordings/");
+    if (marker >= 0) raw = raw.slice(marker + 1);
+    if (raw.indexOf("recordings/") === 0) return raw;
+    var name = String(fileName || raw).split("/").pop();
+    return "recordings/" + (state.rec.sessionId || "legacy") + "/" + name;
+  }
+
+  function sessionMetadataPayload() {
+    var session = state.v011.session || {};
+    return {
+      schemaVersion: 1,
+      sessionId: state.rec.sessionId || session.id || "",
+      clock: { timebase: "recording-start", unit: "ms" },
+      startedAt: session.startedAt || null,
+      endedAt: session.endedAt || null,
+      durationMs: Number(session.durationMs || Math.round(Number(session.duration || 0) * 1000)),
+      scope: session.scope || state.v011.recordingScope || "screen",
+      ratio: session.ratio || state.v011.recordingRatio || "16:9",
+      initialFrameId: session.initialFrameId || "",
+    };
+  }
+
+  function eventsMetadataPayload() {
+    var events = state.v011.session && Array.isArray(state.v011.session.events)
+      ? state.v011.session.events
+      : [];
+    return {
+      schemaVersion: 1,
+      sessionId: state.rec.sessionId || (state.v011.session && state.v011.session.id) || "",
+      clock: { timebase: "recording-start", unit: "ms" },
+      events: events.map(function (event) {
+        var copy = Object.assign({}, event);
+        copy.timeMs = Number.isFinite(Number(copy.timeMs))
+          ? Math.max(0, Math.round(Number(copy.timeMs)))
+          : Math.max(0, Math.round(Number(copy.t || 0) * 1000));
+        delete copy.t;
+        return copy;
+      }),
+    };
+  }
+
+  function writeRecordingMetadata(relativePath) {
+    var parts = String(relativePath || "").split("/");
+    if (parts.length !== 3 || parts[0] !== "recordings" || !parts[1]) {
+      return Promise.resolve({ ok: true, legacy: true });
+    }
+    var assets = [
+      ["recordings/" + parts[1] + "/session.json", JSON.stringify(sessionMetadataPayload(), null, 2)],
+      ["recordings/" + parts[1] + "/events.json", JSON.stringify(eventsMetadataPayload(), null, 2)],
+    ];
+    var bridge = nativeBridge();
+    if (state.rec.projectFolder.mode === "native") {
+      if (!bridge || typeof bridge.writeProjectFile !== "function") {
+        return Promise.reject(new Error("Native 会话元数据写入服务不可用"));
+      }
+      return assets.reduce(function (promise, asset) {
+        return promise.then(function () { return bridge.writeProjectFile(asset[0], asset[1]); });
+      }, Promise.resolve()).then(function () { return { ok: true }; });
+    }
+    if (state.rec.projectFolder.handle) {
+      return assets.reduce(function (promise, asset) {
+        return promise.then(function () { return saveProjectAssetBrowser(asset[0], asset[1]); });
+      }, Promise.resolve()).then(function () { return { ok: true }; });
+    }
+    return Promise.resolve({ ok: true, localOnly: true });
+  }
+
+  function finalizeSavedRecording(filePath, fileName, mimeType, duration) {
+    var relativePath = recordingRelativePath(filePath, fileName);
+    v011RecordSavedMedia(relativePath, mimeType, duration);
+    return writeRecordingMetadata(relativePath).then(function (result) {
+      dispatchRecordingReady(relativePath, duration);
+      return result;
+    });
+  }
+
   function saveBlobToBrowserFolder(blob, fileName) {
-    if (!state.rec.browserSaveDirHandle) return Promise.resolve(false);
+    var root = state.rec.projectFolder.handle;
+    if (!root) return Promise.resolve(false);
     var overwritten = false;
+    var recordingsHandle;
+    var sessionHandle;
+    var relativePath = "recordings/" + (state.rec.sessionId || "legacy") + "/" + fileName;
     return Promise.resolve()
       .then(function () {
-        return state.rec.browserSaveDirHandle.requestPermission
-          ? state.rec.browserSaveDirHandle.requestPermission({ mode: "readwrite" })
+        return root.requestPermission
+          ? root.requestPermission({ mode: "readwrite" })
           : "granted";
       })
       .then(function (permission) {
         if (permission !== "granted") throw new Error("未获得文件夹写入权限");
-        return state.rec.browserSaveDirHandle.getFileHandle(fileName, { create: false })
+        return root.getDirectoryHandle("recordings", { create: true });
+      })
+      .then(function (dir) {
+        recordingsHandle = dir;
+        return recordingsHandle.getDirectoryHandle(state.rec.sessionId || "legacy", { create: true });
+      })
+      .then(function (dir) {
+        sessionHandle = dir;
+        return sessionHandle.getFileHandle(fileName, { create: false })
           .then(function (fileHandle) {
             overwritten = true;
             return fileHandle;
           })
           .catch(function () {
             overwritten = false;
-            return state.rec.browserSaveDirHandle.getFileHandle(fileName, { create: true });
+            return sessionHandle.getFileHandle(fileName, { create: true });
           });
       })
       .then(function (fileHandle) { return fileHandle.createWritable(); })
@@ -4482,10 +5004,11 @@
       })
       .then(function () {
         state.rec.lastSavedFileName = fileName;
-        state.rec.lastSavedPath = state.rec.browserSaveDirName ? state.rec.browserSaveDirName + "/" + fileName : fileName;
+        state.rec.lastSavedPath = projectFolderLabel() + "/" + relativePath;
         state.rec.lastSavedViaNative = false;
         state.rec.lastSavedToBrowserFolder = true;
-        return { ok: true, fileName: fileName, overwritten: overwritten };
+        return finalizeSavedRecording(relativePath, fileName, (blob && blob.type) || state.rec.lastMime, state.rec.seconds)
+          .then(function () { return { ok: true, fileName: fileName, path: relativePath, overwritten: overwritten }; });
       });
   }
 
@@ -4494,13 +5017,19 @@
     if (!bridge || !state.rec.nativeAvailable || !bridge.saveBrowserRecording) {
       return Promise.resolve(null);
     }
-    return bridge.saveBrowserRecording(blob, fileName)
+    var agentFileName = (state.rec.sessionId || "legacy") + "/" + fileName;
+    return bridge.saveBrowserRecording(blob, agentFileName)
       .then(function (saved) {
         state.rec.lastSavedPath = saved && saved.path ? saved.path : state.rec.lastSavedPath;
-        state.rec.lastSavedFileName = saved && saved.fileName ? saved.fileName : fileName;
+        state.rec.lastSavedFileName = saved && saved.fileName ? saved.fileName.split("/").pop() : fileName;
         state.rec.lastSavedViaNative = true;
         state.rec.lastSavedToBrowserFolder = false;
-        return saved;
+        return finalizeSavedRecording(
+          saved && (saved.path || saved.fileName) || state.rec.lastSavedPath,
+          state.rec.lastSavedFileName || fileName,
+          (blob && blob.type) || state.rec.lastMime,
+          state.rec.seconds,
+        ).then(function () { return saved; });
       });
   }
 
@@ -4690,7 +5219,7 @@
       if (lastWindowSourceValue) nativeSourceSel.value = lastWindowSourceValue;
     }
     renderSourcePickerOptions();
-    updateSaveFolderStatus();
+    updateProjectFolderStatus();
   }
 
   function currentModeSourceOptions() {
@@ -4931,8 +5460,8 @@
               : "已连接 · 浏览器可最小化"
             : "桌面录制服务尚未就绪",
         );
-        if (ready) refreshSaveFolderStatus();
-        else updateSaveFolderStatus();
+        if (ready) refreshProjectFolderStatus();
+        else updateProjectFolderStatus();
         if (ready && (health.state === "recording" || health.state === "paused")) {
           return bridge.status().then(function (status) {
             state.rec.nativeActive = true;
@@ -4955,9 +5484,9 @@
   }
 
   scopeSel.addEventListener("change", updateNativeRows);
-  scopeSel.addEventListener("change", updateSaveFolderStatus);
+  scopeSel.addEventListener("change", updateProjectFolderStatus);
   updateNativeRows();
-  updateSaveFolderStatus();
+  updateProjectFolderStatus();
   refreshNativeEngine(false);
 
   function pickMimeType() {
@@ -5510,6 +6039,7 @@
     bridge.start({
       sourceType: sourceType,
       sourceId: sourceId,
+      sessionId: state.rec.sessionId,
       cameraEnabled: nativeCameraComposite,
       microphoneEnabled: true,
       cameraX: compositeCenter.x,
@@ -5551,6 +6081,12 @@
 
   function startRecording() {
     if (state.countdown.active || state.rec.active) return;
+    if (!selectedProjectFolderAvailable()) {
+      setPanelOpen(true);
+      updateV011ProjectStatus("开始录制前请先设置项目文件夹；本次录制及附带内容都会保存到该目录。");
+      toast("请先设置项目文件夹，再开始录制");
+      return;
+    }
     if (scopeSel.value !== "screen") {
       startBrowserRecording();
       return;
@@ -5654,8 +6190,9 @@
         timerEl.textContent = fmtTime(state.rec.seconds);
         bubble.style.visibility = "visible";
         tele.style.visibility = "visible";
+        updateV011ProjectStatus("原始录制已就绪；可保存录制或播放原始录制。");
         updateOutputActions();
-        toast("录制完成（" + ext.toUpperCase() + "），可保存或打开成片");
+        toast("原始录制已就绪（" + ext.toUpperCase() + "），可保存录制或播放");
       };
       recorder.start(1000);
       state.rec.recorder = recorder;
@@ -5791,8 +6328,9 @@
           stopComposeLoop();
           bubble.style.visibility = "visible";
           tele.style.visibility = "visible";
+          updateV011ProjectStatus("原始录制已就绪；可保存录制或播放原始录制。");
           updateOutputActions();
-          toast("录制完成（" + ext.toUpperCase() + "），可保存或打开成片");
+          toast("原始录制已就绪（" + ext.toUpperCase() + "），可保存录制或播放");
         };
         recorder.start(1000);
         state.rec.recorder = recorder;
@@ -5871,13 +6409,17 @@
         state.rec.paused = false;
         state.rec.nativeRecordingReady = !!(status && status.outputPath);
         state.rec.nativeOutputPath = (status && status.outputPath) || state.rec.nativeOutputPath || "";
+        if (state.rec.nativeRecordingReady) {
+          finalizeSavedRecording(state.rec.nativeOutputPath, state.rec.nativeOutputPath.split("/").pop(), "video/mp4", state.rec.seconds)
+            .catch(function (metadataError) { toast("会话元数据未保存：" + (metadataError.message || metadataError)); });
+        }
         setRecUI(false, false);
         tele.style.visibility = "visible";
         nativeStatusEl.textContent = state.rec.nativeRecordingReady
-          ? "录制已停止 · 已保存 MP4"
+          ? "原始录制已停止 · 已保存 MP4"
           : "当前没有桌面录制 · 已重置";
         toast(state.rec.nativeRecordingReady
-          ? "桌面录制已停止，已保存到预设文件夹"
+          ? "原始录制已停止，已保存到项目文件夹"
           : "当前没有桌面录制，已重置录制状态");
         if (state.rec.restoreCameraAfterNative && camEnable.checked) {
           startCamera({ silentSuccess: true, silentError: true });
@@ -5904,13 +6446,21 @@
           state.rec.nativeActive = false;
           state.rec.active = false;
           state.rec.paused = false;
-          state.rec.nativeRecordingReady = true;
-          state.rec.nativeOutputPath = response.outputPath || state.rec.nativeOutputPath;
+          state.rec.nativeOutputPath = response && response.outputPath || state.rec.nativeOutputPath || "";
+          state.rec.nativeRecordingReady = !!state.rec.nativeOutputPath;
+          if (state.rec.nativeRecordingReady) {
+            finalizeSavedRecording(state.rec.nativeOutputPath, state.rec.nativeOutputPath.split("/").pop(), "video/mp4", state.rec.seconds)
+              .catch(function (metadataError) { toast("会话元数据未保存：" + (metadataError.message || metadataError)); });
+          }
           setRecUI(false, false);
           tele.style.visibility = "visible";
-          nativeStatusEl.textContent = "录制完成 · 已保存 MP4";
-          toast("桌面录制完成，已保存到预设文件夹");
-          refreshSaveFolderStatus();
+          nativeStatusEl.textContent = state.rec.nativeRecordingReady
+            ? "原始录制已就绪 · 已保存 MP4"
+            : "原始录制未就绪 · 未找到输出文件";
+          toast(state.rec.nativeRecordingReady
+            ? "原始录制已保存到项目文件夹的 recordings 文件夹"
+            : "录制已停止，但输出文件尚未就绪");
+          refreshProjectFolderStatus();
           if (state.rec.restoreCameraAfterNative && camEnable.checked) {
             startCamera({ silentSuccess: true, silentError: true });
           }
@@ -5930,28 +6480,29 @@
     if (state.rec.nativeRecordingReady) {
       var bridge = nativeBridge();
       if (!bridge) {
-        toast("桌面录制服务未连接，文件已保存在预设文件夹");
+        toast("桌面录制服务未连接；原始录制仍保存在项目文件夹的 recordings 文件夹");
         return;
       }
       recExport.disabled = true;
-      var openFolder = bridge.openSaveFolder
-        ? bridge.openSaveFolder()
-        : Promise.reject(new Error("桌面录制服务不支持打开保存位置"));
-      openFolder
+      var openFolder = bridge.openProjectFolder || bridge.openSaveFolder;
+      var openFolderRequest = openFolder
+        ? openFolder()
+        : Promise.reject(new Error("桌面录制服务不支持打开项目文件夹"));
+      openFolderRequest
         .then(function (folder) {
-          state.rec.nativeSaveFolder = folder && folder.path ? folder.path : state.rec.nativeSaveFolder;
-          updateSaveFolderStatus();
+          setNativeProjectFolder(folder);
+          updateProjectFolderStatus();
           recExport.disabled = false;
-          toast("成片已保存，已打开保存位置");
+          toast("原始录制已保存，已打开项目文件夹");
         })
         .catch(function (error) {
           recExport.disabled = false;
-          toast("打开保存位置失败：" + (error.message || error));
+          toast("打开项目文件夹失败：" + (error.message || error));
         });
       return;
     }
     if (!state.rec.lastBlob) {
-      toast("还没有可导出的成片，先录制一段");
+      toast("还没有可保存的原始录制，先录制一段");
       return;
     }
     var fileName = outputFileName(state.rec.lastExt);
@@ -5961,79 +6512,66 @@
         .then(function (saved) {
           recExport.disabled = false;
           if (saved) {
-            refreshSaveFolderStatus();
-            toast((saved.overwritten ? "已有保存，已覆盖：" : "成片已保存：") + shortPath(saved.path || saved.fileName || fileName));
+            refreshProjectFolderStatus();
+            toast((saved.overwritten ? "已有保存，已覆盖：" : "原始录制已保存：") + shortPath(saved.path || saved.fileName || fileName));
             return;
           }
           toast("桌面录制服务暂不可用，改用浏览器保存");
-          if (state.rec.browserSaveDirHandle) return saveBlobToBrowserFolder(state.rec.lastBlob, fileName);
-          downloadBlobWithBrowser(state.rec.lastBlob, fileName);
+          if (state.rec.projectFolder.handle) return saveBlobToBrowserFolder(state.rec.lastBlob, fileName);
+          throw new Error("未选择项目文件夹");
         })
         .then(function (saved) {
           if (!saved || saved.path) return;
-          toast((saved.overwritten ? "已有保存，已覆盖：" : "成片已保存到：") + (state.rec.browserSaveDirName || "浏览器文件夹"));
+          toast((saved.overwritten ? "已有保存，已覆盖：" : "原始录制已保存到：") + projectFolderLabel());
         })
         .catch(function (error) {
           recExport.disabled = false;
-          toast("后台保存失败，改用浏览器下载：" + (error.message || error));
-          downloadBlobWithBrowser(state.rec.lastBlob, fileName);
+      toast("原始录制未保存：" + (error.message || error));
         });
       return;
     }
-    if (state.rec.browserSaveDirHandle) {
+    if (state.rec.projectFolder.handle) {
       recExport.disabled = true;
       saveBlobToBrowserFolder(state.rec.lastBlob, fileName)
         .then(function (saved) {
           recExport.disabled = false;
-          if (saved) toast((saved.overwritten ? "已有保存，已覆盖：" : "成片已保存到：") + state.rec.browserSaveDirName);
+          if (saved) {
+            toast((saved.overwritten ? "已有保存，已覆盖：" : "原始录制已保存到：") + projectFolderLabel());
+          }
         })
         .catch(function (error) {
           recExport.disabled = false;
-          toast("直接保存失败，改用浏览器下载：" + (error.message || error));
-          downloadBlobWithBrowser(state.rec.lastBlob, fileName);
+          toast("原始录制未保存：" + (error.message || error));
         });
       return;
     }
-    downloadBlobWithBrowser(state.rec.lastBlob, fileName);
-  }
-
-  function downloadBlobWithBrowser(blob, fileName) {
-    var a = document.createElement("a");
-    var url = URL.createObjectURL(blob);
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () {
-      URL.revokeObjectURL(url);
-      a.remove();
-    }, 800);
+    toast("请先设置项目文件夹，再保存录制");
   }
 
   function openRecording() {
     if (state.rec.nativeRecordingReady) {
       var bridge = nativeBridge();
       if (!bridge) {
-        toast("桌面录制服务未连接，无法直接打开成片");
+        toast("桌面录制服务未连接，无法直接播放原始录制");
         return;
       }
       recOpen.disabled = true;
       var openFile = bridge.openLastRecording
         ? bridge.openLastRecording()
-        : Promise.reject(new Error("桌面录制服务不支持直接打开成片"));
+        : Promise.reject(new Error("桌面录制服务不支持直接播放原始录制"));
       openFile
         .then(function () {
           recOpen.disabled = false;
-          toast("已打开最后的 MP4 成片");
+          toast("已播放最后的 MP4 原始录制");
         })
         .catch(function (error) {
           recOpen.disabled = false;
-          toast("打开成片失败：" + (error.message || error));
+          toast("播放原始录制失败：" + (error.message || error));
         });
       return;
     }
     if (!state.rec.lastBlob) {
-      toast("还没有可打开的成片，先录制一段");
+      toast("还没有可播放的原始录制，先录制一段");
       return;
     }
     var bridge = nativeBridge();
@@ -6049,11 +6587,11 @@
         })
         .then(function () {
           recOpen.disabled = false;
-          toast("已用默认播放器打开成片");
+          toast("已用默认播放器播放原始录制");
         })
         .catch(function (error) {
           recOpen.disabled = false;
-          toast("默认播放器打开失败，改用浏览器预览：" + (error.message || error));
+          toast("默认播放器播放失败，改用浏览器播放：" + (error.message || error));
           openRecordingPreview();
         });
       return;
@@ -6069,10 +6607,10 @@
     state.rec.lastPreviewUrl = URL.createObjectURL(state.rec.lastBlob);
     var opened = window.open(state.rec.lastPreviewUrl, "_blank", "noopener");
     if (!opened) {
-      toast("浏览器阻止了新窗口，请允许弹窗或先点击「保存/下载」");
+      toast("浏览器阻止了新窗口，请允许弹窗或先点击「保存录制」");
       return;
     }
-    toast("桌面录制服务未连接，已用浏览器预览成片");
+    toast("桌面录制服务未连接，已用浏览器播放原始录制");
   }
 
   recStart.addEventListener("click", startRecording);
@@ -6080,8 +6618,6 @@
   recStop.addEventListener("click", stopRecording);
   recExport.addEventListener("click", exportRecording);
   recOpen.addEventListener("click", openRecording);
-  saveFolderChoose.addEventListener("click", chooseSaveFolder);
-  saveFolderOpen.addEventListener("click", openSaveFolder);
 
   /* ============ Teleprompter ============ */
   var teleToggle = shadow.getElementById("ec-tele-toggle");
@@ -6096,38 +6632,23 @@
   var teleSaveScript = tele.querySelector('[data-action="save-script"]');
   var teleLoadScript = tele.querySelector('[data-action="load-script"]');
   teleText.value = state.tele.text || "";
-  var projectSaveBtn = shadow.getElementById("ec-project-save");
-  var projectExportBtn = shadow.getElementById("ec-project-export");
-  var projectImportBtn = shadow.getElementById("ec-project-import");
-  var projectFileInput = shadow.getElementById("ec-project-file");
+  var projectWhiteboardOpenBtn = shadow.getElementById("ec-project-whiteboard-open");
+  var projectWhiteboardSaveBtn = shadow.getElementById("ec-project-whiteboard-save");
+  var projectFolderChooseBtn = shadow.getElementById("ec-project-folder-choose");
+  var projectFolderOpenBtn = shadow.getElementById("ec-project-folder-open");
+  var projectFileOpenBtn = shadow.getElementById("ec-project-file-open");
+  var projectFileInput = shadow.getElementById("ec-project-file-input");
   var projectStatus = shadow.getElementById("ec-project-status");
-  var subtitleImportBtn = shadow.getElementById("ec-subtitle-import");
-  var subtitleExportBtn = shadow.getElementById("ec-subtitle-export");
-  var subtitleToScriptBtn = shadow.getElementById("ec-subtitle-to-script");
-  var subtitleFileInput = shadow.getElementById("ec-subtitle-file");
-  var subtitleStatus = shadow.getElementById("ec-subtitle-status");
+  var scriptImportBtn = shadow.getElementById("ec-script-import");
+  var scriptImportFileInput = shadow.getElementById("ec-script-import-file");
+  var scriptStatus = shadow.getElementById("ec-script-status");
 
   function updateV011ProjectStatus(message) {
     if (projectStatus) projectStatus.textContent = message;
   }
 
-  function exportV011Project() {
-    var project = v011SaveProject("export");
-    if (!project) {
-      toast("项目保存失败，请稍后重试");
-      return;
-    }
-    var blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
-    var url = URL.createObjectURL(blob);
-    var anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "more-excalicord-" + project.projectId + ".excalicord.json";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-    updateV011ProjectStatus("项目已导出：" + anchor.download);
-    toast("项目 JSON 已导出");
+  function updateScriptStatus(message) {
+    if (scriptStatus) scriptStatus.textContent = message || "讲稿只用于提词；逐字稿和字幕在录制后根据真实音频生成。";
   }
 
   function applyLoadedV011Project() {
@@ -6136,47 +6657,312 @@
     smartCameraChk.checked = !!state.smartCamera.enabled;
     smartCameraStrength.value = state.smartCamera.strength || "gentle";
     updateSmartCameraUI();
-    updateV011ProjectStatus("已载入项目 " + state.v011.projectId + "；原始媒体仍需按项目记录重新关联。");
+    updateV011ProjectStatus("已载入项目 " + state.v011.projectId + "；录制媒体按项目内相对路径关联。");
   }
 
-  projectSaveBtn.addEventListener("click", function () {
+  function selectedProjectFolderAvailable() {
+    return state.rec.projectFolder.mode === "native" || !!state.rec.projectFolder.handle;
+  }
+
+  function setProjectActionBusy(button, busy, busyText) {
+    if (!button) return;
+    if (busy) {
+      button.dataset.idleText = button.textContent;
+      button.textContent = busyText;
+      button.disabled = true;
+      return;
+    }
+    button.textContent = button.dataset.idleText || button.textContent;
+    button.disabled = false;
+    delete button.dataset.idleText;
+  }
+
+  projectWhiteboardSaveBtn.addEventListener("click", function () {
+    if (!selectedProjectFolderAvailable()) {
+      toast("请先选择项目路径");
+      updateV011ProjectStatus("保存白板失败：尚未选择项目路径。");
+      return;
+    }
     var project = v011SaveProject("manual");
-    updateV011ProjectStatus(project ? "项目已保存到本机浏览器存储。" : "项目保存失败，请检查浏览器存储空间。");
-    toast(project ? "项目已保存" : "项目保存失败");
+    if (!project) { toast("白板项目缓存保存失败"); return; }
+    setProjectActionBusy(projectWhiteboardSaveBtn, true, "保存中…");
+    saveProjectAssets(project).then(function (scene) {
+      state.rec.projectFolder.loadedOnce = true;
+      var elementCount = scene && Array.isArray(scene.elements) ? scene.elements.length : 0;
+      var fileCount = scene && isPlainObject(scene.files) ? Object.keys(scene.files).length : 0;
+      updateV011ProjectStatus("已保存白板：" + elementCount + " 个元素、" + fileCount + " 个附件；项目内容已同步。");
+      toast("白板及全部项目内容已保存");
+    }).catch(function (error) {
+      updateV011ProjectStatus("白板未写入项目文件夹：" + error.message);
+      toast("保存白板失败：" + (error.message || error));
+    }).finally(function () {
+      setProjectActionBusy(projectWhiteboardSaveBtn, false);
+    });
   });
-  projectExportBtn.addEventListener("click", exportV011Project);
-  projectImportBtn.addEventListener("click", function () {
+  projectFolderChooseBtn.addEventListener("click", function () {
+    if (state.rec.active || state.countdown.active) {
+      toast("请先停止录制，再切换项目文件夹");
+      return;
+    }
+    chooseProjectFolder().then(function (chosen) {
+      if (!chosen) return false;
+      state.rec.projectFolder.loadedOnce = false;
+      state.rec.projectSceneFiles = {};
+      v011BeginProjectAtNewRoot();
+      resetCompletedRecordingState();
+      applyLoadedV011Project();
+      renderProjectFolderPath();
+      updateV011ProjectStatus("新项目路径已设置：" + projectFolderLabel() + "；当前白板和讲稿尚未写入，请点击“保存白板”。");
+      toast("新项目路径已设置；旧项目录制和编辑内容未带入");
+      return true;
+    });
+  });
+  projectWhiteboardOpenBtn.addEventListener("click", function () {
+    if (state.rec.active || state.countdown.active) {
+      toast("请先停止录制，再打开其他项目");
+      return;
+    }
+    if (!window.confirm("打开项目文件夹可能替换当前画布。未保存的修改可能丢失，是否继续？")) {
+      return;
+    }
+    setProjectActionBusy(projectWhiteboardOpenBtn, true, "打开中…");
+    chooseProjectFolder().then(function (chosen) {
+      if (!chosen) return false;
+      state.rec.projectFolder.loadedOnce = false;
+      state.rec.projectSceneFiles = {};
+      /* Detach the previous project's relative assets before probing the new
+       * folder. A valid manifest replaces this fresh context below; an empty or
+       * incomplete folder can never inherit stale recording paths. */
+      v011BeginProjectAtNewRoot();
+      resetCompletedRecordingState();
+      applyLoadedV011Project();
+      renderProjectFolderPath();
+      var loader = state.rec.projectFolder.mode === "native"
+        ? loadProjectFromNativeFolder
+        : loadProjectFromBrowserFolder;
+      return loader({ initializeIfMissing: false, requireScene: true, explicitOpen: true });
+    })
+      .finally(function () { setProjectActionBusy(projectWhiteboardOpenBtn, false); });
+  });
+  projectFolderOpenBtn.addEventListener("click", openProjectFolder);
+  projectFileOpenBtn.addEventListener("click", function () {
     projectFileInput.value = "";
     projectFileInput.click();
   });
   projectFileInput.addEventListener("change", function () {
     var file = projectFileInput.files && projectFileInput.files[0];
     if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function () {
-      try {
-        var imported = JSON.parse(String(reader.result || ""));
-        if (!imported || typeof imported !== "object" || !imported.schemaVersion) {
-          throw new Error("项目格式缺少 schemaVersion");
-        }
-        localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(imported));
-        v011LoadProject();
-        applyLoadedV011Project();
-        toast("项目已载入");
-      } catch (err) {
-        toast("项目载入失败：" + (err && err.message ? err.message : err));
-      }
-    };
-    reader.onerror = function () { toast("项目文件读取失败"); };
-    reader.readAsText(file);
+    if (file.size > 128 * 1024 * 1024) {
+      updateV011ProjectStatus("单文件打开失败：文件超过 128 MB，当前画布未改变。");
+      toast("Excalidraw 文件超过 128 MB，未打开");
+      return;
+    }
+    var currentElements = readElementsSafe().filter(function (element) { return element && !element.isDeleted; });
+    if (currentElements.length && !window.confirm("打开单个 Excalidraw 文件会替换当前画布。未保存的修改可能丢失，是否继续？")) {
+      updateV011ProjectStatus("已取消打开单文件；项目根和当前画布未改变。");
+      return;
+    }
+    setProjectActionBusy(projectFileOpenBtn, true, "打开中…");
+    file.text().then(parseProjectScene).then(function (scene) {
+      applyLoadedProjectFiles(null, scene);
+      state.rec.projectFolder.loadedOnce = false;
+      updateV011ProjectStatus("已打开单个 Excalidraw 文件；项目根保持不变。保存白板可写入当前项目。");
+      toast("Excalidraw 文件已打开；项目根未改变");
+    }).catch(function (error) {
+      updateV011ProjectStatus("单文件打开失败：" + (error.message || error) + "；当前画布未改变。");
+      toast("打开 Excalidraw 文件失败：" + (error.message || error));
+    }).finally(function () {
+      setProjectActionBusy(projectFileOpenBtn, false);
+    });
   });
+  renderProjectFolderPath();
 
+  function parseProjectManifest(text) {
+    if (typeof text !== "string" || text.length > 8 * 1024 * 1024) {
+      throw new Error("项目清单为空或超过 8 MB");
+    }
+    var raw = JSON.parse(text);
+    var core = requireEditorCore();
+    if (!isPlainObject(raw)) throw new Error("项目清单不是有效对象");
+    if (raw.schemaVersion !== 1 && raw.schemaVersion !== PROJECT_FILE_SCHEMA) {
+      throw new Error("不支持的项目版本：" + String(raw.schemaVersion == null ? "未知" : raw.schemaVersion));
+    }
+    var project = raw.schemaVersion === 1
+      ? core.normalizeProject(core.migrateV1(raw))
+      : core.normalizeProject(raw);
+    if (project.schemaVersion !== PROJECT_FILE_SCHEMA) {
+      throw new Error("项目清单未转换为 schema v2");
+    }
+    return project;
+  }
+
+  function parseProjectScene(text) {
+    if (typeof text !== "string" || text.length > 128 * 1024 * 1024) {
+      throw new Error("白板场景为空或超过 128 MB");
+    }
+    var scene = JSON.parse(text);
+    if (!isPlainObject(scene) || !Array.isArray(scene.elements)) {
+      throw new Error("scene.excalidraw 缺少有效的 elements");
+    }
+    if (scene.appState != null && !isPlainObject(scene.appState)) {
+      throw new Error("scene.excalidraw 的 appState 无效");
+    }
+    if (scene.files != null && !isPlainObject(scene.files)) {
+      throw new Error("scene.excalidraw 的 files 无效");
+    }
+    scene.appState = sanitizeProjectAppState(scene.appState);
+    return scene;
+  }
+
+  function isMissingProjectAsset(error) {
+    return !!(error && (error.name === "NotFoundError" || /not found|不存在/i.test(error.message || "")));
+  }
+
+  function applyLoadedProjectFiles(manifest, scene) {
+    var api = null;
+    var files = {};
+    var fileEntries = [];
+    if (scene) {
+      api = getLiveExcalidrawAPI();
+      if (!api || typeof api.updateScene !== "function") {
+        throw new Error("白板尚未准备好，请稍后再试");
+      }
+      files = isPlainObject(scene.files) ? scene.files : {};
+      fileEntries = Object.keys(files).map(function (fileId) { return files[fileId]; }).filter(function (file) {
+        return isPlainObject(file) && typeof file.id === "string";
+      });
+      if (fileEntries.length && typeof api.addFiles !== "function") {
+        throw new Error("当前白板不支持恢复图片附件，请刷新页面后重试");
+      }
+    }
+    if (manifest) {
+      var core = requireEditorCore();
+      var normalizedManifest = core.normalizeProject(manifest);
+      var legacyRuntime = core.projectV2ToLegacyRuntime(normalizedManifest);
+      state.v011.projectV2 = normalizedManifest;
+      localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(v011NormalizeProject(legacyRuntime, true)));
+      v011ApplyLegacyRuntime(legacyRuntime);
+      applyLoadedV011Project();
+    }
+    if (scene) {
+      if (fileEntries.length) api.addFiles(fileEntries);
+      try { localStorage.setItem(ELEMENTS_KEY, JSON.stringify(scene.elements)); } catch (err) {}
+      try {
+        if (scene.appState) localStorage.setItem(APP_STATE_KEY, JSON.stringify(scene.appState));
+      } catch (err) {}
+      var update = { elements: scene.elements };
+      if (scene.appState) update.appState = scene.appState;
+      api.updateScene(update);
+      state.rec.projectSceneFiles = files;
+    }
+  }
+
+  function finishProjectFolderLoad(manifest, scene, options) {
+    options = options || {};
+    if (!manifest && !scene) {
+      if (!options.initializeIfMissing) {
+        state.rec.projectFolder.loadedOnce = true;
+        updateV011ProjectStatus("项目路径中尚无可打开的白板；可点击“保存白板”创建完整项目。");
+        if (!options.silent) toast("该项目路径中尚无白板");
+        return Promise.resolve(false);
+      }
+      return saveProjectAssets(v011ProjectSnapshot()).then(function () {
+        state.rec.projectFolder.loadedOnce = true;
+        updateV011ProjectStatus("已在 " + projectFolderLabel() + " 创建项目");
+        if (!options.silent) toast("已创建项目文件夹结构");
+        return true;
+      });
+    }
+    if (options.requireScene && !scene) {
+      state.rec.projectFolder.loadedOnce = true;
+      updateV011ProjectStatus("项目路径中没有 scene.excalidraw，当前画布未改变。");
+      if (!options.silent) toast("未找到可打开的白板文件");
+      return Promise.resolve(false);
+    }
+    applyLoadedProjectFiles(manifest, scene);
+    state.rec.projectFolder.loadedOnce = true;
+    if (!manifest || !scene) {
+      if (!options.initializeIfMissing) {
+        var partialMessage = scene
+          ? "已打开白板及附件；项目清单缺失，点击“保存白板”即可补全。"
+          : "已载入项目清单；白板文件缺失。";
+        updateV011ProjectStatus(partialMessage);
+        if (!options.silent) toast(scene ? "白板已打开，保存后可补全项目" : "项目清单已载入");
+        return Promise.resolve(!!scene || !!manifest);
+      }
+      return saveProjectAssets(v011ProjectSnapshot()).then(function () {
+        updateV011ProjectStatus("已载入并补全项目：" + projectFolderLabel());
+        if (!options.silent) toast("已载入并补全项目文件夹");
+        return true;
+      });
+    }
+    var loadedFiles = scene && isPlainObject(scene.files) ? Object.keys(scene.files).length : 0;
+    updateV011ProjectStatus("已打开白板：" + scene.elements.length + " 个元素、" + loadedFiles + " 个附件；项目内容已载入。");
+    if (!options.silent) toast("白板及全部项目内容已打开");
+    return Promise.resolve(true);
+  }
+
+  function loadProjectFromNativeFolder(options) {
+    options = options || {};
+    var bridge = nativeBridge();
+    if (!bridge || !bridge.readProjectFile) return Promise.resolve(false);
+    function readOptional(path, parser) {
+      return bridge.readProjectFile(path)
+        .then(function (response) {
+          if (!response || response.found === false || typeof response.content !== "string") return null;
+          return parser(response.content);
+        })
+        .catch(function (error) {
+          if (isMissingProjectAsset(error)) return null;
+          throw error;
+        });
+    }
+    return Promise.all([
+      readOptional("project.excalicord.json", parseProjectManifest),
+      readOptional("scene.excalidraw", parseProjectScene),
+    ]).then(function (files) {
+      return finishProjectFolderLoad(files[0], files[1], options);
+    }).catch(function (error) {
+      updateV011ProjectStatus("项目载入失败：" + (error.message || error));
+      if (!options.silent) toast("项目载入失败：" + (error.message || error));
+      return false;
+    });
+  }
+
+  function loadProjectFromBrowserFolder(options) {
+    options = options || {};
+    var root = state.rec.projectFolder.handle;
+    if (!root) return Promise.resolve(false);
+    function readOptional(path, parser, maxBytes) {
+      return root.getFileHandle(path, { create: false })
+        .then(function (handle) { return handle.getFile(); })
+        .then(function (file) {
+          if (file.size > maxBytes) throw new Error(path + " 超过允许大小");
+          return file.text();
+        })
+        .then(parser)
+        .catch(function (error) {
+          if (isMissingProjectAsset(error)) return null;
+          throw error;
+        });
+    }
+    return Promise.all([
+      readOptional("project.excalicord.json", parseProjectManifest, 8 * 1024 * 1024),
+      readOptional("scene.excalidraw", parseProjectScene, 128 * 1024 * 1024),
+    ]).then(function (files) {
+      return finishProjectFolderLoad(files[0], files[1], options);
+    }).catch(function (error) {
+      updateV011ProjectStatus("项目载入失败：" + (error.message || error));
+      if (!options.silent) toast("项目载入失败：" + (error.message || error));
+      return false;
+    });
+  }
   function updateSubtitleStatus(message) {
-    if (!subtitleStatus) return;
+    if (!scriptStatus) return;
     var segments = state.v011.text.subtitles && Array.isArray(state.v011.text.subtitles.segments)
       ? state.v011.text.subtitles.segments
       : [];
-    subtitleStatus.textContent = message || ("当前 " + segments.length + " 条字幕；录后字幕应以实际音频识别为准。");
+    scriptStatus.textContent = message || ("讲稿只用于提词；逐字稿和字幕在录制后根据真实音频生成。");
   }
 
   function exportSubtitleTrack() {
@@ -6187,71 +6973,51 @@
       toast("当前没有可导出的字幕");
       return;
     }
-    var body = segments.map(function (segment, index) {
-      return String(index + 1) + "\n"
-        + v011FormatSubtitleTime(segment.start, ",") + " --> " + v011FormatSubtitleTime(segment.end, ",") + "\n"
-        + segment.text + "\n";
-    }).join("\n");
-    var blob = new Blob([body], { type: "application/x-subrip;charset=utf-8" });
-    var url = URL.createObjectURL(blob);
-    var anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "more-excalicord-subtitles.srt";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-    updateSubtitleStatus("已导出 " + segments.length + " 条字幕；原始音频不随 SRT 导出。");
-    toast("字幕 SRT 已导出");
+    var project = v011SaveProject("subtitle-save");
+    if (!project) {
+      toast("字幕缓存保存失败");
+      return;
+    }
+    saveProjectAssets(project).then(function () {
+      updateSubtitleStatus("已保存 " + segments.length + " 条字幕到 text/subtitles.srt。");
+      toast("字幕已保存到项目文件夹");
+    }).catch(function (error) {
+      updateSubtitleStatus("字幕尚未写入项目文件夹：" + (error.message || error));
+      toast("请先选择项目文件夹，再保存字幕");
+    });
   }
 
-  subtitleImportBtn.addEventListener("click", function () {
-    subtitleFileInput.value = "";
-    subtitleFileInput.click();
+  scriptImportBtn.addEventListener("click", function () {
+    scriptImportFileInput.value = "";
+    scriptImportFileInput.click();
   });
-  subtitleFileInput.addEventListener("change", function () {
-    var file = subtitleFileInput.files && subtitleFileInput.files[0];
+  scriptImportFileInput.addEventListener("change", function () {
+    var file = scriptImportFileInput.files && scriptImportFileInput.files[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      toast("字幕文件过大，请选择 2 MB 以内的 SRT/VTT 文件");
+      toast("讲稿文件过大，请选择 2 MB 以内的 SRT/VTT 文件");
       return;
     }
     var reader = new FileReader();
     reader.onload = function () {
       var segments = v011ParseSubtitleFile(String(reader.result || ""));
       if (!segments.length) {
-        updateSubtitleStatus("没有识别到有效字幕，请检查时间轴格式。");
-        toast("字幕导入失败：未找到有效时间轴");
+        updateScriptStatus("未识别到有效讲稿，请检查 SRT/VTT 时间轴格式。");
+        toast("讲稿导入失败：未找到有效时间轴");
         return;
       }
-      v011SetSubtitleTrack(segments, "imported");
-      updateSubtitleStatus("已导入 " + segments.length + " 条字幕；请以实际音频逐条校对。");
-      toast("字幕已导入");
+      var text = segments.map(function (segment) { return segment.text; }).join("\n");
+      teleText.value = text;
+      state.tele.text = text;
+      state.v011.text.script.sourceText = text;
+      v011SaveProject("script-import");
+      updateScriptStatus("讲稿只用于提词；逐字稿和字幕在录制后根据真实音频生成。");
+      toast("讲稿已导入并保存");
     };
-    reader.onerror = function () { toast("字幕文件读取失败"); };
+    reader.onerror = function () { toast("讲稿文件读取失败"); };
     reader.readAsText(file);
   });
-  subtitleExportBtn.addEventListener("click", exportSubtitleTrack);
-  subtitleToScriptBtn.addEventListener("click", function () {
-    var segments = state.v011.text.subtitles && Array.isArray(state.v011.text.subtitles.segments)
-      ? state.v011.text.subtitles.segments
-      : [];
-    var text = segments.map(function (segment) { return segment.text; }).join("\n");
-    if (!text) {
-      toast("当前没有字幕可载入提词器");
-      return;
-    }
-    teleText.value = text;
-    state.tele.text = text;
-    state.v011.text.script.sourceText = text;
-    v011SaveProject("subtitle-to-script");
-    state.tele.open = true;
-    tele.classList.add("ec-open");
-    teleToggle.textContent = "关闭提词器";
-    updateSubtitleStatus("已将字幕文本载入提词器；它仍不代表下一次实际口播内容。");
-    toast("字幕已载入提词器");
-  });
-  updateSubtitleStatus();
+  updateScriptStatus();
 
   function setTeleScrolling(on) {
     state.tele.scrolling = on;
@@ -6499,6 +7265,96 @@
     setTeleScrolling(false);
   });
 
+  function getProjectV2ForEditor() {
+    return JSON.parse(JSON.stringify(projectFileSnapshot()));
+  }
+
+  function saveEditorProject(project, reason) {
+    var core = requireEditorCore();
+    if (!isPlainObject(project) || project.schemaVersion !== PROJECT_FILE_SCHEMA) {
+      return Promise.reject(new Error("录后编辑项目必须是 schema v2"));
+    }
+    var normalized = core.normalizeProject(project);
+    if (normalized.schemaVersion !== PROJECT_FILE_SCHEMA) {
+      return Promise.reject(new Error("录后编辑项目未通过 schema v2 校验"));
+    }
+    normalized = JSON.parse(JSON.stringify(normalized));
+    var legacyRuntime = core.projectV2ToLegacyRuntime(normalized);
+    state.v011.projectV2 = normalized;
+    localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(v011NormalizeProject(legacyRuntime, true)));
+    v011ApplyLegacyRuntime(legacyRuntime);
+    if (typeof teleText !== "undefined" && teleText) applyLoadedV011Project();
+    window.dispatchEvent(new CustomEvent("excalicord:project-saved", {
+      detail: { projectId: normalized.projectId, reason: reason || "editor-save" },
+    }));
+
+    var bridge = nativeBridge();
+    var content = JSON.stringify(normalized, null, 2);
+    if (!selectedProjectFolderAvailable()) {
+      return Promise.resolve({ ok: true, localOnly: true, projectId: normalized.projectId });
+    }
+    if (state.rec.projectFolder.mode === "native") {
+      if (!bridge || typeof bridge.writeProjectFile !== "function") {
+        return Promise.reject(new Error("原生项目目录已设置，但项目写入服务不可用"));
+      }
+      return bridge.writeProjectFile("project.excalicord.json", content)
+        .then(function () { return { ok: true, projectId: normalized.projectId }; });
+    }
+    return saveProjectAssetBrowser("project.excalicord.json", content)
+      .then(function () { return { ok: true, projectId: normalized.projectId }; });
+  }
+
+  function saveProjectTextAsset(path, content) {
+    var allowed = {
+      "text/subtitles.srt": true,
+      "text/subtitles.vtt": true,
+      "text/transcript.raw.json": true,
+      "text/transcript.corrected.json": true,
+      "text/transcript.corrections.json": true,
+    };
+    if (typeof path !== "string" || !allowed[path]) {
+      return Promise.reject(new Error("不允许写入该项目文本路径"));
+    }
+    if (typeof content !== "string") {
+      return Promise.reject(new Error("项目文本内容必须是字符串"));
+    }
+    if (!selectedProjectFolderAvailable()) return Promise.resolve({ ok: true, localOnly: true });
+    var bridge = nativeBridge();
+    if (state.rec.projectFolder.mode === "native") {
+      if (!bridge || typeof bridge.writeProjectFile !== "function") {
+        return Promise.reject(new Error("原生项目目录已设置，但文本资产写入服务不可用"));
+      }
+      return bridge.writeProjectFile(path, content).then(function () { return { ok: true, path: path }; });
+    }
+    return saveProjectAssetBrowser(path, content).then(function () { return { ok: true, path: path }; });
+  }
+
+  function getAsrContextTerms() {
+    var frames = typeof getFrames === "function" ? getFrames() : [];
+    var activeId = typeof currentFrameId === "function" ? currentFrameId(frames) : "";
+    var elements = readElementsSafe().filter(function (element) {
+      return element && !element.isDeleted && element.type === "text";
+    });
+    elements.sort(function (left, right) {
+      var leftActive = activeId && left.frameId === activeId ? 1 : 0;
+      var rightActive = activeId && right.frameId === activeId ? 1 : 0;
+      return rightActive - leftActive;
+    });
+    var seen = {};
+    var terms = [];
+    elements.forEach(function (element) {
+      var text = String(element.originalText || element.text || "").trim();
+      if (!text) return;
+      [text].concat(text.split(/[\s，。！？、；：,.!?;:()（）【】\[\]]+/)).forEach(function (term) {
+        term = String(term || "").trim();
+        if (term.length < 2 || term.length > 100 || seen[term]) return;
+        seen[term] = true;
+        terms.push(term);
+      });
+    });
+    return terms.slice(0, 200);
+  }
+
   /* debug hooks for automated verification */
   window.__excalicordLocalDebug = {
     faceApiState: faceApiState,
@@ -6533,8 +7389,37 @@
     getV011Project: function () {
       return v011ProjectSnapshot();
     },
+    getProjectV2: getProjectV2ForEditor,
+    saveEditorProject: saveEditorProject,
+    getLastRecordingBlob: function () { return state.rec.lastBlob || null; },
+    saveProjectTextAsset: saveProjectTextAsset,
+    getAsrContextTerms: getAsrContextTerms,
+    getProjectFolderState: function () {
+      return {
+        mode: state.rec.projectFolder.mode,
+        path: state.rec.projectFolder.path,
+        name: state.rec.projectFolder.name,
+        hasBrowserHandle: !!state.rec.projectFolder.handle,
+        loadedOnce: !!state.rec.projectFolder.loadedOnce,
+      };
+    },
+    setPanelOpen: setPanelOpen,
     saveV011Project: function (reason) {
       return v011SaveProject(reason || "debug");
+    },
+    saveV011ProjectToFolder: function (reason) {
+      var project = v011SaveProject(reason || "debug-folder");
+      return project ? saveProjectAssets(project) : Promise.reject(new Error("项目缓存保存失败"));
+    },
+    openProjectWhiteboardFromFolder: function () {
+      if (!selectedProjectFolderAvailable()) return Promise.resolve(false);
+      var loader = state.rec.projectFolder.mode === "native"
+        ? loadProjectFromNativeFolder
+        : loadProjectFromBrowserFolder;
+      return loader({ initializeIfMissing: false, requireScene: true, explicitOpen: true, silent: true });
+    },
+    getProjectSceneSnapshot: function () {
+      return JSON.parse(JSON.stringify(projectSceneSnapshot()));
     },
     getV011Session: function () {
       return state.v011.session ? JSON.parse(JSON.stringify(state.v011.session)) : null;

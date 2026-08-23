@@ -1,0 +1,84 @@
+{
+  "language": "zh-CN",
+  "durationMs": 131000,
+  "segments": [
+    {
+      "id": "segment-lead-in",
+      "text": "准备一下",
+      "startMs": 800,
+      "endMs": 1800,
+      "words": [
+        { "text": "准备", "startMs": 800, "endMs": 1250, "confidence": 0.98 },
+        { "text": "一下", "startMs": 1320, "endMs": 1800, "confidence": 0.98 }
+      ]
+    },
+    {
+      "id": "segment-intro",
+      "text": "今天介绍 more-excalicord 的项目文件夹和录后编辑。",
+      "startMs": 6200,
+      "endMs": 11200,
+      "words": [
+        { "text": "今天", "startMs": 6200, "endMs": 6800, "confidence": 0.99 },
+        { "text": "介绍", "startMs": 6900, "endMs": 7600, "confidence": 0.99 },
+        { "text": "more-excalicord", "startMs": 7700, "endMs": 8900, "confidence": 0.96 },
+        { "text": "的", "startMs": 9000, "endMs": 9200, "confidence": 0.99 },
+        { "text": "项目文件夹", "startMs": 9300, "endMs": 10100, "confidence": 0.98 },
+        { "text": "和", "startMs": 10200, "endMs": 10400, "confidence": 0.99 },
+        { "text": "录后编辑。", "startMs": 10500, "endMs": 11200, "confidence": 0.98 }
+      ]
+    },
+    {
+      "id": "segment-restart",
+      "text": "嗯，不对，我重新说。",
+      "startMs": 20200,
+      "endMs": 22600,
+      "reviewRequired": true,
+      "words": [
+        { "text": "嗯，", "startMs": 20200, "endMs": 20600, "confidence": 0.86 },
+        { "text": "不对，", "startMs": 20800, "endMs": 21400, "confidence": 0.94 },
+        { "text": "我重新说。", "startMs": 21600, "endMs": 22600, "confidence": 0.95 }
+      ]
+    },
+    {
+      "id": "segment-project",
+      "text": "一个项目只设一个根文件夹，白板、录制、逐字稿、字幕和成片都保存在里面。",
+      "startMs": 23200,
+      "endMs": 31800,
+      "words": [
+        { "text": "一个项目", "startMs": 23200, "endMs": 24100, "confidence": 0.99 },
+        { "text": "只设", "startMs": 24200, "endMs": 24700, "confidence": 0.99 },
+        { "text": "一个根文件夹，", "startMs": 24800, "endMs": 26000, "confidence": 0.99 },
+        { "text": "白板、", "startMs": 26200, "endMs": 26900, "confidence": 0.99 },
+        { "text": "录制、", "startMs": 27000, "endMs": 27700, "confidence": 0.99 },
+        { "text": "逐字稿、", "startMs": 27800, "endMs": 28600, "confidence": 0.99 },
+        { "text": "字幕", "startMs": 28700, "endMs": 29200, "confidence": 0.99 },
+        { "text": "和成片", "startMs": 29300, "endMs": 30100, "confidence": 0.99 },
+        { "text": "都保存在里面。", "startMs": 30200, "endMs": 31800, "confidence": 0.99 }
+      ]
+    },
+    {
+      "id": "segment-editor",
+      "text": "录后编辑采用非破坏方式，剪辑和镜头只写入时间线。",
+      "startMs": 43000,
+      "endMs": 49000,
+      "words": [
+        { "text": "录后编辑", "startMs": 43000, "endMs": 44000, "confidence": 0.99 },
+        { "text": "采用", "startMs": 44100, "endMs": 44700, "confidence": 0.99 },
+        { "text": "非破坏方式，", "startMs": 44800, "endMs": 46200, "confidence": 0.99 },
+        { "text": "剪辑", "startMs": 46300, "endMs": 46900, "confidence": 0.99 },
+        { "text": "和镜头", "startMs": 47000, "endMs": 47800, "confidence": 0.99 },
+        { "text": "只写入时间线。", "startMs": 47900, "endMs": 49000, "confidence": 0.99 }
+      ]
+    },
+    {
+      "id": "segment-tail",
+      "text": "好了，结束。",
+      "startMs": 126000,
+      "endMs": 128500,
+      "words": [
+        { "text": "好了，", "startMs": 126000, "endMs": 127000, "confidence": 0.98 },
+        { "text": "结束。", "startMs": 127200, "endMs": 128500, "confidence": 0.98 }
+      ]
+    }
+  ]
+}

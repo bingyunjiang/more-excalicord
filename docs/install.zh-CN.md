@@ -26,6 +26,7 @@
 | 自托管 Excalidraw 运行目录 | npm run preflight | 先安装或准备本地 Excalidraw，再用 configure:local 指向目录 |
 | 本地页面 | 打开 http://localhost:5001/ | 启动或重启本地 Excalidraw 服务 |
 | 浏览器录制权限 | 首次录制时浏览器会提示 | 允许屏幕录制、摄像头和麦克风 |
+| 可选：Python 3.12 或 uv | 本地 faster-whisper 逐字稿 | 运行 npm run setup:asr |
 
 推荐部署前先运行：
 
@@ -38,8 +39,12 @@
 - src/studio-recorder.js：主要网页插件逻辑
 - src/recorder.css：插件界面样式
 - src/native-bridge.js：本地桥接脚本
+- src/editor-*.js、src/post-editor.*：项目 schema、时间线和录后编辑工作台
+- src/rough-cut-core.js、src/smart-camera-core.js：智能粗剪和镜头规划
 - src/vendor/：摄像头美颜相关本地依赖
-- server/no-cache-server.js：本地服务脚本，支持场景保存和版本刷新
+- server/no-cache-server.js、server/render-core.js：项目媒体、逐字稿、渲染和版本刷新
+- native/capture-agent/macos/：Capture Agent 的 Swift 源码
+- schemas/：项目文件 schema v2
 - scripts/：检查、部署、同步和发布脚本
 
 ## 推荐安装步骤
@@ -51,7 +56,8 @@
 5. 执行 npm run check。
 6. 执行 npm run deploy:local。
 7. 执行 npm run verify:deploy。
-8. 打开 http://localhost:5001/ 验收。
+8. 如需自动逐字稿，执行 npm run setup:asr。
+9. 打开 http://localhost:5001/ 验收。
 
 ## 用 Codex 等大模型辅助部署
 
@@ -83,5 +89,9 @@
 - 幻灯片总览能打开
 - 白板控制能打开
 - 录制面板能打开
+- 项目文件夹可设置，保存后可重新打开白板和项目
+- 原始录制完成后能进入录后编辑
+- 剪辑、字幕、镜头和光标设置可保存并恢复
+- exports/final.mp4 能正常解码和回放
 
 录制合成功能如有改动，需要实际录制、下载并播放成片后再确认。

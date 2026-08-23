@@ -70,6 +70,26 @@
     });
   }
 
+  function renderRequest(path, method, body, timeoutMs) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, timeoutMs || 30 * 60 * 1000);
+    return fetch(path, {
+      method: method || "GET",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+      cache: "no-store",
+    }).then(function (response) {
+      return response.json().catch(function () { return { error: "本地成片服务返回无效数据" }; })
+        .then(function (payload) {
+          if (!response.ok || payload.ok === false) {
+            throw new Error(payload.error || payload.message || "本地成片导出失败");
+          }
+          return payload;
+        });
+    }).finally(function () { clearTimeout(timer); });
+  }
+
   function health(force) {
     var now = Date.now();
     if (!force && lastHealth && now - lastHealthAt < 1500) {
@@ -122,17 +142,54 @@
     saveFolder: function () {
       return jsonRequest("/save-folder", "GET", null, 1500);
     },
+    projectFolder: function () {
+      return jsonRequest("/project-folder", "GET", null, 1500);
+    },
     chooseSaveFolder: function () {
       return jsonRequest("/save-folder/choose", "POST", {}, 120000);
     },
+    chooseProjectFolder: function () {
+      return jsonRequest("/project-folder/choose", "POST", {}, 120000);
+    },
     openSaveFolder: function () {
       return jsonRequest("/save-folder/open", "POST", {}, 3000);
+    },
+    openProjectFolder: function () {
+      return jsonRequest("/project-folder/open", "POST", {}, 3000);
+    },
+    writeProjectFile: function (path, content) {
+      return jsonRequest("/project-file", "POST", { path: path, content: content }, 30000);
+    },
+    readProjectFile: function (path) {
+      return jsonRequest("/project-file/read", "POST", { path: path }, 30000);
+    },
+    deleteProjectFile: function (path) {
+      return jsonRequest("/project-file/delete", "POST", { path: path }, 30000);
     },
     openLastRecording: function () {
       return jsonRequest("/recording/open", "POST", {}, 3000);
     },
     saveBrowserRecording: function (blob, fileName) {
       return blobRequest("/browser-recording", blob, fileName, 120000);
+    },
+    renderComposition: function (manifest) {
+      return renderRequest("/api/render", "POST", { manifest: manifest }, 30 * 60 * 1000);
+    },
+    renderStatus: function () {
+      return renderRequest("/api/render/status", "GET", null, 3000);
+    },
+    openLastExport: function () {
+      return renderRequest("/api/render/open", "POST", {}, 5000);
+    },
+    transcribeRecording: function (relativePath, language, contextTerms) {
+      return renderRequest("/api/transcribe", "POST", {
+        relativePath: relativePath,
+        language: language || "zh",
+        contextTerms: Array.isArray(contextTerms) ? contextTerms : [],
+      }, 45 * 60 * 1000);
+    },
+    transcriptionStatus: function () {
+      return renderRequest("/api/transcribe/status", "GET", null, 3000);
     },
     downloadLastRecording: downloadLastRecording,
   };

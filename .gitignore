@@ -2,6 +2,8 @@
 node_modules/
 dist/
 build/
+.build/
+native/capture-agent/macos/dist/
 .cache/
 .tmp/
 .codex-tmp/
