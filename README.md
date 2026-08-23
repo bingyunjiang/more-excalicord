@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json">v0.1.0</a> ·
+  <a href="package.json">v0.1.1</a> ·
   <a href="LICENSE">MIT License</a> ·
   <a href="docs/quickstart.zh-CN.md">快速开始</a> ·
   <a href="docs/user-guide.zh-CN.md">使用说明</a>
@@ -18,7 +18,7 @@
 
 ## 它是什么
 
-<code>more-excalicord</code> 是一个面向自托管 Excalidraw 的本地增强插件。它把同一张白板里的 Frame 组织成“幻灯片”，并把录屏常用能力放进白板内：屏幕/窗口录制、白板画布录制、当前幻灯片录制、摄像头画中画、摄像头合成进视频、提词器、演示播放和本地场景保存。
+<code>more-excalicord</code> 是一个面向自托管 Excalidraw 的本地增强插件。它把同一张白板里的 Frame 组织成“幻灯片”，并把录屏常用能力放进白板内：屏幕/窗口录制、白板画布录制、当前幻灯片录制、摄像头画中画、摄像头合成进视频、提词器、字幕 SRT/VTT 互导、Frame 智能镜头基础能力、演示播放和本地场景保存。
 
 它适合把一张自由白板变成可讲解、可投屏、可录制、可交付的演示资产：白板仍然是 Excalidraw 白板，内容仍可继续编辑；讲解时可以选择录整个屏幕、只录白板画布，或只录当前 Frame，并按需要把摄像头画中画显示在屏幕上或写入最终视频。
 
@@ -419,12 +419,13 @@ more-excalicord 是本地 Excalidraw 的增强插件。部署前建议先准备�
 
 | 版本 | 日期 | 定义 | 说明 |
 | --- | --- | --- | --- |
+| [v0.1.1](CHANGELOG.md#v011---2026-08-23) | 2026-08-23 | 录制工作室基础升级 | 增加录制会话事件、Frame/指针操作轨迹、智能镜头基础设置、讲稿项目保存、字幕 SRT/VTT 互导和提词器脚本联动 |
 | [v0.1.0](CHANGELOG.md#v010---2026-08-21) | 2026-08-21 | 初版发布版本 | 首次公开发布，包含 Frame 幻灯片、白板控制、录屏范围、摄像头画中画、摄像头合成进视频、提词器、部署预检和示例截图 |
 
 完整记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 版本与许可
 
-- 当前版本：<code>v0.1.0</code>，初版发布版本，见 [package.json](package.json) 和 [CHANGELOG.md](CHANGELOG.md)；
+- 当前版本：<code>v0.1.1</code>，录制工作室基础升级版本，见 [package.json](package.json) 和 [CHANGELOG.md](CHANGELOG.md)；
 - 许可证：[MIT License](LICENSE)；
 - 当前主要面向自托管 Excalidraw 和本地录制场景。

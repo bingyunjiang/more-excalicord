@@ -121,11 +121,416 @@
       x: 0,
       y: 0,
     },
+    smartCamera: {
+      enabled: false,
+      strength: "gentle",
+      targetX: 0.5,
+      targetY: 0.5,
+      currentX: 0.5,
+      currentY: 0.5,
+      targetScale: 1,
+      currentScale: 1,
+      keyframes: [],
+      pointerInsideCanvas: false,
+      lastPointerAt: 0,
+      lastFrameId: "",
+      lastFrameAt: 0,
+      renderedCrop: null,
+    },
+    v011: {
+      projectSchemaVersion: 1,
+      projectId: "",
+      session: null,
+      recordingScope: "screen",
+      recordingRatio: "16:9",
+      sessionDirty: false,
+      saveTimer: null,
+      text: {
+        script: { sourceText: "" },
+        transcript: { raw: [], corrected: [], corrections: [] },
+        subtitles: { segments: [] },
+        dictionary: [],
+      },
+    },
     countdown: {
       active: false,
       value: 0,
     },
   };
+
+  /* ============ v0.1.1 project/session foundation ============
+   * The recording itself remains the source media.  This small local model
+   * stores only editable metadata and telemetry, so zoom/cursor/text features
+   * can be added without rewriting the original recording.  It deliberately
+   * keeps raw transcript and corrected transcript separate.
+   */
+  var V011_PROJECT_KEY = "excalicord-v011-project";
+  var V011_PROJECT_SCHEMA = 1;
+
+  function v011Id(prefix) {
+    return prefix + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function v011DefaultProject() {
+    return {
+      schemaVersion: V011_PROJECT_SCHEMA,
+      projectId: v011Id("project"),
+      updatedAt: new Date().toISOString(),
+      recording: {
+        scope: "screen",
+        ratio: "16:9",
+        duration: 0,
+        media: [],
+      },
+      session: null,
+      events: [],
+      text: {
+        script: { sourceText: "" },
+        transcript: { raw: [], corrected: [], corrections: [] },
+        subtitles: { segments: [] },
+        dictionary: [],
+      },
+      edits: {
+        cuts: [],
+        camera: { enabled: false, strength: "gentle", keyframes: [] },
+        cursor: { highlight: true },
+        annotations: [],
+        audio: {},
+        appearance: {},
+      },
+    };
+  }
+
+  function v011LoadProject() {
+    var project = v011DefaultProject();
+    try {
+      var raw = JSON.parse(localStorage.getItem(V011_PROJECT_KEY) || "null");
+      if (raw && typeof raw === "object") {
+        project = Object.assign(project, raw);
+        project.text = Object.assign(v011DefaultProject().text, raw.text || {});
+        project.text.script = Object.assign({ sourceText: "" }, (raw.text && raw.text.script) || {});
+        project.text.transcript = Object.assign({ raw: [], corrected: [], corrections: [] }, (raw.text && raw.text.transcript) || {});
+        project.text.subtitles = Object.assign({ segments: [] }, (raw.text && raw.text.subtitles) || {});
+        project.edits = Object.assign(v011DefaultProject().edits, raw.edits || {});
+      }
+    } catch (err) {
+      project = v011DefaultProject();
+    }
+    state.v011.projectId = project.projectId || v011Id("project");
+    state.v011.text = project.text;
+    state.v011.session = project.session || null;
+    state.v011.recordingScope = project.recording && project.recording.scope || "screen";
+    state.v011.recordingRatio = project.recording && project.recording.ratio || "16:9";
+    state.tele.text = project.text.script.sourceText || "";
+    state.smartCamera.enabled = !!(project.edits && project.edits.camera && project.edits.camera.enabled);
+    state.smartCamera.strength = (project.edits && project.edits.camera && project.edits.camera.strength) || "gentle";
+    state.smartCamera.keyframes = project.edits && project.edits.camera && Array.isArray(project.edits.camera.keyframes)
+      ? project.edits.camera.keyframes.slice()
+      : [];
+    return project;
+  }
+
+  function v011ProjectSnapshot() {
+    var existing = v011DefaultProject();
+    try {
+      var raw = JSON.parse(localStorage.getItem(V011_PROJECT_KEY) || "null");
+      if (raw && typeof raw === "object") {
+        existing = Object.assign(existing, raw);
+        existing.text = Object.assign(v011DefaultProject().text, raw.text || {});
+        existing.text.script = Object.assign({ sourceText: "" }, (raw.text && raw.text.script) || {});
+        existing.text.transcript = Object.assign({ raw: [], corrected: [], corrections: [] }, (raw.text && raw.text.transcript) || {});
+        existing.text.subtitles = Object.assign({ segments: [] }, (raw.text && raw.text.subtitles) || {});
+        existing.edits = Object.assign(v011DefaultProject().edits, raw.edits || {});
+      }
+    } catch (err) {}
+    existing.projectId = state.v011.projectId || existing.projectId;
+    existing.schemaVersion = V011_PROJECT_SCHEMA;
+    existing.updatedAt = new Date().toISOString();
+    existing.session = state.v011.session;
+    existing.events = state.v011.session ? state.v011.session.events.slice() : (existing.events || []);
+    existing.text = state.v011.text;
+    existing.text.script.sourceText = state.tele.text || existing.text.script.sourceText || "";
+    existing.recording.scope = typeof scopeSel !== "undefined" && scopeSel ? scopeSel.value : existing.recording.scope;
+    existing.recording.ratio = typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : existing.recording.ratio;
+    existing.recording.duration = state.v011.session ? state.v011.session.duration || 0 : existing.recording.duration || 0;
+    existing.edits.camera = {
+      enabled: !!state.smartCamera.enabled,
+      strength: state.smartCamera.strength,
+      keyframes: state.smartCamera.keyframes.slice(),
+    };
+    existing.edits.cursor = { highlight: !!state.cursor.highlight };
+    return existing;
+  }
+
+  function v011SaveProject(reason) {
+    try {
+      var project = v011ProjectSnapshot();
+      localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(project));
+      state.v011.sessionDirty = false;
+      window.dispatchEvent(new CustomEvent("excalicord:project-saved", {
+        detail: { projectId: project.projectId, reason: reason || "manual" },
+      }));
+      return project;
+    } catch (err) {
+      state.v011.sessionDirty = true;
+      return null;
+    }
+  }
+
+  function v011ScheduleSave(reason) {
+    state.v011.sessionDirty = true;
+    if (state.v011.saveTimer) return;
+    state.v011.saveTimer = window.setTimeout(function () {
+      state.v011.saveTimer = null;
+      v011SaveProject(reason || "debounced");
+    }, 700);
+  }
+
+  function v011SessionTime() {
+    if (!state.v011.session) return 0;
+    return Math.max(0, (Date.now() - state.v011.session.startedAt) / 1000 - state.v011.session.pausedSeconds);
+  }
+
+  function v011RecordEvent(type, payload) {
+    var session = state.v011.session;
+    if (!session || !state.rec.active) return;
+    if (state.rec.paused && type !== "pause" && type !== "resume") return;
+    var event = Object.assign({ type: type, t: Number(v011SessionTime().toFixed(3)) }, payload || {});
+    session.events.push(event);
+    if (session.events.length > 30000) session.events.splice(0, session.events.length - 30000);
+    state.v011.sessionDirty = true;
+    if (session.events.length % 24 === 0) v011ScheduleSave("event-batch");
+  }
+
+  function v011BeginSession() {
+    var frames = typeof getFrames === "function" ? getFrames() : [];
+    var activeId = typeof currentFrameId === "function" ? currentFrameId(frames) : "";
+    state.smartCamera.targetX = 0.5;
+    state.smartCamera.targetY = 0.5;
+    state.smartCamera.currentX = 0.5;
+    state.smartCamera.currentY = 0.5;
+    state.smartCamera.targetScale = 1;
+    state.smartCamera.currentScale = 1;
+    state.smartCamera.keyframes = [];
+    state.smartCamera.pointerInsideCanvas = false;
+    state.smartCamera.renderedCrop = null;
+    state.v011.session = {
+      id: v011Id("session"),
+      schemaVersion: V011_PROJECT_SCHEMA,
+      startedAt: Date.now(),
+      endedAt: 0,
+      duration: 0,
+      pausedSeconds: 0,
+      pauseStartedAt: 0,
+      scope: typeof scopeSel !== "undefined" && scopeSel ? scopeSel.value : "screen",
+      ratio: typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : "16:9",
+      initialFrameId: activeId,
+      events: [],
+    };
+    state.smartCamera.lastFrameId = activeId;
+    state.smartCamera.lastFrameAt = Date.now();
+    v011RecordEvent("session-start", { frameId: activeId });
+    v011ScheduleSave("session-start");
+  }
+
+  function v011PauseSession(paused) {
+    var session = state.v011.session;
+    if (!session) return;
+    if (paused && !session.pauseStartedAt) {
+      session.pauseStartedAt = Date.now();
+      v011RecordEvent("pause");
+    } else if (!paused && session.pauseStartedAt) {
+      session.pausedSeconds += (Date.now() - session.pauseStartedAt) / 1000;
+      session.pauseStartedAt = 0;
+      v011RecordEvent("resume");
+    }
+    v011ScheduleSave("pause-state");
+  }
+
+  function v011EndSession() {
+    var session = state.v011.session;
+    if (!session || session.endedAt) return;
+    if (session.pauseStartedAt) {
+      session.pausedSeconds += (Date.now() - session.pauseStartedAt) / 1000;
+      session.pauseStartedAt = 0;
+    }
+    session.endedAt = Date.now();
+    session.duration = Number(v011SessionTime().toFixed(3));
+    session.events.push({ type: "session-stop", t: session.duration, duration: session.duration });
+    state.smartCamera.keyframes = v011BuildCameraTrack(session);
+    v011SaveProject("session-stop");
+  }
+
+  function v011BuildCameraTrack(session) {
+    if (!session || !Array.isArray(session.events)) return [];
+    var track = [];
+    var lastT = -Infinity;
+    var lastFrameId = session.initialFrameId || "";
+    var scale = ({ gentle: 1.22, medium: 1.38, strong: 1.58 }[state.smartCamera.strength] || 1.22);
+    session.events.forEach(function (event) {
+      if (!event || (event.type !== "pointer" && event.type !== "frame-change")) return;
+      if (event.type === "frame-change") {
+        lastFrameId = event.frameId || lastFrameId;
+        track.push({
+          t: event.t,
+          x: 0.5,
+          y: 0.5,
+          scale: 1,
+          frameId: lastFrameId,
+          source: "auto-frame",
+        });
+        lastT = event.t;
+        return;
+      }
+      if (!event.insideCanvas || event.t - lastT < 0.45) return;
+      track.push({
+        t: event.t,
+        x: event.x,
+        y: event.y,
+        scale: scale,
+        frameId: lastFrameId,
+        source: "auto-pointer",
+      });
+      lastT = event.t;
+    });
+    return track.slice(0, 1200);
+  }
+
+  function v011RecordFrameChange(frame, source) {
+    if (!frame) return;
+    if (state.smartCamera.lastFrameId === frame.id && Date.now() - state.smartCamera.lastFrameAt < 250) return;
+    state.smartCamera.lastFrameId = frame.id;
+    state.smartCamera.lastFrameAt = Date.now();
+    state.smartCamera.targetX = 0.5;
+    state.smartCamera.targetY = 0.5;
+    state.smartCamera.targetScale = 1;
+    v011RecordEvent("frame-change", {
+      frameId: frame.id,
+      title: frame.name || "",
+      source: source || "navigation",
+    });
+  }
+
+  function v011CanvasPoint(ev) {
+    var canvas = typeof sceneCanvas === "function" ? sceneCanvas() : null;
+    var rect = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
+    var x = Number(ev && ev.clientX) || 0;
+    var y = Number(ev && ev.clientY) || 0;
+    var nx = rect && rect.width ? (x - rect.left) / rect.width : x / Math.max(1, window.innerWidth || 1);
+    var ny = rect && rect.height ? (y - rect.top) / rect.height : y / Math.max(1, window.innerHeight || 1);
+    return {
+      x: clamp(nx, 0, 1),
+      y: clamp(ny, 0, 1),
+      inside: !!(rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom),
+    };
+  }
+
+  function v011RecordPointer(ev) {
+    var point = v011CanvasPoint(ev);
+    state.smartCamera.pointerInsideCanvas = point.inside;
+    state.smartCamera.lastPointerAt = Date.now();
+    if (state.rec.paused) return;
+    if (point.inside) {
+      state.smartCamera.targetX = point.x;
+      state.smartCamera.targetY = point.y;
+      state.smartCamera.targetScale = state.smartCamera.enabled
+        ? ({ gentle: 1.22, medium: 1.38, strong: 1.58 }[state.smartCamera.strength] || 1.22)
+        : 1;
+    }
+    if (!state.v011.session || !state.rec.active) return;
+    var last = state.v011.session.lastPointerAt || 0;
+    var now = Date.now();
+    if (now - last < 80) return;
+    state.v011.session.lastPointerAt = now;
+    v011RecordEvent("pointer", {
+      x: Number(point.x.toFixed(4)),
+      y: Number(point.y.toFixed(4)),
+      insideCanvas: point.inside,
+    });
+  }
+
+  function v011SubtitleId() {
+    return v011Id("subtitle");
+  }
+
+  function v011ParseSubtitleTime(value) {
+    var text = String(value || "").trim().replace(",", ".");
+    var parts = text.split(":");
+    if (parts.length === 2) parts.unshift("0");
+    if (parts.length !== 3) return NaN;
+    var hours = Number(parts[0]);
+    var minutes = Number(parts[1]);
+    var seconds = Number(parts[2]);
+    if (![hours, minutes, seconds].every(Number.isFinite)) return NaN;
+    return hours * 3600 + minutes * 60 + seconds;
+  }
+
+  function v011FormatSubtitleTime(seconds, separator) {
+    var totalMs = Math.max(0, Math.round((Number(seconds) || 0) * 1000));
+    var hours = Math.floor(totalMs / 3600000);
+    var minutes = Math.floor((totalMs % 3600000) / 60000);
+    var secs = Math.floor((totalMs % 60000) / 1000);
+    var ms = totalMs % 1000;
+    function pad(value, width) { return String(value).padStart(width, "0"); }
+    return pad(hours, 2) + ":" + pad(minutes, 2) + ":" + pad(secs, 2) + (separator || ",") + pad(ms, 3);
+  }
+
+  function v011NormalizeSubtitleSegment(segment, index) {
+    if (!segment || typeof segment !== "object") return null;
+    var start = Number(segment.start);
+    var end = Number(segment.end);
+    var text = String(segment.text || "").replace(/\r/g, "").trim();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !text) return null;
+    return {
+      id: segment.id || v011SubtitleId(),
+      start: Math.max(0, Number(start.toFixed(3))),
+      end: Math.max(0, Number(end.toFixed(3))),
+      text: text.slice(0, 2000),
+      style: segment.style || "default",
+      source: segment.source || "imported",
+      index: Number.isFinite(index) ? index : 0,
+    };
+  }
+
+  function v011ParseSubtitleFile(content) {
+    var lines = String(content || "").replace(/^\uFEFF/, "").replace(/\r/g, "").split("\n");
+    var segments = [];
+    var current = [];
+    function flush() {
+      if (!current.length) return;
+      var timingIndex = current.findIndex(function (line) { return line.indexOf("-->") >= 0; });
+      if (timingIndex < 0) { current = []; return; }
+      var timing = current[timingIndex].split("-->");
+      var start = v011ParseSubtitleTime(String(timing[0] || "").trim().split(/\s+/)[0]);
+      var end = v011ParseSubtitleTime(String(timing[1] || "").trim().split(/\s+/)[0]);
+      var text = current.slice(timingIndex + 1).filter(function (line) {
+        return !/^NOTE(?:\s|$)/i.test(line) && !/^STYLE(?:\s|$)/i.test(line);
+      }).join("\n").trim();
+      var normalized = v011NormalizeSubtitleSegment({ start: start, end: end, text: text }, segments.length);
+      if (normalized) segments.push(normalized);
+      current = [];
+    }
+    lines.forEach(function (line) {
+      if (!line.trim()) flush();
+      else if (!/^WEBVTT(?:\s|$)/i.test(line.trim())) current.push(line);
+    });
+    flush();
+    return segments.slice(0, 5000);
+  }
+
+  function v011SetSubtitleTrack(segments, source) {
+    var normalized = (Array.isArray(segments) ? segments : []).map(v011NormalizeSubtitleSegment).filter(Boolean);
+    normalized.sort(function (a, b) { return a.start - b.start || a.end - b.end; });
+    normalized.forEach(function (segment, index) {
+      segment.index = index;
+      if (source) segment.source = source;
+    });
+    state.v011.text.subtitles.segments = normalized.slice(0, 5000);
+    v011ScheduleSave("subtitle-track");
+    return state.v011.text.subtitles.segments;
+  }
+
+  v011LoadProject();
 
   /* ============ Shadow-DOM UI ============ */
   var host = document.createElement("div");
@@ -142,7 +547,7 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260821aa";
+  var EC_BUILD_VERSION = "20260823v011c";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
@@ -245,6 +650,18 @@
     '    <div class="ec-row"><label>面板</label><button class="ec-btn ec-btn-ghost" id="ec-tele-toggle" style="flex:1">打开提词器</button></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-tele-hide"/> 录制时隐藏（不入镜）</label></div>',
     "  </div>",
+    '  <div class="ec-section">',
+    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true">▣</span><span>项目</span></span></div>',
+    '    <div class="ec-row"><label>本地状态</label><button class="ec-btn ec-btn-ghost" id="ec-project-save" style="flex:1">保存</button><button class="ec-btn ec-btn-ghost" id="ec-project-export">导出</button></div>',
+    '    <div class="ec-row"><label>继续编辑</label><button class="ec-btn ec-btn-ghost" id="ec-project-import" style="flex:1">载入项目 JSON</button><input id="ec-project-file" type="file" accept=".json,.excalicord.json,application/json" hidden/></div>',
+    '    <p class="ec-sub" id="ec-project-status">讲稿、事件和智能镜头设置保存在本机浏览器中。</p>',
+    "  </div>",
+    '  <div class="ec-section">',
+    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-tele" aria-hidden="true">Aa</span><span>文字轨</span></span></div>',
+    '    <div class="ec-row"><label>字幕</label><button class="ec-btn ec-btn-ghost" id="ec-subtitle-import" style="flex:1">导入 SRT/VTT</button><button class="ec-btn ec-btn-ghost" id="ec-subtitle-export">导出 SRT</button><input id="ec-subtitle-file" type="file" accept=".srt,.vtt,text/vtt,text/plain" hidden/></div>',
+    '    <div class="ec-row"><label>提词稿</label><button class="ec-btn ec-btn-ghost" id="ec-subtitle-to-script" style="flex:1">用字幕载入提词器</button></div>',
+    '    <p class="ec-sub" id="ec-subtitle-status">当前 0 条字幕；录后字幕应以实际音频识别为准。</p>',
+    "  </div>",
     '  <div class="ec-section ec-camera-section">',
     '    <div class="ec-section-title">' + sectionIconCamera + "</div>",
     '    <div class="ec-row"><label>启用</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-enable"/> 摄像头画中画</label></div>',
@@ -278,6 +695,8 @@
     '    <div class="ec-row" id="ec-composite-position-row"><label>摄像头位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 录制时隐藏屏幕上的气泡（与合成进视频无关）</label></div>',
     '    <div class="ec-row"><label>光标</label><label class="ec-toggle"><input type="checkbox" id="ec-cursor-highlight" checked/> 录制中鼠标高亮</label></div>',
+    '    <div class="ec-row"><label>智能镜头</label><label class="ec-toggle"><input type="checkbox" id="ec-smart-camera"/> Frame 聚焦 / 跟随鼠标</label></div>',
+    '    <div class="ec-row" id="ec-smart-camera-options" style="display:none"><label>镜头强度</label><select id="ec-smart-camera-strength"><option value="gentle">轻微</option><option value="medium">适中</option><option value="strong">明显</option></select></div>',
     '    <div class="ec-row" id="ec-mic-row"><label>麦克风</label><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
     '    <div class="ec-reccontrols"><span class="ec-rec-indicator" id="ec-indicator"></span><span class="ec-timer" id="ec-timer">00:00</span></div>',
     '    <div class="ec-reccontrols ec-rec-actions">',
@@ -827,6 +1246,7 @@
     if (!frames.length) return false;
     presentationState.index = Math.max(0, Math.min(frames.length - 1, Number(index) || 0));
     var frame = frames[presentationState.index];
+    v011RecordFrameChange(frame, "presentation");
     presenterTitle.textContent = frameTitle(frame, presentationState.index);
     presenterCount.textContent = String(presentationState.index + 1) + " / " + String(frames.length);
     presenterProgressBar.style.width = ((presentationState.index + 1) / frames.length * 100) + "%";
@@ -1038,6 +1458,7 @@
 
   function navigateToFrame(frame) {
     localStorage.setItem(ACTIVE_FRAME_KEY, frame.id);
+    v011RecordFrameChange(frame, "navigation");
     writeAppStatePatch(frameViewport(frame));
     if (window.__excalicordSuppressProps) window.__excalicordSuppressProps();
 
@@ -3110,6 +3531,7 @@
     '<button class="ec-tele-close" title="关闭">✕</button></div>' +
     '<div class="ec-tele-body">' +
     '<textarea class="ec-tele-text" placeholder="粘贴讲稿…按空格开始/暂停自动滚动，↑↓ 手动微调"></textarea>' +
+    '<div class="ec-tele-text-actions"><button class="ec-tele-text-action" type="button" data-action="save-script">保存为讲稿</button><button class="ec-tele-text-action" type="button" data-action="load-script">载入讲稿</button></div>' +
     '<div class="ec-tele-controls"><span>速度</span><input type="range" class="ec-tele-speed" min="1" max="40" step="1" value="6"/><span>字号</span><input type="range" class="ec-tele-fs" min="12" max="48" step="1" value="22"/><span>透明</span><input type="range" class="ec-tele-opacity" min="5" max="100" step="5" value="85"/></div>' +
     '<div class="ec-tele-controls"><span class="ec-kbd">空格</span>滚动/暂停 <span class="ec-kbd">↑</span><span class="ec-kbd">↓</span>微调</div>' +
     "</div>" +
@@ -3697,6 +4119,9 @@
   var composeChk = shadow.getElementById("ec-compose");
   var compositePositionSel = shadow.getElementById("ec-composite-position");
   var hideBubbleChk = shadow.getElementById("ec-hide-bubble");
+  var smartCameraChk = shadow.getElementById("ec-smart-camera");
+  var smartCameraOptions = shadow.getElementById("ec-smart-camera-options");
+  var smartCameraStrength = shadow.getElementById("ec-smart-camera-strength");
   var sourceModal = shadow.getElementById("ec-source-modal");
   var sourceOptions = shadow.getElementById("ec-source-options");
   var sourceCancel = shadow.getElementById("ec-source-cancel");
@@ -3720,8 +4145,58 @@
     var r = RATIOS[ratioSel.value] || [1920, 1080];
     ratioV.textContent = r[0] + "×" + r[1];
   }
-  ratioSel.addEventListener("change", updateRatio);
+  function restoreV011RecordingSettings() {
+    var savedScope = state.v011.recordingScope || "screen";
+    var savedRatio = state.v011.recordingRatio || "16:9";
+    if (Array.prototype.some.call(scopeSel.options, function (option) { return option.value === savedScope; })) {
+      scopeSel.value = savedScope;
+    }
+    if (Array.prototype.some.call(ratioSel.options, function (option) { return option.value === savedRatio; })) {
+      ratioSel.value = savedRatio;
+    }
+    updateRatio();
+  }
+  ratioSel.addEventListener("change", function () {
+    updateRatio();
+    state.v011.recordingRatio = ratioSel.value;
+    v011ScheduleSave("recording-ratio");
+  });
   updateRatio();
+
+  function updateSmartCameraUI() {
+    var supported = scopeSel.value === "canvas" || scopeSel.value === "frame";
+    smartCameraOptions.style.display = smartCameraChk.checked && supported ? "flex" : "none";
+    smartCameraChk.disabled = !supported;
+    smartCameraChk.title = supported
+      ? "录制白板或当前幻灯片时，根据 Frame 和鼠标位置生成平滑镜头"
+      : "整个屏幕/应用窗口由系统直接采集，暂不叠加智能镜头";
+    if (!supported) {
+      smartCameraChk.checked = false;
+      state.smartCamera.enabled = false;
+    }
+  }
+
+  smartCameraChk.addEventListener("change", function () {
+    state.smartCamera.enabled = smartCameraChk.checked;
+    smartCameraOptions.style.display = smartCameraChk.checked ? "flex" : "none";
+    if (state.smartCamera.enabled) {
+      toast("智能镜头已开启：白板/当前幻灯片录制时会平滑跟随讲解焦点");
+    }
+    v011ScheduleSave("smart-camera-setting");
+  });
+  smartCameraStrength.addEventListener("change", function () {
+    state.smartCamera.strength = smartCameraStrength.value || "gentle";
+    v011ScheduleSave("smart-camera-strength");
+  });
+  scopeSel.addEventListener("change", function () {
+    state.v011.recordingScope = scopeSel.value;
+    updateSmartCameraUI();
+    v011ScheduleSave("recording-scope");
+  });
+  restoreV011RecordingSettings();
+  smartCameraChk.checked = !!state.smartCamera.enabled;
+  smartCameraStrength.value = state.smartCamera.strength || "gentle";
+  updateSmartCameraUI();
 
   function cameraDiameterRatio() {
     var shortEdge = Math.max(1, Math.min(window.innerWidth, window.innerHeight));
@@ -4663,6 +5138,34 @@
     };
   }
 
+  function applySmartCameraCrop(baseCrop, canvasWidth, canvasHeight, scope) {
+    var smart = state.smartCamera;
+    smart.renderedCrop = baseCrop;
+    if (!smart.enabled || !smart.pointerInsideCanvas) {
+      smart.targetScale = 1;
+    }
+    smart.currentX += (smart.targetX - smart.currentX) * 0.12;
+    smart.currentY += (smart.targetY - smart.currentY) * 0.12;
+    smart.currentScale += (smart.targetScale - smart.currentScale) * 0.10;
+    if (Math.abs(smart.currentScale - 1) < 0.005) smart.currentScale = 1;
+    if (Math.abs(smart.currentX - smart.targetX) < 0.002) smart.currentX = smart.targetX;
+    if (Math.abs(smart.currentY - smart.targetY) < 0.002) smart.currentY = smart.targetY;
+    if (!smart.enabled || smart.currentScale <= 1.01) return baseCrop;
+
+    var centerX = smart.currentX * canvasWidth;
+    var centerY = smart.currentY * canvasHeight;
+    if (scope === "frame") {
+      centerX = clamp(centerX, baseCrop.sx + baseCrop.sw * 0.18, baseCrop.sx + baseCrop.sw * 0.82);
+      centerY = clamp(centerY, baseCrop.sy + baseCrop.sh * 0.18, baseCrop.sy + baseCrop.sh * 0.82);
+    }
+    var sw = Math.max(8, baseCrop.sw / smart.currentScale);
+    var sh = Math.max(8, baseCrop.sh / smart.currentScale);
+    var sx = clamp(centerX - sw / 2, baseCrop.sx, baseCrop.sx + baseCrop.sw - sw);
+    var sy = clamp(centerY - sh / 2, baseCrop.sy, baseCrop.sy + baseCrop.sh - sh);
+    smart.renderedCrop = { sx: sx, sy: sy, sw: sw, sh: sh };
+    return smart.renderedCrop;
+  }
+
   function drawWhiteboardSource(ctx, W, H, video) {
     var scope = scopeSel.value;
     var canvases = allSceneCanvases();
@@ -4714,7 +5217,14 @@
         sh: cH,
       };
     }
-    return drawFittedSource(ctx, state.rec._wbCopy, crop, W, H, "contain");
+    return drawFittedSource(
+      ctx,
+      state.rec._wbCopy,
+      applySmartCameraCrop(crop, cW, cH, scope),
+      W,
+      H,
+      "contain",
+    );
   }
 
   function drawDisplaySource(ctx, video, W, H) {
@@ -4855,10 +5365,22 @@
         var drawX = (cx0 / (window.innerWidth || 1)) * W;
         var drawY = (cy0 / (window.innerHeight || 1)) * H;
         if (scope2 === "canvas" || scope2 === "frame") {
-          var offX = canvasRect2.left / (window.innerWidth || 1) * W;
-          var offY = canvasRect2.top / (window.innerHeight || 1) * H;
-          drawX = (cx0 - canvasRect2.left) / canvasRect2.width * W + offX;
-          drawY = (cy0 - canvasRect2.top) / canvasRect2.height * H + offY;
+          var sourceCanvas = sceneCanvas();
+          var sourceW = sourceCanvas && sourceCanvas.width ? sourceCanvas.width : W;
+          var sourceH = sourceCanvas && sourceCanvas.height ? sourceCanvas.height : H;
+          var renderedCrop = state.smartCamera.renderedCrop;
+          if (state.smartCamera.enabled && renderedCrop && sourceCanvas) {
+            var sourceX = (cx0 - canvasRect2.left) / canvasRect2.width * sourceW;
+            var sourceY = (cy0 - canvasRect2.top) / canvasRect2.height * sourceH;
+            var containScale = Math.min(W / renderedCrop.sw, H / renderedCrop.sh);
+            var renderedW = renderedCrop.sw * containScale;
+            var renderedH = renderedCrop.sh * containScale;
+            drawX = (sourceX - renderedCrop.sx) * containScale + (W - renderedW) / 2;
+            drawY = (sourceY - renderedCrop.sy) * containScale + (H - renderedH) / 2;
+          } else {
+            drawX = (cx0 - canvasRect2.left) / canvasRect2.width * W;
+            drawY = (cy0 - canvasRect2.top) / canvasRect2.height * H;
+          }
         } else {
           drawX = cx0 / (window.innerWidth || 1) * W;
           drawY = cy0 / (window.innerHeight || 1) * H;
@@ -5001,6 +5523,7 @@
       .then(function (response) {
         state.rec.nativeActive = true;
         state.rec.active = true;
+        v011BeginSession();
         state.rec.nativeOutputPath = response.outputPath || "";
         state.rec.selectedDisplaySurface = "native-" + sourceType;
         state.rec.usingDirectDisplay = true;
@@ -5121,6 +5644,7 @@
         var ext = mime.indexOf("mp4") !== -1 ? "mp4" : "webm";
         state.rec.lastBlob = new Blob(state.rec.chunks, { type: mime.split(";")[0] });
         markBrowserRecordingComplete(ext, mime.split(";")[0]);
+        v011EndSession();
         state.rec.chunks = [];
         if (state.rec.timer) clearInterval(state.rec.timer);
         state.rec.timer = null;
@@ -5136,6 +5660,7 @@
       recorder.start(1000);
       state.rec.recorder = recorder;
       state.rec.active = true;
+      v011BeginSession();
       state.rec.startTime = Date.now();
       state.rec.timer = setInterval(tickTimer, 1000);
       setRecUI(true, false);
@@ -5257,6 +5782,7 @@
             type: mime.split(";")[0],
           });
           markBrowserRecordingComplete(ext, mime.split(";")[0]);
+          v011EndSession();
           if (state.rec.timer) clearInterval(state.rec.timer);
           state.rec.timer = null;
           state.rec.active = false;
@@ -5271,6 +5797,7 @@
         recorder.start(1000);
         state.rec.recorder = recorder;
         state.rec.active = true;
+        v011BeginSession();
         state.rec.timer = setInterval(tickTimer, 1000);
         setRecUI(true, false);
         startMicPolling();
@@ -5290,6 +5817,7 @@
       action
         .then(function () {
           state.rec.paused = !state.rec.paused;
+          v011PauseSession(state.rec.paused);
           setRecUI(true, state.rec.paused);
           nativeStatusEl.textContent = state.rec.paused
             ? "桌面录制已暂停"
@@ -5308,6 +5836,7 @@
       state.rec.recorder.pause();
       state.rec.paused = true;
     }
+    v011PauseSession(state.rec.paused);
     setRecUI(true, state.rec.paused);
   }
 
@@ -5336,6 +5865,7 @@
         }
         if (state.rec.timer) clearInterval(state.rec.timer);
         state.rec.timer = null;
+        v011EndSession();
         state.rec.nativeActive = false;
         state.rec.active = false;
         state.rec.paused = false;
@@ -5370,6 +5900,7 @@
         .then(function (response) {
           if (state.rec.timer) clearInterval(state.rec.timer);
           state.rec.timer = null;
+          v011EndSession();
           state.rec.nativeActive = false;
           state.rec.active = false;
           state.rec.paused = false;
@@ -5562,6 +6093,165 @@
   var teleScrollBtn = tele.querySelector(".ec-tele-scroll");
   var teleClose = tele.querySelector(".ec-tele-close");
   var teleResize = tele.querySelector(".ec-tele-resize");
+  var teleSaveScript = tele.querySelector('[data-action="save-script"]');
+  var teleLoadScript = tele.querySelector('[data-action="load-script"]');
+  teleText.value = state.tele.text || "";
+  var projectSaveBtn = shadow.getElementById("ec-project-save");
+  var projectExportBtn = shadow.getElementById("ec-project-export");
+  var projectImportBtn = shadow.getElementById("ec-project-import");
+  var projectFileInput = shadow.getElementById("ec-project-file");
+  var projectStatus = shadow.getElementById("ec-project-status");
+  var subtitleImportBtn = shadow.getElementById("ec-subtitle-import");
+  var subtitleExportBtn = shadow.getElementById("ec-subtitle-export");
+  var subtitleToScriptBtn = shadow.getElementById("ec-subtitle-to-script");
+  var subtitleFileInput = shadow.getElementById("ec-subtitle-file");
+  var subtitleStatus = shadow.getElementById("ec-subtitle-status");
+
+  function updateV011ProjectStatus(message) {
+    if (projectStatus) projectStatus.textContent = message;
+  }
+
+  function exportV011Project() {
+    var project = v011SaveProject("export");
+    if (!project) {
+      toast("项目保存失败，请稍后重试");
+      return;
+    }
+    var blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "more-excalicord-" + project.projectId + ".excalicord.json";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    updateV011ProjectStatus("项目已导出：" + anchor.download);
+    toast("项目 JSON 已导出");
+  }
+
+  function applyLoadedV011Project() {
+    teleText.value = state.tele.text || "";
+    restoreV011RecordingSettings();
+    smartCameraChk.checked = !!state.smartCamera.enabled;
+    smartCameraStrength.value = state.smartCamera.strength || "gentle";
+    updateSmartCameraUI();
+    updateV011ProjectStatus("已载入项目 " + state.v011.projectId + "；原始媒体仍需按项目记录重新关联。");
+  }
+
+  projectSaveBtn.addEventListener("click", function () {
+    var project = v011SaveProject("manual");
+    updateV011ProjectStatus(project ? "项目已保存到本机浏览器存储。" : "项目保存失败，请检查浏览器存储空间。");
+    toast(project ? "项目已保存" : "项目保存失败");
+  });
+  projectExportBtn.addEventListener("click", exportV011Project);
+  projectImportBtn.addEventListener("click", function () {
+    projectFileInput.value = "";
+    projectFileInput.click();
+  });
+  projectFileInput.addEventListener("change", function () {
+    var file = projectFileInput.files && projectFileInput.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var imported = JSON.parse(String(reader.result || ""));
+        if (!imported || typeof imported !== "object" || !imported.schemaVersion) {
+          throw new Error("项目格式缺少 schemaVersion");
+        }
+        localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(imported));
+        v011LoadProject();
+        applyLoadedV011Project();
+        toast("项目已载入");
+      } catch (err) {
+        toast("项目载入失败：" + (err && err.message ? err.message : err));
+      }
+    };
+    reader.onerror = function () { toast("项目文件读取失败"); };
+    reader.readAsText(file);
+  });
+
+  function updateSubtitleStatus(message) {
+    if (!subtitleStatus) return;
+    var segments = state.v011.text.subtitles && Array.isArray(state.v011.text.subtitles.segments)
+      ? state.v011.text.subtitles.segments
+      : [];
+    subtitleStatus.textContent = message || ("当前 " + segments.length + " 条字幕；录后字幕应以实际音频识别为准。");
+  }
+
+  function exportSubtitleTrack() {
+    var segments = state.v011.text.subtitles && Array.isArray(state.v011.text.subtitles.segments)
+      ? state.v011.text.subtitles.segments
+      : [];
+    if (!segments.length) {
+      toast("当前没有可导出的字幕");
+      return;
+    }
+    var body = segments.map(function (segment, index) {
+      return String(index + 1) + "\n"
+        + v011FormatSubtitleTime(segment.start, ",") + " --> " + v011FormatSubtitleTime(segment.end, ",") + "\n"
+        + segment.text + "\n";
+    }).join("\n");
+    var blob = new Blob([body], { type: "application/x-subrip;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "more-excalicord-subtitles.srt";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    updateSubtitleStatus("已导出 " + segments.length + " 条字幕；原始音频不随 SRT 导出。");
+    toast("字幕 SRT 已导出");
+  }
+
+  subtitleImportBtn.addEventListener("click", function () {
+    subtitleFileInput.value = "";
+    subtitleFileInput.click();
+  });
+  subtitleFileInput.addEventListener("change", function () {
+    var file = subtitleFileInput.files && subtitleFileInput.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast("字幕文件过大，请选择 2 MB 以内的 SRT/VTT 文件");
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var segments = v011ParseSubtitleFile(String(reader.result || ""));
+      if (!segments.length) {
+        updateSubtitleStatus("没有识别到有效字幕，请检查时间轴格式。");
+        toast("字幕导入失败：未找到有效时间轴");
+        return;
+      }
+      v011SetSubtitleTrack(segments, "imported");
+      updateSubtitleStatus("已导入 " + segments.length + " 条字幕；请以实际音频逐条校对。");
+      toast("字幕已导入");
+    };
+    reader.onerror = function () { toast("字幕文件读取失败"); };
+    reader.readAsText(file);
+  });
+  subtitleExportBtn.addEventListener("click", exportSubtitleTrack);
+  subtitleToScriptBtn.addEventListener("click", function () {
+    var segments = state.v011.text.subtitles && Array.isArray(state.v011.text.subtitles.segments)
+      ? state.v011.text.subtitles.segments
+      : [];
+    var text = segments.map(function (segment) { return segment.text; }).join("\n");
+    if (!text) {
+      toast("当前没有字幕可载入提词器");
+      return;
+    }
+    teleText.value = text;
+    state.tele.text = text;
+    state.v011.text.script.sourceText = text;
+    v011SaveProject("subtitle-to-script");
+    state.tele.open = true;
+    tele.classList.add("ec-open");
+    teleToggle.textContent = "关闭提词器";
+    updateSubtitleStatus("已将字幕文本载入提词器；它仍不代表下一次实际口播内容。");
+    toast("字幕已载入提词器");
+  });
+  updateSubtitleStatus();
 
   function setTeleScrolling(on) {
     state.tele.scrolling = on;
@@ -5601,6 +6291,21 @@
   });
   teleText.addEventListener("input", function () {
     state.tele.text = teleText.value;
+    state.v011.text.script.sourceText = teleText.value;
+    v011ScheduleSave("script-edit");
+  });
+  teleSaveScript.addEventListener("click", function () {
+    state.tele.text = teleText.value;
+    state.v011.text.script.sourceText = teleText.value;
+    v011SaveProject("script-save");
+    toast("讲稿已保存，可在后续录制中继续使用");
+  });
+  teleLoadScript.addEventListener("click", function () {
+    var project = v011LoadProject();
+    var text = project.text && project.text.script ? project.text.script.sourceText || "" : "";
+    teleText.value = text;
+    state.tele.text = text;
+    toast(text ? "已载入上次保存的讲稿" : "当前没有已保存的讲稿");
   });
   teleSpeed.addEventListener("input", function () {
     state.tele.speed = parseInt(teleSpeed.value, 10);
@@ -5663,11 +6368,23 @@
   document.addEventListener("mousemove", function (ev) {
     state.cursor.x = ev.clientX;
     state.cursor.y = ev.clientY;
+    v011RecordPointer(ev);
     if (cursorHighlight.style.display === "block") {
       cursorHighlight.style.left = ev.clientX + "px";
       cursorHighlight.style.top = ev.clientY + "px";
     }
   });
+
+  document.addEventListener("click", function (ev) {
+    if (!state.rec.active) return;
+    var point = v011CanvasPoint(ev);
+    v011RecordEvent("click", {
+      x: Number(point.x.toFixed(4)),
+      y: Number(point.y.toFixed(4)),
+      insideCanvas: point.inside,
+      button: Number(ev.button) || 0,
+    });
+  }, true);
 
   cursorHighlightChk.addEventListener("change", function () {
     state.cursor.highlight = cursorHighlightChk.checked;
@@ -5769,6 +6486,8 @@
 
   /* ============ Page unload safety ============ */
   window.addEventListener("beforeunload", function () {
+    if (state.v011.session && !state.v011.session.endedAt) v011EndSession();
+    else if (state.v011.sessionDirty) v011SaveProject("beforeunload");
     stopCamera();
     if (state.rec.recorder && state.rec.recorder.state !== "inactive") {
       try {
@@ -5811,5 +6530,23 @@
     startRecording: startRecording,
     pauseRecording: pauseRecording,
     stopRecording: stopRecording,
+    getV011Project: function () {
+      return v011ProjectSnapshot();
+    },
+    saveV011Project: function (reason) {
+      return v011SaveProject(reason || "debug");
+    },
+    getV011Session: function () {
+      return state.v011.session ? JSON.parse(JSON.stringify(state.v011.session)) : null;
+    },
+    getSmartCameraState: function () {
+      return JSON.parse(JSON.stringify(state.smartCamera));
+    },
+    getSubtitleTrack: function () {
+      return JSON.parse(JSON.stringify(state.v011.text.subtitles.segments || []));
+    },
+    setSubtitleTrack: function (segments) {
+      return JSON.parse(JSON.stringify(v011SetSubtitleTrack(segments, "debug")));
+    },
   };
 })();

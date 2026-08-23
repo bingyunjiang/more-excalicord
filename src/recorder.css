@@ -2484,6 +2484,28 @@
   color: #94a3b8;
 }
 
+.ec-tele-text-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ec-tele-text-action {
+  flex: 1;
+  border: 1px solid rgba(148, 163, 184, 0.46);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #475569;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 5px 7px;
+}
+
+.ec-tele-text-action:hover {
+  border-color: rgba(105, 101, 219, 0.5);
+  background: rgba(238, 242, 255, 0.9);
+  color: #3730a3;
+}
+
 .ec-tele-controls {
   display: flex;
   align-items: center;

@@ -1,6 +1,6 @@
 {
   "name": "more-excalicord",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Local Excalidraw enhancement plugin for slide navigation, recording, camera, teleprompter, and whiteboard controls.",
   "scripts": {
