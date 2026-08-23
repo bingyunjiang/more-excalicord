@@ -2791,15 +2791,15 @@
 }
 
 .ec-screen-light {
-  --ec-screen-light: 0.55;
+  --ec-screen-light: 0.85;
   position: fixed;
   inset: 0;
   z-index: 2147483638;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.92) 0 4.5%, rgba(255, 245, 205, 0.42) 7.5%, transparent 15%, transparent 85%, rgba(255, 245, 205, 0.42) 92.5%, rgba(255, 255, 255, 0.92) 100%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0 5.5%, rgba(255, 242, 194, 0.46) 9%, transparent 18%, transparent 82%, rgba(255, 242, 194, 0.42) 91%, rgba(255, 255, 255, 0.84) 100%);
-  box-shadow: inset 0 0 120px rgba(255, 244, 205, 0.26), inset 0 0 42px rgba(255, 255, 255, 0.36);
+    linear-gradient(90deg, rgba(255, 255, 255, 1) 0 7%, rgba(255, 255, 255, 0.82) 10%, rgba(255, 255, 255, 0.38) 15%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.38) 85%, rgba(255, 255, 255, 0.82) 90%, rgba(255, 255, 255, 1) 93% 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 1) 0 8%, rgba(255, 255, 255, 0.86) 12%, rgba(255, 255, 255, 0.42) 18%, transparent 29%, transparent 71%, rgba(255, 255, 255, 0.42) 82%, rgba(255, 255, 255, 0.86) 88%, rgba(255, 255, 255, 1) 92% 100%);
+  box-shadow: inset 0 0 160px rgba(255, 255, 255, 0.72), inset 0 0 62px rgba(255, 255, 255, 0.92);
   mix-blend-mode: normal;
   opacity: var(--ec-screen-light);
 }

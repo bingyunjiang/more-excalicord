@@ -299,7 +299,7 @@
         shape: typeof webcam.shape === "string" ? webcam.shape : "rounded",
         mirror: webcam.mirror !== false,
         screenLightEnabled: webcam.screenLightEnabled === true,
-        screenLightIntensity: clamp(finite(webcam.screenLightIntensity, 0.55), 0, 1),
+        screenLightIntensity: clamp(finite(webcam.screenLightIntensity, 0.85), 0, 1),
       },
       annotations: Array.isArray(source.annotations) ? clone(source.annotations) : [],
       audio: isObject(source.audio) ? clone(source.audio) : {},

@@ -57,7 +57,7 @@
       lightEnabled: false,
       lightIntensity: 0.35,
       screenLightEnabled: false,
-      screenLightIntensity: 0.55,
+      screenLightIntensity: 0.85,
       compositePosition: "bottom-right",
       raf: null,
     },
@@ -262,7 +262,7 @@
           cameraLightEnabled: false,
           cameraLightIntensity: 0.35,
           screenLightEnabled: false,
-          screenLightIntensity: 0.55,
+          screenLightIntensity: 0.85,
         },
         annotations: [],
         audio: { microphoneDeviceId: "" },
@@ -404,7 +404,7 @@
     state.camera.screenLightEnabled = projectWebcam.screenLightEnabled === true;
     state.camera.screenLightIntensity = Number.isFinite(Number(projectWebcam.screenLightIntensity))
       ? clamp(Number(projectWebcam.screenLightIntensity), 0, 1)
-      : 0.55;
+      : 0.85;
     applyScreenLightPreferences();
     state.settings.background = project.edits && project.edits.appearance && typeof project.edits.appearance.background === "string"
       ? project.edits.appearance.background
@@ -430,24 +430,29 @@
   function applyScreenLightPreferences() {
     var prefs = readScreenLightPreferences();
     if (!prefs) return;
-    if (typeof prefs.portraitEnabled === "boolean") {
-      state.camera.portraitLightEnabled = prefs.portraitEnabled;
+    var migratedPortrait = typeof prefs.portraitEnabled === "boolean" && prefs.portraitEnabled;
+    var migratedMode = ["auto", "screen", "camera"].indexOf(prefs.mode) >= 0 ? prefs.mode : "auto";
+    if (migratedPortrait) {
+      state.camera.screenLightEnabled = migratedMode !== "camera";
+      state.camera.lightEnabled = migratedMode !== "screen";
     } else if (typeof prefs.enabled === "boolean") {
       state.camera.screenLightEnabled = prefs.enabled;
     }
     if (Number.isFinite(Number(prefs.intensity))) {
       state.camera.screenLightIntensity = clamp(Number(prefs.intensity), 0, 1);
+    } else if (migratedPortrait && migratedMode !== "camera") {
+      state.camera.screenLightIntensity = 0.85;
     }
     if (Number.isFinite(Number(prefs.cameraIntensity))) {
       state.camera.lightIntensity = clamp(Number(prefs.cameraIntensity), 0, 1);
+    } else if (migratedPortrait && Number.isFinite(Number(prefs.strength))) {
+      state.camera.lightIntensity = clamp(Number(prefs.strength), 0, 1);
     }
-    if (typeof prefs.cameraEnabled === "boolean") state.camera.lightEnabled = prefs.cameraEnabled;
-    if (state.camera.portraitLightEnabled) {
-      if (["auto", "screen", "camera"].indexOf(prefs.mode) >= 0) state.camera.portraitLightMode = prefs.mode;
-      if (Number.isFinite(Number(prefs.strength))) {
-        state.camera.portraitLightStrength = clamp(Number(prefs.strength), 0, 1);
-      }
-      applyPortraitLightingState();
+    if (typeof prefs.cameraEnabled === "boolean" && !migratedPortrait) state.camera.lightEnabled = prefs.cameraEnabled;
+    if (migratedPortrait) {
+      state.camera.portraitLightEnabled = false;
+      state.camera.portraitLightMode = "auto";
+      state.camera.portraitLightStrength = 0.45;
     }
   }
 
@@ -462,7 +467,7 @@
         enabled: !!state.camera.screenLightEnabled,
         intensity: Number.isFinite(Number(state.camera.screenLightIntensity))
           ? clamp(Number(state.camera.screenLightIntensity), 0, 1)
-          : 0.55,
+          : 0.85,
         cameraEnabled: !!state.camera.lightEnabled,
         cameraIntensity: Number.isFinite(Number(state.camera.lightIntensity))
           ? clamp(Number(state.camera.lightIntensity), 0, 1)
@@ -568,7 +573,7 @@
       screenLightEnabled: !!state.camera.screenLightEnabled,
       screenLightIntensity: Number.isFinite(Number(state.camera.screenLightIntensity))
         ? Number(state.camera.screenLightIntensity)
-        : 0.55,
+        : 0.85,
     });
     existing.edits.appearance = Object.assign({}, existing.edits.appearance, {
       background: bgInput && bgInput.value ? bgInput.value : state.settings.background,
@@ -1279,7 +1284,7 @@
     '    <div class="ec-row"><label>镜头增亮</label><label class="ec-toggle"><input type="checkbox" id="ec-light-toggle"/> 增强摄像头画面</label></div>',
     '    <div class="ec-row" id="ec-light-row" style="display:none"><label>强度</label><input type="range" id="ec-light-intensity" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-light-intensity-v">0.35</span></div>',
     '    <div class="ec-row"><label>屏幕补光</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 屏幕补光灯</label></div>',
-    '    <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0" max="1" step="0.05" value="0.55"/><span class="ec-value" id="ec-screen-light-intensity-v">0.55</span></div>',
+    '    <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0" max="1" step="0.05" value="0.85"/><span class="ec-value" id="ec-screen-light-intensity-v">0.85</span></div>',
     '    <p class="ec-sub" id="ec-screen-light-note" style="display:none;margin:2px 0 0">在屏幕四周显示一圈补光灯，像真实补光灯一样照亮人脸；录制整个浏览器页面时可能入镜。</p>',
     '    <p class="ec-sub" id="ec-faceapi-status" style="margin:2px 0 0;display:none">人脸检测模型加载中…（本地运行）</p>',
     '    <div class="ec-row"><label>镜像</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-mirror" checked/> 左右翻转</label></div>',
@@ -4141,8 +4146,8 @@
     zIndex: "2147483638",
     pointerEvents: "none",
     background:
-      "linear-gradient(90deg, rgba(255,255,255,0.92) 0 4.5%, rgba(255,245,205,0.42) 7.5%, transparent 15%, transparent 85%, rgba(255,245,205,0.42) 92.5%, rgba(255,255,255,0.92) 100%), linear-gradient(180deg, rgba(255,255,255,0.94) 0 5.5%, rgba(255,242,194,0.46) 9%, transparent 18%, transparent 82%, rgba(255,242,194,0.42) 91%, rgba(255,255,255,0.84) 100%)",
-    boxShadow: "inset 0 0 120px rgba(255,244,205,0.26), inset 0 0 42px rgba(255,255,255,0.36)",
+      "linear-gradient(90deg, rgba(255,255,255,1) 0 7%, rgba(255,255,255,0.82) 10%, rgba(255,255,255,0.38) 15%, transparent 25%, transparent 75%, rgba(255,255,255,0.38) 85%, rgba(255,255,255,0.82) 90%, rgba(255,255,255,1) 93% 100%), linear-gradient(180deg, rgba(255,255,255,1) 0 8%, rgba(255,255,255,0.86) 12%, rgba(255,255,255,0.42) 18%, transparent 29%, transparent 71%, rgba(255,255,255,0.42) 82%, rgba(255,255,255,0.86) 88%, rgba(255,255,255,1) 92% 100%)",
+    boxShadow: "inset 0 0 160px rgba(255,255,255,0.72), inset 0 0 62px rgba(255,255,255,0.92)",
     mixBlendMode: "normal",
     opacity: "0",
   });
@@ -7330,7 +7335,7 @@
     if (lightIntensity) lightIntensity.value = String(Number.isFinite(Number(state.camera.lightIntensity)) ? state.camera.lightIntensity : 0.35);
     if (lightIntensityV) lightIntensityV.textContent = Number(Number.isFinite(Number(state.camera.lightIntensity)) ? state.camera.lightIntensity : 0.35).toFixed(2);
     if (screenLightToggle) screenLightToggle.checked = !!state.camera.screenLightEnabled;
-    if (screenLightIntensity) screenLightIntensity.value = String(Number.isFinite(Number(state.camera.screenLightIntensity)) ? state.camera.screenLightIntensity : 0.55);
+    if (screenLightIntensity) screenLightIntensity.value = String(Number.isFinite(Number(state.camera.screenLightIntensity)) ? state.camera.screenLightIntensity : 0.85);
     updateScreenLight();
     updateCursorSettingsUI();
     smartCameraChk.checked = !!state.smartCamera.enabled;
