@@ -138,11 +138,13 @@ for recording_panel_contract in \
   'id="ec-cursor-highlight-style"' \
   'id="ec-cursor-shape"' \
   'id="ec-cursor-sound"' \
-  'id="ec-screen-light-toggle"' \
-  '镜头补光' \
-  '增强摄像头亮度' \
-  '屏幕柔光' \
-  '显示补光圈' \
+  'id="ec-portrait-light-toggle"' \
+  'id="ec-portrait-light-mode"' \
+  'id="ec-portrait-light-strength"' \
+  '人像补光' \
+  '自动（推荐）' \
+  '仅屏幕柔光' \
+  '仅镜头增亮' \
   '人像优化' \
   '启用调节' \
   '亮肤' \
