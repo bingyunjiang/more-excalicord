@@ -259,6 +259,8 @@
           portraitLightEnabled: false,
           portraitLightMode: "auto",
           portraitLightStrength: 0.45,
+          cameraLightEnabled: false,
+          cameraLightIntensity: 0.35,
           screenLightEnabled: false,
           screenLightIntensity: 0.55,
         },
@@ -395,6 +397,10 @@
     state.camera.portraitLightStrength = Number.isFinite(Number(projectWebcam.portraitLightStrength))
       ? clamp(Number(projectWebcam.portraitLightStrength), 0, 1)
       : 0.45;
+    state.camera.lightEnabled = projectWebcam.cameraLightEnabled === true;
+    state.camera.lightIntensity = Number.isFinite(Number(projectWebcam.cameraLightIntensity))
+      ? clamp(Number(projectWebcam.cameraLightIntensity), 0, 1)
+      : 0.35;
     state.camera.screenLightEnabled = projectWebcam.screenLightEnabled === true;
     state.camera.screenLightIntensity = Number.isFinite(Number(projectWebcam.screenLightIntensity))
       ? clamp(Number(projectWebcam.screenLightIntensity), 0, 1)
@@ -427,15 +433,22 @@
     if (typeof prefs.portraitEnabled === "boolean") {
       state.camera.portraitLightEnabled = prefs.portraitEnabled;
     } else if (typeof prefs.enabled === "boolean") {
-      state.camera.portraitLightEnabled = prefs.enabled;
+      state.camera.screenLightEnabled = prefs.enabled;
     }
-    if (["auto", "screen", "camera"].indexOf(prefs.mode) >= 0) state.camera.portraitLightMode = prefs.mode;
-    if (Number.isFinite(Number(prefs.strength))) {
-      state.camera.portraitLightStrength = clamp(Number(prefs.strength), 0, 1);
-    } else if (Number.isFinite(Number(prefs.intensity))) {
-      state.camera.portraitLightStrength = clamp(Number(prefs.intensity), 0, 1);
+    if (Number.isFinite(Number(prefs.intensity))) {
+      state.camera.screenLightIntensity = clamp(Number(prefs.intensity), 0, 1);
     }
-    applyPortraitLightingState();
+    if (Number.isFinite(Number(prefs.cameraIntensity))) {
+      state.camera.lightIntensity = clamp(Number(prefs.cameraIntensity), 0, 1);
+    }
+    if (typeof prefs.cameraEnabled === "boolean") state.camera.lightEnabled = prefs.cameraEnabled;
+    if (state.camera.portraitLightEnabled) {
+      if (["auto", "screen", "camera"].indexOf(prefs.mode) >= 0) state.camera.portraitLightMode = prefs.mode;
+      if (Number.isFinite(Number(prefs.strength))) {
+        state.camera.portraitLightStrength = clamp(Number(prefs.strength), 0, 1);
+      }
+      applyPortraitLightingState();
+    }
   }
 
   function saveScreenLightPreferences() {
@@ -446,6 +459,14 @@
         strength: Number.isFinite(Number(state.camera.portraitLightStrength))
           ? clamp(Number(state.camera.portraitLightStrength), 0, 1)
           : 0.45,
+        enabled: !!state.camera.screenLightEnabled,
+        intensity: Number.isFinite(Number(state.camera.screenLightIntensity))
+          ? clamp(Number(state.camera.screenLightIntensity), 0, 1)
+          : 0.55,
+        cameraEnabled: !!state.camera.lightEnabled,
+        cameraIntensity: Number.isFinite(Number(state.camera.lightIntensity))
+          ? clamp(Number(state.camera.lightIntensity), 0, 1)
+          : 0.35,
         updatedAt: new Date().toISOString(),
       }));
     } catch (err) {}
@@ -540,6 +561,10 @@
       portraitLightStrength: Number.isFinite(Number(state.camera.portraitLightStrength))
         ? Number(state.camera.portraitLightStrength)
         : 0.45,
+      cameraLightEnabled: !!state.camera.lightEnabled,
+      cameraLightIntensity: Number.isFinite(Number(state.camera.lightIntensity))
+        ? Number(state.camera.lightIntensity)
+        : 0.35,
       screenLightEnabled: !!state.camera.screenLightEnabled,
       screenLightIntensity: Number.isFinite(Number(state.camera.screenLightIntensity))
         ? Number(state.camera.screenLightIntensity)
@@ -1251,10 +1276,11 @@
     '    <div class="ec-row" id="ec-beauty-slim-row" style="display:none"><label>瘦脸</label><input type="range" id="ec-beauty-slim" min="0" max="1" step="0.05" value="0"/><span class="ec-value" id="ec-beauty-slim-v">0</span></div>',
     '    <div class="ec-row" id="ec-beauty-warm-row" style="display:none"><label>肤色冷暖</label><input type="range" id="ec-beauty-warm" min="-1" max="1" step="0.1" value="0"/><span class="ec-value" id="ec-beauty-warm-v">0</span></div>',
     '    <div class="ec-row" id="ec-beauty-sat-row" style="display:none"><label>饱和度</label><input type="range" id="ec-beauty-sat" min="-1" max="1" step="0.1" value="0"/><span class="ec-value" id="ec-beauty-sat-v">0</span></div>',
-    '    <div class="ec-row"><label>人像补光</label><label class="ec-toggle"><input type="checkbox" id="ec-portrait-light-toggle"/> 启用补光</label></div>',
-    '    <div class="ec-row" id="ec-portrait-light-mode-row" style="display:none"><label>模式</label><select id="ec-portrait-light-mode"><option value="auto">自动（推荐）</option><option value="screen">仅屏幕柔光</option><option value="camera">仅镜头增亮</option></select></div>',
-    '    <div class="ec-row" id="ec-portrait-light-strength-row" style="display:none"><label>强度</label><input type="range" id="ec-portrait-light-strength" min="0" max="1" step="0.05" value="0.45"/><span class="ec-value" id="ec-portrait-light-strength-v">0.45</span></div>',
-    '    <p class="ec-sub" id="ec-portrait-light-note" style="display:none;margin:2px 0 0">自动模式会用轻微屏幕柔光提供真实补光，再用镜头增亮补足；录制整个浏览器页面时屏幕柔光可能入镜。</p>',
+    '    <div class="ec-row"><label>镜头增亮</label><label class="ec-toggle"><input type="checkbox" id="ec-light-toggle"/> 增强摄像头画面</label></div>',
+    '    <div class="ec-row" id="ec-light-row" style="display:none"><label>强度</label><input type="range" id="ec-light-intensity" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-light-intensity-v">0.35</span></div>',
+    '    <div class="ec-row"><label>屏幕补光</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 屏幕补光灯</label></div>',
+    '    <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0" max="1" step="0.05" value="0.55"/><span class="ec-value" id="ec-screen-light-intensity-v">0.55</span></div>',
+    '    <p class="ec-sub" id="ec-screen-light-note" style="display:none;margin:2px 0 0">在屏幕四周显示一圈补光灯，像真实补光灯一样照亮人脸；录制整个浏览器页面时可能入镜。</p>',
     '    <p class="ec-sub" id="ec-faceapi-status" style="margin:2px 0 0;display:none">人脸检测模型加载中…（本地运行）</p>',
     '    <div class="ec-row"><label>镜像</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-mirror" checked/> 左右翻转</label></div>',
     '    </div>',
@@ -4115,8 +4141,8 @@
     zIndex: "2147483638",
     pointerEvents: "none",
     background:
-      "linear-gradient(90deg, rgba(255,255,255,0.30), transparent 22%, transparent 78%, rgba(255,255,255,0.30)), linear-gradient(180deg, rgba(255,252,239,0.34), transparent 24%, transparent 86%, rgba(255,252,239,0.20))",
-    boxShadow: "inset 0 0 180px rgba(255,246,214,0.16)",
+      "linear-gradient(90deg, rgba(255,255,255,0.92) 0 4.5%, rgba(255,245,205,0.42) 7.5%, transparent 15%, transparent 85%, rgba(255,245,205,0.42) 92.5%, rgba(255,255,255,0.92) 100%), linear-gradient(180deg, rgba(255,255,255,0.94) 0 5.5%, rgba(255,242,194,0.46) 9%, transparent 18%, transparent 82%, rgba(255,242,194,0.42) 91%, rgba(255,255,255,0.84) 100%)",
+    boxShadow: "inset 0 0 120px rgba(255,244,205,0.26), inset 0 0 42px rgba(255,255,255,0.36)",
     mixBlendMode: "normal",
     opacity: "0",
   });
@@ -4238,13 +4264,15 @@
   var beautySatRow = shadow.getElementById("ec-beauty-sat-row");
   var beautySat = shadow.getElementById("ec-beauty-sat");
   var beautySatV = shadow.getElementById("ec-beauty-sat-v");
-  var portraitLightToggle = shadow.getElementById("ec-portrait-light-toggle");
-  var portraitLightMode = shadow.getElementById("ec-portrait-light-mode");
-  var portraitLightModeRow = shadow.getElementById("ec-portrait-light-mode-row");
-  var portraitLightStrength = shadow.getElementById("ec-portrait-light-strength");
-  var portraitLightStrengthRow = shadow.getElementById("ec-portrait-light-strength-row");
-  var portraitLightStrengthV = shadow.getElementById("ec-portrait-light-strength-v");
-  var portraitLightNote = shadow.getElementById("ec-portrait-light-note");
+  var lightToggle = shadow.getElementById("ec-light-toggle");
+  var lightRow = shadow.getElementById("ec-light-row");
+  var lightIntensity = shadow.getElementById("ec-light-intensity");
+  var lightIntensityV = shadow.getElementById("ec-light-intensity-v");
+  var screenLightToggle = shadow.getElementById("ec-screen-light-toggle");
+  var screenLightRow = shadow.getElementById("ec-screen-light-row");
+  var screenLightIntensity = shadow.getElementById("ec-screen-light-intensity");
+  var screenLightIntensityV = shadow.getElementById("ec-screen-light-intensity-v");
+  var screenLightNote = shadow.getElementById("ec-screen-light-note");
   var faceapiStatus = shadow.getElementById("ec-faceapi-status");
 
   /* face-api lazy init (local models only) */
@@ -4393,7 +4421,10 @@
   }
 
   function updateScreenLight() {
-    applyPortraitLightingState();
+    if (screenLightToggle) state.camera.screenLightEnabled = !!screenLightToggle.checked;
+    if (screenLightIntensity) {
+      state.camera.screenLightIntensity = clamp(parseFloat(screenLightIntensity.value) || 0, 0, 1);
+    }
     var cameraRequested = !!(state.camera.enabled || (camEnable && camEnable.checked));
     var enabled = !!(cameraRequested && state.camera.screenLightEnabled);
     var intensity = clamp(state.camera.screenLightIntensity || 0, 0, 1);
@@ -4402,10 +4433,9 @@
     screenLight.style.display = enabled ? "block" : "none";
     screenLight.hidden = !enabled;
     screenLight.setAttribute("aria-hidden", enabled ? "false" : "true");
-    if (portraitLightModeRow) portraitLightModeRow.style.display = state.camera.portraitLightEnabled ? "flex" : "none";
-    if (portraitLightStrengthRow) portraitLightStrengthRow.style.display = state.camera.portraitLightEnabled ? "flex" : "none";
-    if (portraitLightNote) portraitLightNote.style.display = state.camera.portraitLightEnabled ? "block" : "none";
-    if (portraitLightStrengthV) portraitLightStrengthV.textContent = Number(state.camera.portraitLightStrength || 0).toFixed(2);
+    if (screenLightRow) screenLightRow.style.display = state.camera.screenLightEnabled ? "flex" : "none";
+    if (screenLightNote) screenLightNote.style.display = state.camera.screenLightEnabled ? "block" : "none";
+    if (screenLightIntensityV) screenLightIntensityV.textContent = Number(intensity).toFixed(2);
   }
 
   function applyBeautyFrame(video, w, h) {
@@ -4762,19 +4792,23 @@
         ? "+" + Number(beautySat.value).toFixed(1)
         : Number(beautySat.value).toFixed(1);
   });
-  portraitLightToggle.addEventListener("change", function () {
-    state.camera.portraitLightEnabled = !!portraitLightToggle.checked;
+  lightToggle.addEventListener("change", function () {
+    state.camera.lightEnabled = !!lightToggle.checked;
+    lightRow.style.display = state.camera.lightEnabled ? "flex" : "none";
+    saveScreenLightPreferences();
+    toast(lightToggle.checked ? "镜头增亮已开启" : "镜头增亮已关闭");
+  });
+  lightIntensity.addEventListener("input", function () {
+    state.camera.lightIntensity = clamp(parseFloat(lightIntensity.value) || 0, 0, 1);
+    lightIntensityV.textContent = Number(state.camera.lightIntensity).toFixed(2);
+    saveScreenLightPreferences();
+  });
+  screenLightToggle.addEventListener("change", function () {
     updateScreenLight();
     saveScreenLightPreferences();
-    toast(portraitLightToggle.checked ? "人像补光已开启" : "人像补光已关闭");
+    toast(screenLightToggle.checked ? "屏幕补光灯已开启" : "屏幕补光灯已关闭");
   });
-  portraitLightMode.addEventListener("change", function () {
-    state.camera.portraitLightMode = portraitLightMode.value || "auto";
-    updateScreenLight();
-    saveScreenLightPreferences();
-  });
-  portraitLightStrength.addEventListener("input", function () {
-    state.camera.portraitLightStrength = clamp(parseFloat(portraitLightStrength.value) || 0, 0, 1);
+  screenLightIntensity.addEventListener("input", function () {
     updateScreenLight();
     saveScreenLightPreferences();
   });
@@ -7291,9 +7325,12 @@
     if (bgInput) bgInput.value = state.settings.background || "#f4f1ea";
     if (bgStyleSel) bgStyleSel.value = state.settings.backgroundStyle || "warm-gradient";
     if (micDeviceSel) micDeviceSel.value = state.mic.deviceId || "";
-    if (portraitLightToggle) portraitLightToggle.checked = !!state.camera.portraitLightEnabled;
-    if (portraitLightMode) portraitLightMode.value = state.camera.portraitLightMode || "auto";
-    if (portraitLightStrength) portraitLightStrength.value = String(Number.isFinite(Number(state.camera.portraitLightStrength)) ? state.camera.portraitLightStrength : 0.45);
+    if (lightToggle) lightToggle.checked = !!state.camera.lightEnabled;
+    if (lightRow) lightRow.style.display = state.camera.lightEnabled ? "flex" : "none";
+    if (lightIntensity) lightIntensity.value = String(Number.isFinite(Number(state.camera.lightIntensity)) ? state.camera.lightIntensity : 0.35);
+    if (lightIntensityV) lightIntensityV.textContent = Number(Number.isFinite(Number(state.camera.lightIntensity)) ? state.camera.lightIntensity : 0.35).toFixed(2);
+    if (screenLightToggle) screenLightToggle.checked = !!state.camera.screenLightEnabled;
+    if (screenLightIntensity) screenLightIntensity.value = String(Number.isFinite(Number(state.camera.screenLightIntensity)) ? state.camera.screenLightIntensity : 0.55);
     updateScreenLight();
     updateCursorSettingsUI();
     smartCameraChk.checked = !!state.smartCamera.enabled;
