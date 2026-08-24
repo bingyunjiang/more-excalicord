@@ -26,26 +26,12 @@ Excalidraw 很适合自由思考，却不天然适合按页讲解、稳定录制
   <img src="docs/assets/readme/workflow-concept.svg" alt="more-excalicord 落笔成画开讲成片概念图" width="100%">
 </p>
 
-```text
-Excalidraw 白板
-      ↓
-Frame 组织与幻灯片演示
-      ↓
-白板 / 当前页 / 桌面录制
-      ↓
-提词 + 麦克风 + 摄像头 + 操作事件
-      ↓
-剪辑 + 逐字稿 + 字幕 + 镜头与画面效果
-      ↓
-exports/final.mp4
-```
-
 适合用来制作：
 
 - 技术方案讲解、课程与培训视频；
 - 论文、项目和产品汇报；
 - 带桌面操作演示的软件教程；
-- 需要保留原片、字幕和编辑记录的长期内容项目。
+- 需要保留原片、字幕和编辑记录的内容项目。
 
 ## 先看实际效果
 
@@ -57,9 +43,9 @@ exports/final.mp4
   <img src="docs/assets/readme/25-external-display-slide-overview-20260824.png" alt="more-excalicord 幻灯片总览" width="100%">
 </p>
 
-Frame 会成为可搜索、可重命名、可排序的讲解页。你可以在总览中定位内容，也可以一键回到整张白板的鸟瞰视图。
+Frame 会成为可搜索、可重命名、可排序的讲解幻灯页。你可以在总览中定位内容，也可以一键回到整张白板的鸟瞰视图。
 
-### 录制前，把讲解所需的一切放在手边
+### 录制前，讲解所需一切皆在手边
 
 <p align="center">
   <img src="docs/assets/readme/29-external-display-teleprompter-20260824.png" alt="more-excalicord 提词器与录制面板" width="100%">
@@ -67,7 +53,7 @@ Frame 会成为可搜索、可重命名、可排序的讲解页。你可以在�
 
 录制面板集中管理范围、画幅、麦克风、摄像头、提词器和录制效果。摄像头支持四角位置、形状、大小与镜像预览。
 
-### 录完继续编辑，不破坏原片
+### 一键录完，也可继续编辑
 
 <p align="center">
   <img src="docs/assets/readme/35-external-display-post-editor-20260824.png" alt="more-excalicord 录后编辑工作台" width="100%">
@@ -75,7 +61,7 @@ Frame 会成为可搜索、可重命名、可排序的讲解页。你可以在�
 
 剪辑、逐字稿、字幕、镜头、光标、摄像头、画面和音频设置都写入项目时间线；原始录制始终保留。
 
-## 它能为你做什么
+## 能为你做什么
 
 ### 让大白板变得可讲、可控
 
@@ -93,7 +79,7 @@ Frame 会成为可搜索、可重命名、可排序的讲解页。你可以在�
 | 当前幻灯片 | 逐页汇报、固定画幅内容和竖屏视频 |
 | 屏幕或窗口 | 软件教程、资料演示和跨应用操作 |
 
-macOS Capture Agent 提供真实显示器与应用窗口预览；录制过程中支持倒计时、暂停、继续、停止和可拖动的迷你工具条。
+提供真实显示器与应用窗口预览；录制过程中支持倒计时、暂停、继续、停止和可拖动的迷你工具条。
 
 ### 帮你更自然地完成口播
 
@@ -103,7 +89,7 @@ macOS Capture Agent 提供真实显示器与应用窗口预览；录制过程中
 - 屏幕边缘柔光补光；
 - 智能镜头与 Frame、鼠标、点击、输入事件记录。
 
-### 从原片走到可交付成片
+### 从原片走到智能剪辑（自定义）
 
 - 区间剪切、撤销与重做，原片不被覆盖；
 - 本地 ASR 或词级逐字稿导入与校对；
@@ -116,7 +102,7 @@ macOS Capture Agent 提供真实显示器与应用窗口预览；录制过程中
 
 白板、原片、事件、逐字稿、字幕、编辑时间线与最终成片保存在用户选择的目录中。项目可以备份、迁移和复查，不依赖云端内容库。
 
-## 默认设置，三步就能开录
+## 默认设置，直接开录
 
 1. 载入或新建一张 Excalidraw 白板。
 2. 保持默认设置，选择“白板全景”或“当前幻灯片”，点击开始录制。
@@ -126,7 +112,7 @@ macOS Capture Agent 提供真实显示器与应用窗口预览；录制过程中
   <img src="docs/assets/readme/operation-steps-concept.svg" alt="more-excalicord 三步开录概念图" width="100%">
 </p>
 
-Frame 整理、桌面窗口选择、摄像头画中画、提词器、字幕和智能剪辑都是增强项；默认不配置也能先把讲解录下来。下面三张是真实页面操作截图，对应“项目载入 → 录制中 → 录后编辑”的主路径。
+Frame 整理、桌面窗口选择、摄像头画中画、提词器、字幕和智能剪辑都是自定义增强项；默认不配置也能先把讲解录下来。下面三张是真实页面操作截图，对应“项目载入 → 录制中 → 录后编辑”的主路径。
 
 <p align="center">
   <img src="docs/assets/readme/21-v011-rich-sketch-project.png" alt="more-excalicord 打开示例白板和项目面板" width="32%">
@@ -138,7 +124,7 @@ Frame 整理、桌面窗口选择、摄像头画中画、提词器、字幕和�
 
 ### 运行条件
 
-- macOS；
+- macOS/windows；
 - Node.js 与 npm；
 - 已运行的自托管 Excalidraw；
 - 按需授予屏幕录制、摄像头和麦克风权限。
@@ -207,7 +193,7 @@ project-root/
 
 ## 真实运行效果
 
-本仓库已用包含 **6 个 Frame、284 个元素**的示例白板，在 HP 24y 扩展屏（1920×1080）上完成端到端实测。验证依据包括实际落盘文件、项目重载、`ffprobe` 检查和 QuickTime 回放。
+本仓库已用包含 **6 个 Frame、284 个元素**的示例白板。验证依据包括实际落盘文件、项目重载、`ffprobe` 检查和 QuickTime 回放。
 
 <p align="center">
   <img src="docs/assets/readme/33-external-display-source-picker-20260824.png" alt="macOS Capture Agent 的真实桌面来源选择" width="100%">
