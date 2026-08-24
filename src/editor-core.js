@@ -277,6 +277,7 @@
         mouseFocus: camera.mouseFocus !== false,
         clickFocus: camera.clickFocus !== false,
         typingFocus: camera.typingFocus !== false,
+        motionMode: camera.motionMode === "3d" ? "3d" : "2d",
         speed: typeof camera.speed === "string" ? camera.speed : "standard",
         strength: typeof camera.strength === "string" ? camera.strength : "gentle",
         keyframes: Array.isArray(camera.keyframes) ? clone(camera.keyframes) : [],
@@ -609,7 +610,7 @@
         speedRegions: edit ? edit.timeline.speedRegions.map(function (region) {
           return Object.assign({}, clone(region), { start: region.startMs / 1000, end: region.endMs / 1000 });
         }) : [],
-        camera: edit ? clone(edit.camera) : { enabled: false, slideFocus: true, mouseFocus: true, clickFocus: true, typingFocus: true, strength: "gentle", keyframes: [] },
+        camera: edit ? clone(edit.camera) : { enabled: false, slideFocus: true, mouseFocus: true, clickFocus: true, typingFocus: true, motionMode: "2d", strength: "gentle", keyframes: [] },
         cursor: edit ? Object.assign({ highlight: edit.cursor.visible !== false }, clone(edit.cursor)) : { highlight: true },
         webcam: edit ? clone(edit.webcam) : {},
         annotations: edit ? clone(edit.annotations) : [],
@@ -726,6 +727,7 @@
           mouseFocus: legacyEdits.camera.mouseFocus !== false,
           clickFocus: legacyEdits.camera.clickFocus !== false,
           typingFocus: legacyEdits.camera.typingFocus !== false,
+          motionMode: legacyEdits.camera.motionMode === "3d" ? "3d" : "2d",
           speed: typeof legacyEdits.camera.speed === "string"
             ? legacyEdits.camera.speed
             : activeEdit.camera.speed,

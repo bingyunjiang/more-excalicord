@@ -129,17 +129,25 @@ function mapSubtitles(subtitles, timeMap) {
 
 function mapCameraTrack(camera, timeMap) {
   if (!camera || camera.enabled === false) return [];
+  const motionMode = camera.motionMode === "3d" ? "3d" : "2d";
+  const maximumTilt = ({ gentle: 3.2, medium: 5.2, strong: 7.5 })[camera.strength] || 3.2;
   const output = [];
   (Array.isArray(camera.keyframes) ? camera.keyframes : []).forEach((frame, index) => {
     const sourceMs = Math.max(0, finite(frame.timeMs, finite(frame.t, 0) * 1000));
     const mapped = sourceToOutput(timeMap, sourceMs);
     if (mapped.deleted) return;
+    const x = clamp(finite(frame.x, 0.5), 0, 1);
+    const y = clamp(finite(frame.y, 0.5), 0, 1);
+    const scale = clamp(finite(frame.scale, 1), 1, 4);
+    const focusAmount = clamp((scale - 1) / 0.58, 0, 1);
     output.push({
       id: frame.id || `camera-${index + 1}`,
       timeMs: mapped.timeMs,
-      x: clamp(finite(frame.x, 0.5), 0, 1),
-      y: clamp(finite(frame.y, 0.5), 0, 1),
-      scale: clamp(finite(frame.scale, 1), 1, 4),
+      x,
+      y,
+      scale,
+      tiltX: motionMode === "3d" ? clamp((0.5 - y) * maximumTilt * 2 * focusAmount, -maximumTilt, maximumTilt) : 0,
+      tiltY: motionMode === "3d" ? clamp((x - 0.5) * maximumTilt * 2 * focusAmount, -maximumTilt, maximumTilt) : 0,
       transitionMs: clamp(finite(frame.transitionMs, 420), 0, 3000),
     });
   });
@@ -150,7 +158,7 @@ function mapCameraTrack(camera, timeMap) {
     else deduped.push(frame);
   });
   if (!deduped.length || deduped[0].timeMs > 1) {
-    deduped.unshift({ id: "camera-start", timeMs: 0, x: 0.5, y: 0.5, scale: 1, transitionMs: 0 });
+    deduped.unshift({ id: "camera-start", timeMs: 0, x: 0.5, y: 0.5, scale: 1, tiltX: 0, tiltY: 0, transitionMs: 0 });
   }
   if (deduped.length <= 160) return deduped;
   const step = (deduped.length - 1) / 159;
@@ -321,6 +329,7 @@ function createRenderPlan(manifest, probe) {
     outputDurationMs: timeMap.outputDurationMs,
     subtitles: mapSubtitles(manifest.tracks.subtitles && manifest.tracks.subtitles.segments, timeMap).slice(0, 500),
     camera: mapCameraTrack(manifest.tracks.camera, timeMap),
+    cameraMotionMode: manifest.tracks.camera && manifest.tracks.camera.motionMode === "3d" ? "3d" : "2d",
     cursor: mapCursorTrack(manifest.tracks.cursor, manifest.source, timeMap),
     webcam: normalizeWebcamTrack(manifest.tracks.webcam, manifest.source),
     audio: manifest.tracks.audio || {},
@@ -382,6 +391,22 @@ function buildFilterGraph(plan, inputOptions) {
     const y = piecewiseExpression(plan.camera, "y", `on/${plan.fps.toFixed(6)}`);
     filters.push(`[${videoLabel}]zoompan=z='${z}':x='max(0,min(iw-iw/zoom,iw*(${x})-iw/(2*zoom)))':y='max(0,min(ih-ih/zoom,ih*(${y})-ih/(2*zoom)))':d=1:s=${width}x${height}:fps=${plan.fps.toFixed(6)}[vcamera]`);
     videoLabel = "vcamera";
+  }
+  if (plan.cameraMotionMode === "3d" && plan.camera.some((frame) => Math.abs(frame.tiltX) > 0.001 || Math.abs(frame.tiltY) > 0.001)) {
+    const pitch = `((${piecewiseExpression(plan.camera, "tiltX", `on/${plan.fps.toFixed(6)}`)})/12)`;
+    const yaw = `((${piecewiseExpression(plan.camera, "tiltY", `on/${plan.fps.toFixed(6)}`)})/12)`;
+    const overscanWidth = even(width * 1.14);
+    const overscanHeight = even(height * 1.14);
+    const x0 = `W*(0.005+max(0,${yaw})*0.025+max(0,${pitch})*0.018)`;
+    const y0 = `H*(0.005+max(0,${yaw})*0.020+max(0,${pitch})*0.018)`;
+    const x1 = `W*(0.995-max(0,-(${yaw}))*0.025-max(0,${pitch})*0.018)`;
+    const y1 = `H*(0.005+max(0,-(${yaw}))*0.020+max(0,${pitch})*0.018)`;
+    const x2 = `W*(0.005+max(0,${yaw})*0.025+max(0,-(${pitch}))*0.018)`;
+    const y2 = `H*(0.995-max(0,${yaw})*0.020-max(0,-(${pitch}))*0.018)`;
+    const x3 = `W*(0.995-max(0,-(${yaw}))*0.025-max(0,-(${pitch}))*0.018)`;
+    const y3 = `H*(0.995-max(0,-(${yaw}))*0.020-max(0,-(${pitch}))*0.018)`;
+    filters.push(`[${videoLabel}]scale=${overscanWidth}:${overscanHeight},perspective=x0='${x0}':y0='${y0}':x1='${x1}':y1='${y1}':x2='${x2}':y2='${y2}':x3='${x3}':y3='${y3}':sense=destination:eval=frame:interpolation=cubic,crop=${width}:${height}:(iw-${width})/2:(ih-${height})/2[v3dcamera]`);
+    videoLabel = "v3dcamera";
   }
   const padding = even(plan.appearance.padding);
   const radius = Math.round(plan.appearance.cornerRadius);

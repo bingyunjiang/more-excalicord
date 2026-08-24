@@ -35,6 +35,17 @@ var duringTransition = camera.evaluate([
 ], 800);
 assert.ok(duringTransition.scale > 1 && duringTransition.scale < 1.5);
 
+var motion2d = camera.motionAt(track, 2200, { motionMode: "2d", strength: "medium" });
+assert.strictEqual(motion2d.motionMode, "2d");
+assert.strictEqual(motion2d.tiltX, 0);
+assert.strictEqual(motion2d.tiltY, 0);
+var motion3d = camera.motionAt(track, focused.timeMs, { motionMode: "3d", strength: "medium" });
+assert.strictEqual(motion3d.motionMode, "3d");
+assert.ok(Math.abs(motion3d.tiltX) > 0.01 || Math.abs(motion3d.tiltY) > 0.01);
+assert.ok(Math.abs(motion3d.tiltX) <= camera.TILT_DEGREES.medium);
+assert.ok(Math.abs(motion3d.tiltY) <= camera.TILT_DEGREES.medium);
+assert.strictEqual(motion3d.overscan, 1.14);
+
 var merged = camera.mergeManualKeyframes(track, [
   { timeMs: 3000, x: 0.5, y: 0.5, scale: 1.1, transitionMs: 200 },
 ]);

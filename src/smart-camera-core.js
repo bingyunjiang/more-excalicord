@@ -16,6 +16,11 @@
     standard: 1,
     fast: 0.72,
   };
+  var TILT_DEGREES = {
+    gentle: 3.2,
+    medium: 5.2,
+    strong: 7.5,
+  };
 
   function finite(value, fallback) {
     var number = Number(value);
@@ -230,6 +235,24 @@
     };
   }
 
+  function motionAt(track, timeMs, options) {
+    var config = options && typeof options === "object" ? options : {};
+    var camera = evaluate(track, timeMs);
+    var motionMode = config.motionMode === "3d" ? "3d" : "2d";
+    var strength = typeof config.strength === "string" ? config.strength : "gentle";
+    var maximumTilt = TILT_DEGREES[strength] || TILT_DEGREES.gentle;
+    var focusAmount = clamp((camera.scale - 1) / 0.58, 0, 1);
+    camera.motionMode = motionMode;
+    camera.tiltX = motionMode === "3d"
+      ? clamp((0.5 - camera.y) * maximumTilt * 2 * focusAmount, -maximumTilt, maximumTilt)
+      : 0;
+    camera.tiltY = motionMode === "3d"
+      ? clamp((camera.x - 0.5) * maximumTilt * 2 * focusAmount, -maximumTilt, maximumTilt)
+      : 0;
+    camera.overscan = motionMode === "3d" ? 1.14 : 1;
+    return camera;
+  }
+
   function cropAt(track, timeMs, sourceWidth, sourceHeight, outputRatio) {
     var camera = evaluate(track, timeMs);
     var width = Math.max(1, finite(sourceWidth, 1));
@@ -259,6 +282,8 @@
     planFromEvents: planFromEvents,
     mergeManualKeyframes: mergeManualKeyframes,
     evaluate: evaluate,
+    motionAt: motionAt,
     cropAt: cropAt,
+    TILT_DEGREES: clone(TILT_DEGREES),
   };
 });

@@ -396,10 +396,17 @@
     subtitleOverlay.textContent = subtitle ? subtitle.text : "";
     subtitleOverlay.hidden = !subtitle;
     var cameraState = edit.camera.enabled === false
-      ? { x: 0.5, y: 0.5, scale: 1 }
-      : smartCamera.evaluate(edit.camera.keyframes, sourceMs);
+      ? { x: 0.5, y: 0.5, scale: 1, motionMode: "2d", tiltX: 0, tiltY: 0, overscan: 1 }
+      : (typeof smartCamera.motionAt === "function"
+        ? smartCamera.motionAt(edit.camera.keyframes, sourceMs, {
+          motionMode: edit.camera.motionMode,
+          strength: edit.camera.strength,
+        })
+        : smartCamera.evaluate(edit.camera.keyframes, sourceMs));
     session.video.style.transformOrigin = (cameraState.x * 100).toFixed(2) + "% " + (cameraState.y * 100).toFixed(2) + "%";
-    session.video.style.transform = "scale(" + cameraState.scale.toFixed(4) + ")";
+    session.video.style.transform = cameraState.motionMode === "3d"
+      ? "perspective(1200px) rotateX(" + cameraState.tiltX.toFixed(3) + "deg) rotateY(" + cameraState.tiltY.toFixed(3) + "deg) scale(" + (cameraState.scale * cameraState.overscan).toFixed(4) + ")"
+      : "scale(" + cameraState.scale.toFixed(4) + ")";
     var cursor = session.host.querySelector("#ec-editor-cursor-overlay");
     var recording = session.store.getActiveRecording();
     var events = recording.embeddedEvents || recording.embeddedSession && recording.embeddedSession.events || [];
@@ -444,6 +451,7 @@
     var viewport = session.host.querySelector("#ec-editor-video-viewport");
     viewport.style.background = edit.appearance.background || "#17191d";
     viewport.style.borderRadius = Math.max(0, finite(edit.appearance.cornerRadius, 14)) + "px";
+    viewport.style.perspective = cameraState.motionMode === "3d" ? "1200px" : "none";
   }
 
   function updatePlaybackUi() {
@@ -837,6 +845,7 @@
     target.appendChild(controlRow("鼠标智能聚焦", checkbox(edit.camera.mouseFocus !== false, "camera.mouseFocus"), "根据停留和移动区域生成镜头建议"));
     target.appendChild(controlRow("点击时聚焦", checkbox(edit.camera.clickFocus !== false, "camera.clickFocus"), "点击比普通移动拥有更高聚焦优先级"));
     target.appendChild(controlRow("打字自动缩放", checkbox(edit.camera.typingFocus !== false, "camera.typingFocus"), "打字时根据当前鼠标位置生成短暂聚焦建议"));
+    target.appendChild(controlRow("运镜模式", selectControl(edit.camera.motionMode === "3d" ? "3d" : "2d", [["2d", "2D 缩放"], ["3d", "3D 运镜"]], "camera.motionMode"), "2D 只平移缩放；3D 会根据焦点方向增加受控透视与俯仰"));
     target.appendChild(controlRow("镜头强度", selectControl(edit.camera.strength || "gentle", [["gentle", "轻微"], ["medium", "适中"], ["strong", "明显"]], "camera.strength")));
     target.appendChild(controlRow("镜头速度", selectControl(edit.camera.speed || "standard", [["slow", "慢"], ["standard", "标准"], ["fast", "快"]], "camera.speed")));
     var buttons = document.createElement("div");
@@ -1116,6 +1125,7 @@
         mouseFocus: edit.camera.mouseFocus !== false,
         clickFocus: edit.camera.clickFocus !== false,
         typingFocus: edit.camera.typingFocus !== false,
+        motionMode: edit.camera.motionMode === "3d" ? "3d" : "2d",
         allowOutsideCanvas: recording.scope === "screen",
         initialFrameId: recording.embeddedSession && recording.embeddedSession.initialFrameId,
       });

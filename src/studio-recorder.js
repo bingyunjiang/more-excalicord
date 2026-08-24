@@ -151,6 +151,7 @@
       mouseFocus: true,
       clickFocus: true,
       typingFocus: true,
+      motionMode: "2d",
       speed: "standard",
       strength: "gentle",
       targetX: 0.5,
@@ -248,6 +249,7 @@
           mouseFocus: true,
           clickFocus: true,
           typingFocus: true,
+          motionMode: "2d",
           speed: "standard",
           strength: "gentle",
           keyframes: [],
@@ -339,6 +341,7 @@
       mouseFocus: rawCamera.mouseFocus !== false,
       clickFocus: rawCamera.clickFocus !== false,
       typingFocus: rawCamera.typingFocus !== false,
+      motionMode: rawCamera.motionMode === "3d" ? "3d" : "2d",
       speed: typeof rawCamera.speed === "string" ? rawCamera.speed : "standard",
       strength: typeof rawCamera.strength === "string" ? rawCamera.strength : "gentle",
       keyframes: Array.isArray(rawCamera.keyframes) ? rawCamera.keyframes : [],
@@ -383,6 +386,9 @@
     state.smartCamera.typingFocus = project.edits && project.edits.camera
       ? project.edits.camera.typingFocus !== false
       : true;
+    state.smartCamera.motionMode = project.edits && project.edits.camera && project.edits.camera.motionMode === "3d"
+      ? "3d"
+      : "2d";
     state.smartCamera.speed = project.edits && project.edits.camera && typeof project.edits.camera.speed === "string"
       ? project.edits.camera.speed
       : "standard";
@@ -559,6 +565,7 @@
       mouseFocus: state.smartCamera.mouseFocus !== false,
       clickFocus: state.smartCamera.clickFocus !== false,
       typingFocus: state.smartCamera.typingFocus !== false,
+      motionMode: state.smartCamera.motionMode === "3d" ? "3d" : "2d",
       speed: state.smartCamera.speed || "standard",
       strength: state.smartCamera.strength,
       keyframes: state.smartCamera.keyframes.slice(),
@@ -964,6 +971,7 @@
           mouseFocus: state.smartCamera.mouseFocus !== false,
           clickFocus: state.smartCamera.clickFocus !== false,
           typingFocus: state.smartCamera.typingFocus !== false,
+          motionMode: state.smartCamera.motionMode === "3d" ? "3d" : "2d",
           allowOutsideCanvas: (session.scope || state.v011.recordingScope) === "screen",
           initialFrameId: session.initialFrameId || "",
         });
@@ -1347,6 +1355,7 @@
     '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-mouse-focus" checked/> 鼠标智能聚焦</label>',
     '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-click-focus" checked/> 点击时聚焦</label>',
     '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-typing-focus" checked/> 打字自动缩放</label>',
+    '      <div class="ec-row ec-smart-camera-detail"><label>运镜模式</label><select id="ec-smart-camera-motion"><option value="2d">2D 缩放</option><option value="3d">3D 运镜</option></select></div>',
     '      <div class="ec-row ec-smart-camera-detail"><label>强度</label><select id="ec-smart-camera-strength"><option value="gentle">轻微</option><option value="medium">适中</option><option value="strong">明显</option></select></div>',
     '      <div class="ec-row ec-smart-camera-detail"><label>速度</label><select id="ec-smart-camera-speed"><option value="slow">慢</option><option value="standard">标准</option><option value="fast">快</option></select></div>',
     '      <p class="ec-sub" id="ec-smart-camera-hint">录制时只记录镜头线索；缩放节奏和焦点可在录后编辑里调整。</p>',
@@ -4895,6 +4904,7 @@
   var smartMouseFocusChk = shadow.getElementById("ec-smart-mouse-focus");
   var smartClickFocusChk = shadow.getElementById("ec-smart-click-focus");
   var smartTypingFocusChk = shadow.getElementById("ec-smart-typing-focus");
+  var smartCameraMotion = shadow.getElementById("ec-smart-camera-motion");
   var smartCameraStrength = shadow.getElementById("ec-smart-camera-strength");
   var smartCameraSpeed = shadow.getElementById("ec-smart-camera-speed");
   var smartCameraHint = shadow.getElementById("ec-smart-camera-hint");
@@ -5054,10 +5064,14 @@
     if (smartMouseFocusChk) smartMouseFocusChk.checked = state.smartCamera.mouseFocus !== false;
     if (smartClickFocusChk) smartClickFocusChk.checked = state.smartCamera.clickFocus !== false;
     if (smartTypingFocusChk) smartTypingFocusChk.checked = state.smartCamera.typingFocus !== false;
+    if (smartCameraMotion) smartCameraMotion.value = state.smartCamera.motionMode === "3d" ? "3d" : "2d";
     if (smartCameraHint) {
-      smartCameraHint.textContent = canSlideFocus
+      var motionText = state.smartCamera.motionMode === "3d"
+        ? "3D 运镜会在录后增加轻微透视和方向转动。"
+        : "2D 缩放只做平移与放大。";
+      smartCameraHint.textContent = (canSlideFocus
         ? "录制时记录幻灯片切换、鼠标、点击和打字线索；录后可调整镜头焦点、倍率和节奏。"
-        : "屏幕/窗口录制会记录鼠标停留、点击和打字线索；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。";
+        : "屏幕/窗口录制会记录鼠标停留、点击和打字线索；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。") + " " + motionText;
     }
   }
 
@@ -5088,6 +5102,11 @@
     state.smartCamera.strength = smartCameraStrength.value || "gentle";
     v011ScheduleSave("smart-camera-strength");
   });
+  if (smartCameraMotion) smartCameraMotion.addEventListener("change", function () {
+    state.smartCamera.motionMode = smartCameraMotion.value === "3d" ? "3d" : "2d";
+    updateSmartCameraUI();
+    v011ScheduleSave("smart-camera-motion-mode");
+  });
   smartCameraSpeed.addEventListener("change", function () {
     state.smartCamera.speed = smartCameraSpeed.value || "standard";
     v011ScheduleSave("smart-camera-speed");
@@ -5099,6 +5118,7 @@
   });
   restoreV011RecordingSettings();
   smartCameraChk.checked = !!state.smartCamera.enabled;
+  if (smartCameraMotion) smartCameraMotion.value = state.smartCamera.motionMode === "3d" ? "3d" : "2d";
   smartCameraStrength.value = state.smartCamera.strength || "gentle";
   smartCameraSpeed.value = state.smartCamera.speed || "standard";
   updateSmartCameraUI();
@@ -7397,6 +7417,7 @@
     if (smartMouseFocusChk) smartMouseFocusChk.checked = state.smartCamera.mouseFocus !== false;
     if (smartClickFocusChk) smartClickFocusChk.checked = state.smartCamera.clickFocus !== false;
     if (smartTypingFocusChk) smartTypingFocusChk.checked = state.smartCamera.typingFocus !== false;
+    if (smartCameraMotion) smartCameraMotion.value = state.smartCamera.motionMode === "3d" ? "3d" : "2d";
     smartCameraStrength.value = state.smartCamera.strength || "gentle";
     smartCameraSpeed.value = state.smartCamera.speed || "standard";
     updateSmartCameraUI();

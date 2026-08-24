@@ -80,4 +80,14 @@ assert.ok(layeredGraph.includes("[wcat]scale="));
 assert.ok(layeredGraph.includes("[cursorasset]overlay="));
 assert.ok(layeredGraph.includes("[click0]overlay="));
 
+const threeDManifest = JSON.parse(JSON.stringify(manifest));
+threeDManifest.tracks.camera.motionMode = "3d";
+threeDManifest.tracks.camera.strength = "medium";
+const threeDPlan = render.createRenderPlan(threeDManifest, { width: 1920, height: 1080, fps: 30, hasAudio: true, durationMs: 10000 });
+assert.strictEqual(threeDPlan.cameraMotionMode, "3d");
+assert.ok(Math.abs(threeDPlan.camera[1].tiltX) > 0 || Math.abs(threeDPlan.camera[1].tiltY) > 0);
+const threeDGraph = render.buildFilterGraph(threeDPlan, 1).graph;
+assert.ok(threeDGraph.includes("perspective="));
+assert.ok(threeDGraph.includes("eval=frame"));
+
 console.log("render core tests ok");
