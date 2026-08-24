@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="440" viewBox="0 0 1280 440" role="img" aria-labelledby="title desc">
+  <title id="title">more-excalicord 三步开录</title>
+  <desc id="desc">载入白板，按默认设置开始录制，停止后得到原始 MP4；需要时再进入录后编辑导出成片。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef2ff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-22%" width="124%" height="154%">
+      <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#0f172a" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#64748b"/>
+    </marker>
+    <style>
+      .t{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+      .title{fill:#0f172a;font-size:32px;font-weight:850}
+      .sub{fill:#64748b;font-size:16px}
+      .card{fill:#fff;stroke:#dbe3ef;stroke-width:1.5;rx:28;filter:url(#shadow)}
+      .num{fill:url(#primary)}
+      .numText{fill:#fff;font-size:24px;font-weight:850}
+      .h{fill:#111827;font-size:24px;font-weight:850}
+      .p{fill:#64748b;font-size:15px}
+      .line{stroke:#64748b;stroke-width:3;fill:none;marker-end:url(#arrow)}
+      .chip{fill:#fff;stroke:#c7d2fe;stroke-width:1.2;rx:18}
+      .chipText{fill:#475569;font-size:14px;font-weight:650}
+    </style>
+  </defs>
+  <rect width="1280" height="440" fill="url(#bg)"/>
+  <text x="640" y="58" class="t title" text-anchor="middle">默认设置，三步就能开录</text>
+  <text x="640" y="88" class="t sub" text-anchor="middle">先把讲解录下来；提词、摄像头、字幕和剪辑都可以之后再加</text>
+
+  <path class="line" d="M396 220h104"/>
+  <path class="line" d="M780 220h104"/>
+
+  <g transform="translate(96 136)">
+    <rect class="card" width="300" height="168"/>
+    <circle class="num" cx="54" cy="54" r="30"/>
+    <text x="54" y="63" class="t numText" text-anchor="middle">1</text>
+    <text x="102" y="56" class="t h">打开白板</text>
+    <text x="38" y="108" class="t p">载入已有 .excalidraw，或直接新建一张</text>
+    <text x="38" y="134" class="t p">Frame 不整理也能先录</text>
+  </g>
+
+  <g transform="translate(500 136)">
+    <rect class="card" width="280" height="168"/>
+    <circle class="num" cx="54" cy="54" r="30"/>
+    <text x="54" y="63" class="t numText" text-anchor="middle">2</text>
+    <text x="102" y="56" class="t h">点击录制</text>
+    <text x="38" y="108" class="t p">默认白板全景 / 当前页即可开始</text>
+    <text x="38" y="134" class="t p">暂停、继续、停止都在迷你工具条里</text>
+  </g>
+
+  <g transform="translate(884 136)">
+    <rect class="card" width="300" height="168"/>
+    <circle class="num" cx="54" cy="54" r="30"/>
+    <text x="54" y="63" class="t numText" text-anchor="middle">3</text>
+    <text x="102" y="56" class="t h">得到 MP4</text>
+    <text x="38" y="108" class="t p">停止后原片进入 recordings/</text>
+    <text x="38" y="134" class="t p">需要精修再导出 exports/final.mp4</text>
+  </g>
+
+  <g transform="translate(218 348)">
+    <rect class="chip" width="116" height="36"/>
+    <text x="58" y="24" class="t chipText" text-anchor="middle">提词器</text>
+  </g>
+  <g transform="translate(358 348)">
+    <rect class="chip" width="132" height="36"/>
+    <text x="66" y="24" class="t chipText" text-anchor="middle">摄像头画中画</text>
+  </g>
+  <g transform="translate(514 348)">
+    <rect class="chip" width="118" height="36"/>
+    <text x="59" y="24" class="t chipText" text-anchor="middle">桌面窗口</text>
+  </g>
+  <g transform="translate(656 348)">
+    <rect class="chip" width="116" height="36"/>
+    <text x="58" y="24" class="t chipText" text-anchor="middle">字幕</text>
+  </g>
+  <g transform="translate(796 348)">
+    <rect class="chip" width="132" height="36"/>
+    <text x="66" y="24" class="t chipText" text-anchor="middle">智能粗剪</text>
+  </g>
+  <text x="640" y="414" class="t sub" text-anchor="middle">这些都是可选增强项，不是开始录制的前置条件</text>
+</svg>

@@ -2,10 +2,10 @@
   <img src="assets/brand/more-excalicord-logo.svg" alt="more-excalicord" width="560">
 </p>
 
-<h3 align="center">把一张 Excalidraw 白板，变成一套可录制、可剪辑、可交付的视频工作流</h3>
+<h3 align="center">落笔成画，开讲成片。</h3>
 
 <p align="center">
-  Frame 幻灯片 · 白板与桌面录制 · 提词器 · 摄像头画中画 · 字幕 · 非破坏剪辑 · 本地项目
+  在 Excalidraw 中创作、讲解、录制，一气呵成。
 </p>
 
 <p align="center">
@@ -16,16 +16,20 @@
   <a href="LICENSE">MIT License</a>
 </p>
 
-> 当前版本：`v0.1.1` · 面向 macOS 上的自托管 Excalidraw
+> 当前版本：`v0.1.1` · 面向自托管 Excalidraw
 
-## 从白板到成片，不必在多个工具之间来回搬运
+## 在白板里创作，也在白板里开讲
 
-Excalidraw 很适合自由思考，却不天然适合按页讲解、稳定录制和后期交付。`more-excalicord` 在你的本地 Excalidraw 上增加一套完整工作台：用 Frame 组织讲解页，录下白板、当前幻灯片或桌面窗口，再在同一项目中完成剪辑、逐字稿、字幕和成片导出。
+Excalidraw 很适合自由思考，却不天然适合按页讲解、稳定录制和后期交付。`more-excalicord` 在你的本地 Excalidraw 上增加一套轻量工作台/插件：默认设置即可开始录制，合成带有画中画的 MP4；兼顾自定义幻灯片Frame、提词器、画中画、字幕和录后编辑。
+
+<p align="center">
+  <img src="docs/assets/readme/workflow-concept.svg" alt="more-excalicord 落笔成画开讲成片概念图" width="100%">
+</p>
 
 ```text
 Excalidraw 白板
       ↓
-Frame 组织与演示
+Frame 组织与幻灯片演示
       ↓
 白板 / 当前页 / 桌面录制
       ↓
@@ -36,14 +40,12 @@ Frame 组织与演示
 exports/final.mp4
 ```
 
-它适合用来制作：
+适合用来制作：
 
 - 技术方案讲解、课程与培训视频；
 - 论文、项目和产品汇报；
 - 带桌面操作演示的软件教程；
 - 需要保留原片、字幕和编辑记录的长期内容项目。
-
-<!-- TODO: 后续绘制“从白板到成片”的横向概念图，替换上方文字流程。 -->
 
 ## 先看实际效果
 
@@ -114,17 +116,23 @@ macOS Capture Agent 提供真实显示器与应用窗口预览；录制过程中
 
 白板、原片、事件、逐字稿、字幕、编辑时间线与最终成片保存在用户选择的目录中。项目可以备份、迁移和复查，不依赖云端内容库。
 
-## 一次完整的使用流程
+## 默认设置，三步就能开录
 
-1. 打开或新建一个本地项目目录。
-2. 载入 `.excalidraw` 白板，用 Frame 整理讲解顺序。
-3. 选择白板全景、当前幻灯片，或真实屏幕/窗口来源。
-4. 配置麦克风、摄像头、提词器、画幅和录制效果。
-5. 开始录制；需要时暂停、继续，并在白板中切换 Frame。
-6. 在录后工作台剪辑、校对逐字稿、制作字幕和调整画面。
-7. 导出 `exports/final.mp4`，保留完整项目供后续继续编辑。
+1. 载入或新建一张 Excalidraw 白板。
+2. 保持默认设置，选择“白板全景”或“当前幻灯片”，点击开始录制。
+3. 停止后直接得到原始 MP4；需要精修时，再进入录后编辑并导出 `exports/final.mp4`。
 
-<!-- TODO: 后续补充 7 步操作流程截图或短 GIF。 -->
+<p align="center">
+  <img src="docs/assets/readme/operation-steps-concept.svg" alt="more-excalicord 三步开录概念图" width="100%">
+</p>
+
+Frame 整理、桌面窗口选择、摄像头画中画、提词器、字幕和智能剪辑都是增强项；默认不配置也能先把讲解录下来。下面三张是真实页面操作截图，对应“项目载入 → 录制中 → 录后编辑”的主路径。
+
+<p align="center">
+  <img src="docs/assets/readme/21-v011-rich-sketch-project.png" alt="more-excalicord 打开示例白板和项目面板" width="32%">
+  <img src="docs/assets/readme/22-v011-recording-toolbar.png" alt="more-excalicord 录制中的迷你工具条" width="32%">
+  <img src="docs/assets/readme/23-v011-real-post-editor.png" alt="more-excalicord 真实录后编辑界面" width="32%">
+</p>
 
 ## 快速开始
 

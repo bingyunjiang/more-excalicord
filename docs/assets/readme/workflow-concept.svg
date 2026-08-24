@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">more-excalicord 落笔成画，开讲成片</title>
+  <desc id="desc">在 Excalidraw 中创作、讲解、录制，一气呵成；默认设置即可开始，进阶时再加入 Frame、提词、摄像头、字幕和录后编辑。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-20%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .label{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;fill:#0f172a}
+      .muted{fill:#64748b}
+      .card{fill:url(#card);stroke:#dbe3ef;stroke-width:1.5;rx:24;filter:url(#shadow)}
+      .icon{fill:#eef2ff;stroke:#818cf8;stroke-width:2}
+      .accent{fill:#4f46e5}
+      .green{fill:#10b981}
+      .orange{fill:#f59e0b}
+      .line{stroke:#64748b;stroke-width:2.5;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1280" height="420" fill="url(#bg)"/>
+  <text x="640" y="54" class="label" text-anchor="middle" font-size="32" font-weight="800">落笔成画，开讲成片。</text>
+  <text x="640" y="86" class="label muted" text-anchor="middle" font-size="16">在 Excalidraw 中创作、讲解、录制，一气呵成</text>
+
+  <g transform="translate(58 132)">
+    <rect class="card" width="180" height="190"/>
+    <circle class="icon" cx="52" cy="52" r="24"/>
+    <path d="M42 52h20M52 42v20" stroke="#4f46e5" stroke-width="4" stroke-linecap="round"/>
+    <text x="90" y="48" class="label" font-size="19" font-weight="700">Excalidraw</text>
+    <text x="90" y="74" class="label" font-size="19" font-weight="700">白板</text>
+    <text x="24" y="118" class="label muted" font-size="14">自由画布</text>
+    <text x="24" y="144" class="label muted" font-size="14">附件与中文内容</text>
+  </g>
+
+  <path class="line" d="M250 227h58"/>
+
+  <g transform="translate(322 132)">
+    <rect class="card" width="180" height="190"/>
+    <rect class="icon" x="32" y="34" width="56" height="36" rx="8"/>
+    <rect class="icon" x="92" y="34" width="56" height="36" rx="8"/>
+    <rect class="icon" x="32" y="76" width="56" height="36" rx="8"/>
+    <text x="24" y="132" class="label" font-size="19" font-weight="700">Frame 幻灯片</text>
+    <text x="24" y="162" class="label muted" font-size="14">总览、排序、聚焦</text>
+  </g>
+
+  <path class="line" d="M514 227h58"/>
+
+  <g transform="translate(586 132)">
+    <rect class="card" width="180" height="190"/>
+    <rect x="38" y="36" width="104" height="66" rx="14" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+    <circle cx="90" cy="69" r="19" class="accent"/>
+    <path d="M82 58l26 11-26 11z" fill="#fff"/>
+    <text x="24" y="132" class="label" font-size="19" font-weight="700">录制讲解</text>
+    <text x="24" y="162" class="label muted" font-size="14">白板 / 当前页 / 桌面</text>
+  </g>
+
+  <path class="line" d="M778 227h58"/>
+
+  <g transform="translate(850 132)">
+    <rect class="card" width="180" height="190"/>
+    <path d="M40 46h100v70H40z" fill="#f8fafc" stroke="#818cf8" stroke-width="2" rx="12"/>
+    <path d="M58 64h64M58 82h42M58 100h54" stroke="#4f46e5" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="134" cy="108" r="20" class="orange"/>
+    <text x="24" y="148" class="label" font-size="19" font-weight="700">录后编辑</text>
+    <text x="24" y="176" class="label muted" font-size="14">剪辑、字幕、镜头</text>
+  </g>
+
+  <path class="line" d="M1042 227h58"/>
+
+  <g transform="translate(1114 132)">
+    <rect class="card" width="126" height="190"/>
+    <rect x="34" y="36" width="58" height="76" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+    <path d="M48 78l12 12 23-30" fill="none" stroke="#10b981" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="63" y="146" class="label" text-anchor="middle" font-size="19" font-weight="700">final.mp4</text>
+    <text x="63" y="174" class="label muted" text-anchor="middle" font-size="14">本地导出</text>
+  </g>
+</svg>
