@@ -129,7 +129,7 @@
     var createdAt = typeof source.createdAt === "string" ? source.createdAt : nowIso();
     return {
       schemaVersion: PROJECT_SCHEMA_VERSION,
-      appVersion: typeof source.appVersion === "string" ? source.appVersion : "0.1.1",
+      appVersion: typeof source.appVersion === "string" ? source.appVersion : "0.1.2",
       projectId: cleanId(source.projectId, "project"),
       createdAt: createdAt,
       updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : createdAt,

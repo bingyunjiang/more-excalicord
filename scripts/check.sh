@@ -23,7 +23,7 @@ required_files=(
   "$repo_root/native/capture-agent/macos/Sources/ExcalicordCaptureAgent/Models.swift"
   "$repo_root/scripts/deploy-capture-agent.sh"
   "$repo_root/scripts/setup-local-asr.sh"
-  "$repo_root/scripts/smoke-render-v011.js"
+  "$repo_root/scripts/smoke-render-v012.js"
   "$repo_root/package.json"
   "$repo_root/README.md"
   "$repo_root/CHANGELOG.md"

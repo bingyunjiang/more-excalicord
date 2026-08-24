@@ -9,6 +9,7 @@ function close(actual, expected, message) {
 
 var project = core.createProject({ projectId: "project-test" });
 assert.strictEqual(project.schemaVersion, 2);
+assert.strictEqual(project.appVersion, "0.1.2");
 assert.strictEqual(project.scene.path, "scene.excalidraw");
 assert.strictEqual(project.text.script.path, "text/script.md");
 assert.strictEqual(core.safeRelativePath("recordings/session/video.mp4", ""), "recordings/session/video.mp4");

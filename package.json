@@ -1,11 +1,11 @@
 {
   "name": "more-excalicord",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Local Excalidraw enhancement plugin for slide navigation, recording, camera, teleprompter, and whiteboard controls.",
   "scripts": {
-    "check": "node --check src/studio-recorder.js && node --check src/native-bridge.js && node --check src/editor-core.js && node --check src/editor-store.js && node --check src/editor-io.js && node --check src/rough-cut-core.js && node --check src/smart-camera-core.js && node --check src/post-editor.js && node --check server/render-core.js && node --check server/no-cache-server.js && node --check scripts/smoke-render-v011.js && python3 -c \"compile(open('server/render_caption_overlays.py',encoding='utf-8').read(),'render_caption_overlays.py','exec'); compile(open('server/transcribe_audio.py',encoding='utf-8').read(),'transcribe_audio.py','exec')\" && node -e \"JSON.parse(require('fs').readFileSync('schemas/project-excalicord-v2.schema.json','utf8'))\" && node tests/editor-core.test.js && node tests/editor-store.test.js && node tests/editor-io.test.js && node tests/rough-cut-core.test.js && node tests/smart-camera-core.test.js && node tests/render-core.test.js && bash scripts/check.sh",
-    "smoke:render": "node scripts/smoke-render-v011.js",
+    "check": "node --check src/studio-recorder.js && node --check src/native-bridge.js && node --check src/editor-core.js && node --check src/editor-store.js && node --check src/editor-io.js && node --check src/rough-cut-core.js && node --check src/smart-camera-core.js && node --check src/post-editor.js && node --check server/render-core.js && node --check server/no-cache-server.js && node --check scripts/smoke-render-v012.js && python3 -c \"compile(open('server/render_caption_overlays.py',encoding='utf-8').read(),'render_caption_overlays.py','exec'); compile(open('server/transcribe_audio.py',encoding='utf-8').read(),'transcribe_audio.py','exec')\" && node -e \"JSON.parse(require('fs').readFileSync('schemas/project-excalicord-v2.schema.json','utf8'))\" && node tests/editor-core.test.js && node tests/editor-store.test.js && node tests/editor-io.test.js && node tests/rough-cut-core.test.js && node tests/smart-camera-core.test.js && node tests/render-core.test.js && bash scripts/check.sh",
+    "smoke:render": "node scripts/smoke-render-v012.js",
     "preflight": "bash scripts/preflight.sh",
     "configure:local": "bash scripts/configure-local.sh",
     "setup:local": "bash scripts/configure-local.sh --auto && bash scripts/preflight.sh",

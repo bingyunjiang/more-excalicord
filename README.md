@@ -18,7 +18,7 @@
   <a href="LICENSE">MIT License</a>
 </p>
 
-> 当前版本：`v0.1.1` · 面向自托管 Excalidraw
+> 当前版本：`v0.1.2` · 面向自托管 Excalidraw
 
 ## 画中画，让白板讲解更有“人”在场
 
@@ -119,7 +119,7 @@ npm run deploy:local
 | 完成安装或排障 | [安装说明](docs/install.zh-CN.md) · [排障说明](docs/troubleshooting.zh-CN.md) |
 | 了解项目文件 | [项目格式](docs/project-format.zh-CN.md) |
 | 参与开发或发布 | [开发指南](docs/developer-guide.zh-CN.md) · [发布检查](docs/release-checklist.zh-CN.md) |
-| 查看实测证据 | [v0.1.1 UX 复核](docs/v0.1.1-ux-review.zh-CN.md) |
+| 查看历史实测证据 | [v0.1.1 UX 复核](docs/v0.1.1-ux-review.zh-CN.md) |
 | 查看版本变化 | [更新日志](CHANGELOG.md) |
 
 ## 作者与许可
