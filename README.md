@@ -14,6 +14,7 @@
   <a href="#核心体验">核心体验</a> ·
   <a href="#其他真实效果">真实截图</a> ·
   <a href="docs/user-guide.zh-CN.md">使用指南</a> ·
+  <a href="CHANGELOG.md">更新日志</a> ·
   <a href="LICENSE">MIT License</a>
 </p>
 
@@ -119,6 +120,7 @@ npm run deploy:local
 | 了解项目文件 | [项目格式](docs/project-format.zh-CN.md) |
 | 参与开发或发布 | [开发指南](docs/developer-guide.zh-CN.md) · [发布检查](docs/release-checklist.zh-CN.md) |
 | 查看实测证据 | [v0.1.1 UX 复核](docs/v0.1.1-ux-review.zh-CN.md) |
+| 查看版本变化 | [更新日志](CHANGELOG.md) |
 
 ## 作者与许可
 

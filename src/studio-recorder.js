@@ -149,6 +149,8 @@
       level: 0,
       muted: false,
       timer: null,
+      previewing: false,
+      requestGeneration: 0,
     },
     cursor: {
       highlight: true,
@@ -1293,7 +1295,7 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260824v011zg-cursor-panel-soft";
+  var EC_BUILD_VERSION = "20260825c-microphone-polish";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
@@ -1427,7 +1429,7 @@
     '  <div class="ec-section ec-camera-section">',
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头与麦克风</span></span></div>',
     '    <div class="ec-row"><label>启用</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-enable"/> 摄像头画中画</label></div>',
-    '    <div class="ec-row ec-mic-row" id="ec-mic-row"><label>麦克风</label><select id="ec-mic-device"><option value="">默认麦克风</option></select><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
+    '    <div class="ec-row ec-mic-row" id="ec-mic-row"><label>麦克风</label><select id="ec-mic-device"><option value="">默认麦克风</option></select><div class="ec-mic-meter" id="ec-mic-meter" role="meter" aria-label="麦克风实时音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="ec-mic-bar" id="ec-mic-bar"></div><div class="ec-mic-wave" id="ec-mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><span class="ec-value ec-mic-status ec-mic-status-idle" id="ec-mic-status" role="status" aria-label="打开面板后会实时检测麦克风" title="打开面板后会实时检测麦克风"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.25" y="3.25" width="7.5" height="11.5" rx="3.75"></rect><path d="M5.75 11.5v.75a6.25 6.25 0 0 0 12.5 0v-.75M12 18.5v2.25M9.25 20.75h5.5"></path></svg></span></div>',
     '    <div class="ec-row"><label>合成</label><label class="ec-toggle"><input type="checkbox" id="ec-compose" title="录制时把摄像头圆框直接合成进视频文件，不依赖屏幕里的气泡位置"/> 摄像头合成进视频</label></div>',
     '    <div class="ec-row" id="ec-composite-position-row"><label>显示位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
     '    <div class="ec-row"><label>录制时</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 隐藏屏幕气泡（与合成进视频无关）</label></div>',
@@ -5178,6 +5180,8 @@
       state.mic.deviceId = micDeviceSel.value || "";
       if (state.rec.active) {
         toast("麦克风选择会在下一次录制开始时生效");
+      } else if (panel && panel.classList.contains("ec-open")) {
+        startMicPreview();
       }
       v011ScheduleSave("microphone-device");
     });
@@ -7147,12 +7151,57 @@
     state.rec.composeRaf = requestAnimationFrame(composeDrawLoop);
   }
 
+  function resetMicVisualization(status, title) {
+    state.mic.level = 0;
+    state.mic.muted = true;
+    var micBar = shadow.getElementById("ec-mic-bar");
+    var micMeter = shadow.getElementById("ec-mic-meter");
+    var micStatus = shadow.getElementById("ec-mic-status");
+    var waveBars = shadow.querySelectorAll("#ec-mic-wave i");
+    if (micBar) micBar.style.width = "0%";
+    if (micMeter) {
+      micMeter.setAttribute("aria-valuenow", "0");
+      micMeter.classList.remove("ec-mic-active", "ec-mic-muted");
+    }
+    waveBars.forEach(function (bar) {
+      bar.style.transform = "scaleY(0.34)";
+      bar.style.opacity = "0.44";
+    });
+    if (micStatus) {
+      var statusMode = status === "!" ? "error" : status === "…" ? "loading" : "idle";
+      micStatus.className = "ec-value ec-mic-status ec-mic-status-" + statusMode;
+      micStatus.title = title || "打开面板后会实时检测麦克风";
+      micStatus.setAttribute("aria-label", micStatus.title);
+    }
+  }
+
+  function releaseMicMonitor(resetUI) {
+    stopMicPolling();
+    if (state.mic.stream) {
+      state.mic.stream.getTracks().forEach(function (track) { track.stop(); });
+      state.mic.stream = null;
+    }
+    state.mic.analyser = null;
+    state.mic.dataArray = null;
+    if (state.mic.audioContext && typeof state.mic.audioContext.close === "function") {
+      state.mic.audioContext.close().catch(function () {});
+    }
+    state.mic.audioContext = null;
+    if (resetUI !== false) resetMicVisualization();
+  }
+
   function requestMicAccess(callback) {
+    var requestGeneration = ++state.mic.requestGeneration;
+    releaseMicMonitor(false);
     var audioConstraint = state.mic.deviceId
       ? { deviceId: { exact: state.mic.deviceId } }
       : true;
     navigator.mediaDevices.getUserMedia({ audio: audioConstraint, video: false })
       .then(function (micStream) {
+        if (requestGeneration !== state.mic.requestGeneration) {
+          micStream.getTracks().forEach(function (track) { track.stop(); });
+          return;
+        }
         state.mic.stream = micStream;
         try {
           var ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -7163,12 +7212,17 @@
           state.mic.audioContext = ac;
           state.mic.analyser = analyser;
           state.mic.dataArray = new Uint8Array(analyser.frequencyBinCount);
+          if (ac.state === "suspended" && typeof ac.resume === "function") {
+            ac.resume().catch(function () {});
+          }
         } catch (e) {}
         listMicrophones();
-        if (callback) callback();
+        if (callback) callback(true);
       })
-      .catch(function () {
-        if (callback) callback();
+      .catch(function (error) {
+        if (requestGeneration !== state.mic.requestGeneration) return;
+        resetMicVisualization("!", "无法读取麦克风：" + ((error && error.message) || "请检查浏览器权限"));
+        if (callback) callback(false, error);
       });
   }
 
@@ -7179,13 +7233,30 @@
     for (var i = 0; i < state.mic.dataArray.length; i++) sum += state.mic.dataArray[i];
     state.mic.level = sum / state.mic.dataArray.length / 255;
     var micBar = shadow.getElementById("ec-mic-bar");
+    var micMeter = shadow.getElementById("ec-mic-meter");
     var micStatus = shadow.getElementById("ec-mic-status");
-    if (micBar) micBar.style.width = Math.round(state.mic.level * 100) + "%";
+    var waveBars = shadow.querySelectorAll("#ec-mic-wave i");
+    var visualLevel = clamp(state.mic.level * 3.2, 0, 1);
+    var percent = Math.round(visualLevel * 100);
+    if (micBar) micBar.style.width = percent + "%";
+    var muted = state.mic.level < 0.02;
+    if (micMeter) {
+      micMeter.setAttribute("aria-valuenow", String(percent));
+      micMeter.classList.toggle("ec-mic-active", !muted);
+      micMeter.classList.toggle("ec-mic-muted", muted);
+    }
+    waveBars.forEach(function (bar, index) {
+      var mirroredIndex = index < 8 ? index : 14 - index;
+      var bin = Math.min(state.mic.dataArray.length - 1, 2 + mirroredIndex * 3);
+      var energy = clamp((state.mic.dataArray[bin] || 0) / 150, 0, 1);
+      bar.style.transform = "scaleY(" + (0.34 + energy * 0.66).toFixed(3) + ")";
+      bar.style.opacity = String(0.44 + energy * 0.56);
+    });
     if (micStatus) {
-      var muted = state.mic.level < 0.02;
       state.mic.muted = muted;
-      micStatus.textContent = muted ? "🔇" : "🎤";
-      micStatus.style.color = muted ? "#e74c3c" : "#27ae60";
+      micStatus.title = muted ? "未检测到明显声音" : "正在检测麦克风声音";
+      micStatus.setAttribute("aria-label", micStatus.title);
+      micStatus.className = "ec-value ec-mic-status " + (muted ? "ec-mic-status-muted" : "ec-mic-status-listening");
     }
     micIndicator.style.display = (state.rec.active && state.mic.muted) ? "flex" : "none";
   }
@@ -7199,6 +7270,31 @@
   function stopMicPolling() {
     if (state.mic.timer) { clearInterval(state.mic.timer); state.mic.timer = null; }
     micIndicator.style.display = "none";
+  }
+
+  function startMicPreview() {
+    if (state.rec.active || state.countdown.active) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      resetMicVisualization("!", "当前浏览器不支持麦克风检测");
+      return;
+    }
+    resetMicVisualization("…", "正在连接麦克风");
+    requestMicAccess(function (ok) {
+      if (!ok) return;
+      if (!panel.classList.contains("ec-open") || state.rec.active || state.countdown.active) {
+        releaseMicMonitor();
+        return;
+      }
+      state.mic.previewing = true;
+      startMicPolling();
+    });
+  }
+
+  function stopMicPreview() {
+    if (state.rec.active || state.countdown.active) return;
+    state.mic.previewing = false;
+    state.mic.requestGeneration += 1;
+    releaseMicMonitor();
   }
 
   function doCountdown(callback) {
@@ -7244,6 +7340,9 @@
       startBrowserRecording();
       return;
     }
+    state.mic.previewing = false;
+    state.mic.requestGeneration += 1;
+    releaseMicMonitor();
     var source = nativeSourceSel.value || "display:";
     var separator = source.indexOf(":");
     var sourceType = separator >= 0 ? source.slice(0, separator) : "display";
@@ -8853,7 +8952,12 @@
     var wasOpen = panel.classList.contains("ec-open");
     panel.classList.toggle("ec-open", !!open);
     launcher.classList.toggle("ec-panel-open", !!open);
-    if (open && !wasOpen) panel.scrollTop = 0;
+    if (open && !wasOpen) {
+      panel.scrollTop = 0;
+      startMicPreview();
+    } else if (!open && wasOpen) {
+      stopMicPreview();
+    }
     if (state.tele.open && !state.tele.userPositioned) requestAnimationFrame(layoutTeleprompter);
   }
   launcher.addEventListener("click", function () {
@@ -8888,6 +8992,8 @@
     }
     if (state.rec.timer) clearInterval(state.rec.timer);
     if (slideAutosaveTimer) clearInterval(slideAutosaveTimer);
+    state.mic.requestGeneration += 1;
+    releaseMicMonitor(false);
     setTeleScrolling(false);
   });
 
