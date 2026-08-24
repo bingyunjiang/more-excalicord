@@ -9,12 +9,14 @@ var track = camera.planFromEvents([
   { type: "pointer", t: 2, x: 0.8, y: 0.7, insideCanvas: true },
   { type: "pointer", t: 2.1, x: 0.81, y: 0.71, insideCanvas: true },
   { type: "click", t: 3, x: 0.2, y: 0.3, insideCanvas: true },
+  { type: "keyboard", t: 4.2, x: 0.62, y: 0.42, insideCanvas: true, keyKind: "text" },
 ], { durationMs: 8000, strength: "medium" });
 
 assert.strictEqual(track[0].timeMs, 0);
 assert.ok(track.some(function (item) { return item.source === "auto-frame"; }));
 assert.ok(track.some(function (item) { return item.source === "auto-pointer"; }));
 assert.ok(track.some(function (item) { return item.source === "auto-click"; }));
+assert.ok(track.some(function (item) { return item.source === "auto-typing"; }));
 assert.ok(track.some(function (item) { return item.source === "auto-idle"; }));
 assert.ok(track.length < 8, "nearby pointer samples should be coalesced");
 
@@ -47,17 +49,30 @@ var screenTrack = camera.planFromEvents([
   { type: "frame-change", timeMs: 500, frameId: "frame-hidden" },
   { type: "pointer", timeMs: 1200, x: 0.82, y: 0.25, insideCanvas: false },
   { type: "click", timeMs: 2200, x: 0.20, y: 0.75, insideCanvas: false },
+  { type: "keyboard", timeMs: 3300, x: 0.55, y: 0.48, insideCanvas: false },
 ], {
   durationMs: 5000,
   slideFocus: false,
   mouseFocus: true,
   clickFocus: false,
+  typingFocus: true,
   allowOutsideCanvas: true,
   speed: "fast",
 });
 assert.ok(!screenTrack.some(function (item) { return item.source === "auto-frame"; }));
 assert.ok(screenTrack.some(function (item) { return item.source === "auto-pointer"; }));
 assert.ok(!screenTrack.some(function (item) { return item.source === "auto-click"; }));
+assert.ok(screenTrack.some(function (item) { return item.source === "auto-typing"; }));
 assert.ok(screenTrack.find(function (item) { return item.source === "auto-pointer"; }).transitionMs < camera.STRENGTHS.gentle.transitionMs);
+
+var noTypingTrack = camera.planFromEvents([
+  { type: "keyboard", timeMs: 900, x: 0.5, y: 0.5, insideCanvas: true },
+], {
+  durationMs: 2000,
+  mouseFocus: false,
+  clickFocus: false,
+  typingFocus: false,
+});
+assert.ok(!noTypingTrack.some(function (item) { return item.source === "auto-typing"; }));
 
 console.log("smart camera core tests ok");

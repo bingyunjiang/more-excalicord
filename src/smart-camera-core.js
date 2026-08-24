@@ -97,9 +97,10 @@
     var slideFocus = config.slideFocus !== false;
     var mouseFocus = config.mouseFocus !== false;
     var clickFocus = config.clickFocus !== false;
+    var typingFocus = config.typingFocus !== false;
     var allowOutsideCanvas = config.allowOutsideCanvas === true;
     var list = (Array.isArray(events) ? events : []).filter(function (event) {
-      return event && (event.type === "pointer" || event.type === "click" || event.type === "frame-change");
+      return event && (event.type === "pointer" || event.type === "click" || event.type === "keyboard" || event.type === "frame-change");
     }).map(function (event) {
       return Object.assign({}, event, { timeMs: eventTimeMs(event) });
     }).sort(function (a, b) { return a.timeMs - b.timeMs; });
@@ -157,20 +158,22 @@
         return false;
       }
       var isClick = event.type === "click";
+      var isTyping = event.type === "keyboard";
       if (isClick && !clickFocus) return false;
-      if (!isClick && !mouseFocus) return false;
+      if (isTyping && !typingFocus) return false;
+      if (!isClick && !isTyping && !mouseFocus) return false;
       if (event.insideCanvas === false && !allowOutsideCanvas) return false;
       if (event.timeMs - lastFrameAt < frameSettleMs) return false;
       var target = { x: clamp(finite(event.x, 0.5), 0, 1), y: clamp(finite(event.y, 0.5), 0, 1) };
-      if (!isClick && event.timeMs - lastFocus.timeMs < minIntervalMs) return false;
-      if (!isClick && lastFocus.scale > 1 && distance(target, lastFocus) < preset.deadZone) return false;
+      if (!isClick && event.timeMs - lastFocus.timeMs < (isTyping ? Math.max(minIntervalMs, 900) : minIntervalMs)) return false;
+      if (!isClick && !isTyping && lastFocus.scale > 1 && distance(target, lastFocus) < preset.deadZone) return false;
       var focus = normalizeKeyframe({
         timeMs: event.timeMs,
         x: target.x,
         y: target.y,
         scale: preset.scale,
-        transitionMs: isClick ? Math.max(180, transitionMs - 90) : transitionMs,
-        source: isClick ? "auto-click" : "auto-pointer",
+        transitionMs: isClick ? Math.max(180, transitionMs - 90) : (isTyping ? Math.max(220, transitionMs - 40) : transitionMs),
+        source: isClick ? "auto-click" : (isTyping ? "auto-typing" : "auto-pointer"),
         frameId: currentFrameId,
       }, track.length);
       track.push(focus);

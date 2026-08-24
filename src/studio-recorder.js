@@ -122,6 +122,7 @@
       customWidth: 1280,
       customHeight: 720,
       hideBubbleWhileRecording: false,
+      hideDesktopIcons: false,
     },
     mic: {
       deviceId: "",
@@ -149,6 +150,7 @@
       slideFocus: true,
       mouseFocus: true,
       clickFocus: true,
+      typingFocus: true,
       speed: "standard",
       strength: "gentle",
       targetX: 0.5,
@@ -245,6 +247,7 @@
           slideFocus: true,
           mouseFocus: true,
           clickFocus: true,
+          typingFocus: true,
           speed: "standard",
           strength: "gentle",
           keyframes: [],
@@ -266,7 +269,7 @@
         },
         annotations: [],
         audio: { microphoneDeviceId: "" },
-        appearance: { background: "#f4f1ea", backgroundStyle: "warm-gradient" },
+        appearance: { background: "#f4f1ea", backgroundStyle: "warm-gradient", hideDesktopIcons: false },
       },
     };
   }
@@ -335,6 +338,7 @@
       slideFocus: rawCamera.slideFocus !== false,
       mouseFocus: rawCamera.mouseFocus !== false,
       clickFocus: rawCamera.clickFocus !== false,
+      typingFocus: rawCamera.typingFocus !== false,
       speed: typeof rawCamera.speed === "string" ? rawCamera.speed : "standard",
       strength: typeof rawCamera.strength === "string" ? rawCamera.strength : "gentle",
       keyframes: Array.isArray(rawCamera.keyframes) ? rawCamera.keyframes : [],
@@ -376,6 +380,9 @@
     state.smartCamera.clickFocus = project.edits && project.edits.camera
       ? project.edits.camera.clickFocus !== false
       : true;
+    state.smartCamera.typingFocus = project.edits && project.edits.camera
+      ? project.edits.camera.typingFocus !== false
+      : true;
     state.smartCamera.speed = project.edits && project.edits.camera && typeof project.edits.camera.speed === "string"
       ? project.edits.camera.speed
       : "standard";
@@ -412,6 +419,7 @@
     state.settings.backgroundStyle = project.edits && project.edits.appearance && typeof project.edits.appearance.backgroundStyle === "string"
       ? project.edits.appearance.backgroundStyle
       : state.settings.backgroundStyle;
+    state.settings.hideDesktopIcons = !!(project.edits && project.edits.appearance && project.edits.appearance.hideDesktopIcons);
     state.mic.deviceId = project.edits && project.edits.audio && typeof project.edits.audio.microphoneDeviceId === "string"
       ? project.edits.audio.microphoneDeviceId
       : "";
@@ -550,6 +558,7 @@
       slideFocus: state.smartCamera.slideFocus !== false,
       mouseFocus: state.smartCamera.mouseFocus !== false,
       clickFocus: state.smartCamera.clickFocus !== false,
+      typingFocus: state.smartCamera.typingFocus !== false,
       speed: state.smartCamera.speed || "standard",
       strength: state.smartCamera.strength,
       keyframes: state.smartCamera.keyframes.slice(),
@@ -578,6 +587,7 @@
     existing.edits.appearance = Object.assign({}, existing.edits.appearance, {
       background: bgInput && bgInput.value ? bgInput.value : state.settings.background,
       backgroundStyle: bgStyleSel && bgStyleSel.value ? bgStyleSel.value : state.settings.backgroundStyle,
+      hideDesktopIcons: !!state.settings.hideDesktopIcons,
     });
     existing.edits.audio = Object.assign({}, existing.edits.audio, {
       microphoneDeviceId: state.mic.deviceId || "",
@@ -895,6 +905,9 @@
       scope: typeof scopeSel !== "undefined" && scopeSel ? scopeSel.value : "screen",
       ratio: typeof recordingRatioValue === "function" ? recordingRatioValue() : (typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : "16:9"),
       initialFrameId: activeId,
+      options: {
+        hideDesktopIcons: !!state.settings.hideDesktopIcons,
+      },
       events: [],
     };
     state.smartCamera.lastFrameId = activeId;
@@ -950,6 +963,7 @@
           slideFocus: ((session.scope || state.v011.recordingScope) === "canvas" || (session.scope || state.v011.recordingScope) === "frame") && state.smartCamera.slideFocus !== false,
           mouseFocus: state.smartCamera.mouseFocus !== false,
           clickFocus: state.smartCamera.clickFocus !== false,
+          typingFocus: state.smartCamera.typingFocus !== false,
           allowOutsideCanvas: (session.scope || state.v011.recordingScope) === "screen",
           initialFrameId: session.initialFrameId || "",
         });
@@ -962,7 +976,7 @@
     var lastFrameId = session.initialFrameId || "";
     var scale = ({ gentle: 1.22, medium: 1.38, strong: 1.58 }[state.smartCamera.strength] || 1.22);
     session.events.forEach(function (event) {
-      if (!event || (event.type !== "pointer" && event.type !== "frame-change")) return;
+      if (!event || (event.type !== "pointer" && event.type !== "keyboard" && event.type !== "frame-change")) return;
       if (event.type === "frame-change") {
         var canSlideFocus = (session.scope || state.v011.recordingScope) === "canvas" || (session.scope || state.v011.recordingScope) === "frame";
         if (!canSlideFocus || state.smartCamera.slideFocus === false) return;
@@ -974,6 +988,22 @@
           scale: 1,
           frameId: lastFrameId,
           source: "auto-frame",
+        });
+        lastT = event.t;
+        return;
+      }
+      if (event.type === "keyboard") {
+        if (state.smartCamera.typingFocus === false) return;
+        var typingScope = (session.scope || state.v011.recordingScope) === "screen";
+        if (!event.insideCanvas && !typingScope) return;
+        if (event.t - lastT < 0.75) return;
+        track.push({
+          t: event.t,
+          x: Number.isFinite(Number(event.x)) ? event.x : 0.5,
+          y: Number.isFinite(Number(event.y)) ? event.y : 0.55,
+          scale: scale,
+          frameId: lastFrameId,
+          source: "auto-typing",
         });
         lastT = event.t;
         return;
@@ -1302,6 +1332,8 @@
     '    <div class="ec-row"><label>合成</label><label class="ec-toggle"><input type="checkbox" id="ec-compose" title="录制时把摄像头圆框直接合成进视频文件，不依赖屏幕里的气泡位置"/> 摄像头合成进视频</label></div>',
     '    <div class="ec-row" id="ec-composite-position-row"><label>摄像头位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 录制时隐藏屏幕上的气泡（与合成进视频无关）</label></div>',
+    '    <div class="ec-row"><label></label><label class="ec-toggle"><input type="checkbox" id="ec-hide-desktop-icons"/> 隐藏桌面图标</label></div>',
+    '    <p class="ec-sub" id="ec-hide-desktop-note" style="margin:2px 0 0;display:none">已记录到项目设置；真正隐藏系统桌面图标需要后续原生录制增强。</p>',
     '    <div class="ec-row ec-mic-row" id="ec-mic-row"><label>麦克风</label><select id="ec-mic-device"><option value="">默认麦克风</option></select><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
     '    <div class="ec-row"><label>光标</label><label class="ec-toggle"><input type="checkbox" id="ec-cursor-highlight" checked/> 录制中显示光标效果</label></div>',
     '    <div class="ec-cursor-options" id="ec-cursor-options">',
@@ -1314,6 +1346,7 @@
     '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-slide-focus" checked/> 幻灯片聚焦</label>',
     '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-mouse-focus" checked/> 鼠标智能聚焦</label>',
     '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-click-focus" checked/> 点击时聚焦</label>',
+    '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-typing-focus" checked/> 打字自动缩放</label>',
     '      <div class="ec-row ec-smart-camera-detail"><label>强度</label><select id="ec-smart-camera-strength"><option value="gentle">轻微</option><option value="medium">适中</option><option value="strong">明显</option></select></div>',
     '      <div class="ec-row ec-smart-camera-detail"><label>速度</label><select id="ec-smart-camera-speed"><option value="slow">慢</option><option value="standard">标准</option><option value="fast">快</option></select></div>',
     '      <p class="ec-sub" id="ec-smart-camera-hint">录制时只记录镜头线索；缩放节奏和焦点可在录后编辑里调整。</p>',
@@ -4849,6 +4882,8 @@
   var composeChk = shadow.getElementById("ec-compose");
   var compositePositionSel = shadow.getElementById("ec-composite-position");
   var hideBubbleChk = shadow.getElementById("ec-hide-bubble");
+  var hideDesktopIconsChk = shadow.getElementById("ec-hide-desktop-icons");
+  var hideDesktopNote = shadow.getElementById("ec-hide-desktop-note");
   var cursorHighlightChk = shadow.getElementById("ec-cursor-highlight");
   var cursorOptions = shadow.getElementById("ec-cursor-options");
   var cursorHighlightStyleSel = shadow.getElementById("ec-cursor-highlight-style");
@@ -4859,6 +4894,7 @@
   var smartSlideFocusChk = shadow.getElementById("ec-smart-slide-focus");
   var smartMouseFocusChk = shadow.getElementById("ec-smart-mouse-focus");
   var smartClickFocusChk = shadow.getElementById("ec-smart-click-focus");
+  var smartTypingFocusChk = shadow.getElementById("ec-smart-typing-focus");
   var smartCameraStrength = shadow.getElementById("ec-smart-camera-strength");
   var smartCameraSpeed = shadow.getElementById("ec-smart-camera-speed");
   var smartCameraHint = shadow.getElementById("ec-smart-camera-hint");
@@ -4984,6 +5020,21 @@
       v011ScheduleSave("recording-background-color");
     });
   }
+  function updateHideDesktopIconsUI() {
+    if (hideDesktopIconsChk) hideDesktopIconsChk.checked = !!state.settings.hideDesktopIcons;
+    if (hideDesktopNote) hideDesktopNote.style.display = state.settings.hideDesktopIcons ? "block" : "none";
+  }
+  if (hideDesktopIconsChk) {
+    hideDesktopIconsChk.addEventListener("change", function () {
+      state.settings.hideDesktopIcons = hideDesktopIconsChk.checked;
+      updateHideDesktopIconsUI();
+      if (state.settings.hideDesktopIcons) {
+        toast("已记录隐藏桌面图标设置；真正隐藏需要后续原生录制增强");
+      }
+      v011ScheduleSave("hide-desktop-icons");
+    });
+  }
+  updateHideDesktopIconsUI();
 
   function updateSmartCameraUI() {
     var isFrameScope = scopeSel.value === "frame";
@@ -5002,10 +5053,11 @@
     }
     if (smartMouseFocusChk) smartMouseFocusChk.checked = state.smartCamera.mouseFocus !== false;
     if (smartClickFocusChk) smartClickFocusChk.checked = state.smartCamera.clickFocus !== false;
+    if (smartTypingFocusChk) smartTypingFocusChk.checked = state.smartCamera.typingFocus !== false;
     if (smartCameraHint) {
       smartCameraHint.textContent = canSlideFocus
-        ? "录制时记录幻灯片切换、鼠标停留和点击；录后可调整镜头焦点、倍率和节奏。"
-        : "屏幕/窗口录制会记录鼠标停留和点击；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。";
+        ? "录制时记录幻灯片切换、鼠标、点击和打字线索；录后可调整镜头焦点、倍率和节奏。"
+        : "屏幕/窗口录制会记录鼠标停留、点击和打字线索；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。";
     }
   }
 
@@ -5021,6 +5073,7 @@
     [smartSlideFocusChk, "slideFocus"],
     [smartMouseFocusChk, "mouseFocus"],
     [smartClickFocusChk, "clickFocus"],
+    [smartTypingFocusChk, "typingFocus"],
   ].forEach(function (entry) {
     var input = entry[0];
     var key = entry[1];
@@ -7329,6 +7382,7 @@
     restoreV011RecordingSettings();
     if (bgInput) bgInput.value = state.settings.background || "#f4f1ea";
     if (bgStyleSel) bgStyleSel.value = state.settings.backgroundStyle || "warm-gradient";
+    updateHideDesktopIconsUI();
     if (micDeviceSel) micDeviceSel.value = state.mic.deviceId || "";
     if (lightToggle) lightToggle.checked = !!state.camera.lightEnabled;
     if (lightRow) lightRow.style.display = state.camera.lightEnabled ? "flex" : "none";
@@ -7342,6 +7396,7 @@
     if (smartSlideFocusChk) smartSlideFocusChk.checked = state.smartCamera.slideFocus !== false;
     if (smartMouseFocusChk) smartMouseFocusChk.checked = state.smartCamera.mouseFocus !== false;
     if (smartClickFocusChk) smartClickFocusChk.checked = state.smartCamera.clickFocus !== false;
+    if (smartTypingFocusChk) smartTypingFocusChk.checked = state.smartCamera.typingFocus !== false;
     smartCameraStrength.value = state.smartCamera.strength || "gentle";
     smartCameraSpeed.value = state.smartCamera.speed || "standard";
     updateSmartCameraUI();
@@ -7910,6 +7965,36 @@
     playCursorClickSound();
   }, true);
 
+  function v011RecordKeyboard(ev) {
+    if (!state.rec.active || state.rec.paused || state.smartCamera.typingFocus === false) return;
+    if (!state.v011.session) return;
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    var key = ev.key || "";
+    var isTypingKey = key.length === 1 || key === "Backspace" || key === "Delete" || key === "Enter" || key === " ";
+    if (!isTypingKey) return;
+    var now = Date.now();
+    if (now - (state.v011.session.lastKeyboardAt || 0) < 280) return;
+    state.v011.session.lastKeyboardAt = now;
+    var screenScope = scopeSel && scopeSel.value === "screen";
+    var clientX = Number(state.cursor.x) || Math.max(1, window.innerWidth || 1) / 2;
+    var clientY = Number(state.cursor.y) || Math.max(1, window.innerHeight || 1) / 2;
+    var point = v011CanvasPoint({ clientX: clientX, clientY: clientY });
+    var eventPoint = screenScope
+      ? {
+        x: clamp(clientX / Math.max(1, window.innerWidth || 1), 0, 1),
+        y: clamp(clientY / Math.max(1, window.innerHeight || 1), 0, 1),
+        inside: true,
+      }
+      : point;
+    v011RecordEvent("keyboard", {
+      x: Number(eventPoint.x.toFixed(4)),
+      y: Number(eventPoint.y.toFixed(4)),
+      insideCanvas: screenScope ? true : point.inside,
+      sourceScope: scopeSel ? scopeSel.value : "screen",
+      keyKind: key.length === 1 ? "text" : key.toLowerCase(),
+    });
+  }
+
   cursorHighlightChk.addEventListener("change", function () {
     state.cursor.highlight = cursorHighlightChk.checked;
     if (state.rec.active) cursorHighlight.style.display = cursorHighlightChk.checked ? "block" : "none";
@@ -7962,6 +8047,7 @@
         return;
       }
     }
+    v011RecordKeyboard(ev);
     if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement || ev.target instanceof HTMLSelectElement) return;
     var code = ev.code || "";
     var key = (ev.key || "").toLowerCase();

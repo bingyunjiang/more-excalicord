@@ -152,7 +152,11 @@ for recording_panel_contract in \
   '肤色冷暖' \
   '饱和度' \
   'id="ec-mini-recorder"' \
-  '屏幕/窗口录制会记录鼠标停留和点击；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。'; do
+  'id="ec-smart-typing-focus"' \
+  '打字自动缩放' \
+  'id="ec-hide-desktop-icons"' \
+  '隐藏桌面图标' \
+  '屏幕/窗口录制会记录鼠标停留、点击和打字线索；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。'; do
   if ! grep -q "$recording_panel_contract" "$repo_root/src/studio-recorder.js"; then
     echo "recording panel UX contract missing: $recording_panel_contract"
     exit 1

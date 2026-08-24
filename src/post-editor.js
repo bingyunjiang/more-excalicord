@@ -829,13 +829,14 @@
   function renderCameraInspector(target, edit, recording) {
     var scope = recording && recording.scope || "";
     var canSlideFocus = scope === "canvas" || scope === "frame";
-    target.appendChild(sectionTitle("智能镜头", "幻灯片聚焦是白板专属；鼠标智能聚焦适用于屏幕、窗口和白板录制，都会写成可编辑镜头轨。"));
+    target.appendChild(sectionTitle("智能镜头", "幻灯片聚焦是白板专属；鼠标、点击和打字线索适用于屏幕、窗口和白板录制，都会写成可编辑镜头轨。"));
     target.appendChild(controlRow("启用镜头轨", checkbox(edit.camera.enabled, "camera.enabled")));
     var slideFocusBox = checkbox(canSlideFocus && edit.camera.slideFocus !== false, "camera.slideFocus");
     if (!canSlideFocus) slideFocusBox.disabled = true;
     target.appendChild(controlRow("幻灯片聚焦", slideFocusBox, canSlideFocus ? "根据幻灯片切换回到全景或聚焦" : "当前录制范围没有幻灯片上下文"));
     target.appendChild(controlRow("鼠标智能聚焦", checkbox(edit.camera.mouseFocus !== false, "camera.mouseFocus"), "根据停留和移动区域生成镜头建议"));
     target.appendChild(controlRow("点击时聚焦", checkbox(edit.camera.clickFocus !== false, "camera.clickFocus"), "点击比普通移动拥有更高聚焦优先级"));
+    target.appendChild(controlRow("打字自动缩放", checkbox(edit.camera.typingFocus !== false, "camera.typingFocus"), "打字时根据当前鼠标位置生成短暂聚焦建议"));
     target.appendChild(controlRow("镜头强度", selectControl(edit.camera.strength || "gentle", [["gentle", "轻微"], ["medium", "适中"], ["strong", "明显"]], "camera.strength")));
     target.appendChild(controlRow("镜头速度", selectControl(edit.camera.speed || "standard", [["slow", "慢"], ["standard", "标准"], ["fast", "快"]], "camera.speed")));
     var buttons = document.createElement("div");
@@ -1114,6 +1115,7 @@
         slideFocus: (recording.scope === "canvas" || recording.scope === "frame") && edit.camera.slideFocus !== false,
         mouseFocus: edit.camera.mouseFocus !== false,
         clickFocus: edit.camera.clickFocus !== false,
+        typingFocus: edit.camera.typingFocus !== false,
         allowOutsideCanvas: recording.scope === "screen",
         initialFrameId: recording.embeddedSession && recording.embeddedSession.initialFrameId,
       });
