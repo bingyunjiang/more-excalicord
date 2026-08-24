@@ -28,6 +28,47 @@
     return Math.max(min, Math.min(max, value));
   }
 
+  /* Keep a focused 16:9 slide inside the editor controls while making it fill
+     the same safe area on every window size. The ratios match the visible
+     canvas area in the desktop layout: menu/tool controls on the left/top and
+     the Excalicord slide rail on the right remain outside the slide. */
+  function calculateFrameFocusViewport(frameInput, viewportInput, optionsInput) {
+    var frame = isObject(frameInput) ? frameInput : {};
+    var viewport = isObject(viewportInput) ? viewportInput : {};
+    var options = isObject(optionsInput) ? optionsInput : {};
+    var safeArea = isObject(options.safeArea) ? options.safeArea : {};
+    var viewportW = Math.max(400, finite(viewport.w, finite(viewport.width, 1280)));
+    var viewportH = Math.max(300, finite(viewport.h, finite(viewport.height, 720)));
+    var leftRatio = clamp(finite(safeArea.left, 0.14), 0, 0.4);
+    var rightRatio = clamp(finite(safeArea.right, 0.11), 0, 0.4);
+    var topRatio = clamp(finite(safeArea.top, 0.13), 0, 0.4);
+    var bottomRatio = clamp(finite(safeArea.bottom, 0.08), 0, 0.4);
+    var safeLeft = viewportW * leftRatio;
+    var safeRight = viewportW * rightRatio;
+    var safeTop = viewportH * topRatio;
+    var safeBottom = viewportH * bottomRatio;
+    var usableW = Math.max(1, viewportW - safeLeft - safeRight);
+    var usableH = Math.max(1, viewportH - safeTop - safeBottom);
+    var frameW = Math.max(1, finite(frame.width, 1600));
+    var frameH = Math.max(1, finite(frame.height, 900));
+    var minZoom = clamp(finite(options.minZoom, 0.12), 0.01, 1);
+    var maxZoom = Math.max(minZoom, finite(options.maxZoom, 1));
+    var zoom = clamp(Math.min(usableW / frameW, usableH / frameH), minZoom, maxZoom);
+    var screenCenterX = safeLeft + usableW / 2;
+    var screenCenterY = safeTop + usableH / 2;
+    var frameCenterX = finite(frame.x, 0) + frameW / 2;
+    var frameCenterY = finite(frame.y, 0) + frameH / 2;
+    return {
+      scrollX: screenCenterX / zoom - frameCenterX,
+      scrollY: screenCenterY / zoom - frameCenterY,
+      zoom: { value: zoom },
+      selectedElementIds: {},
+      selectedGroupIds: {},
+      editingElement: null,
+      showWelcomeScreen: false,
+    };
+  }
+
   function nowIso() {
     return new Date().toISOString();
   }
@@ -839,6 +880,7 @@
     PROJECT_SCHEMA_VERSION: PROJECT_SCHEMA_VERSION,
     DEFAULT_SCENE_PATH: DEFAULT_SCENE_PATH,
     DEFAULT_SCRIPT_PATH: DEFAULT_SCRIPT_PATH,
+    calculateFrameFocusViewport: calculateFrameFocusViewport,
     safeRelativePath: safeRelativePath,
     createProject: createProject,
     createRecording: createRecording,

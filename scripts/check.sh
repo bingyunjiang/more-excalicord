@@ -215,7 +215,7 @@ if grep -q '文字轨' "$repo_root/src/studio-recorder.js"; then
 fi
 for script_contract in \
   '载入讲稿文件…' \
-  '讲稿在提词器面板内载入或编辑；录后的逐字稿和字幕仍以实际音频为准'; do
+  '讲稿仅供提词；逐字稿和字幕以录音为准。'; do
   if ! grep -q "$script_contract" "$repo_root/src/studio-recorder.js"; then
     echo "script preparation contract missing: $script_contract"
     exit 1

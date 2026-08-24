@@ -1213,7 +1213,7 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260824v011y-unified-post-editor";
+  var EC_BUILD_VERSION = "20260824v011zg-cursor-panel-soft";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
@@ -1321,7 +1321,7 @@
     '      </div>',
     '      <div class="ec-project-actions">',
     '        <button class="ec-btn ec-btn-ghost" id="ec-project-folder-choose">选择项目文件夹</button>',
-    '        <button class="ec-btn ec-btn-quiet" id="ec-project-folder-open" title="在 Finder 中显示当前项目文件夹"><span aria-hidden="true">⌕</span> 显示位置</button>',
+    '        <button class="ec-btn ec-btn-ghost" id="ec-project-folder-open" title="在 Finder 中打开当前项目文件夹">打开位置</button>',
     '      </div>',
     '      <div class="ec-project-divider" aria-hidden="true"></div>',
     '      <div class="ec-project-summary ec-whiteboard-summary">',
@@ -1331,10 +1331,10 @@
     '      </div>',
     '      <div class="ec-project-actions ec-whiteboard-actions">',
     '        <button class="ec-btn ec-btn-ghost" id="ec-project-file-open">打开其他白板</button>',
-    '        <button class="ec-btn ec-btn-primary" id="ec-project-whiteboard-save">保存到项目</button>',
+    '        <button class="ec-btn ec-btn-ghost" id="ec-project-whiteboard-save">保存到项目</button>',
     '        <input id="ec-project-file-input" type="file" accept=".excalidraw,application/json" hidden/>',
     '      </div>',
-    '      <p class="ec-project-status ec-status-info" id="ec-project-status" role="status"><span class="ec-project-status-icon" aria-hidden="true">i</span><span class="ec-project-status-text">选择项目文件夹后，白板、录制、字幕和成片将统一保存在其中。</span></p>',
+    '      <p class="ec-project-status ec-status-info" id="ec-project-status" role="status" hidden aria-hidden="true"><span class="ec-project-status-icon" aria-hidden="true">i</span><span class="ec-project-status-text"></span></p>',
     '    </div>',
     "  </div>",
     '  <div class="ec-section">',
@@ -1342,7 +1342,7 @@
     '    <div class="ec-row"><label>面板</label><button class="ec-btn ec-btn-ghost" id="ec-tele-toggle" style="flex:1">打开提词器</button></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-tele-hide"/> 录制时隐藏（不入镜）</label></div>',
     '    <input id="ec-script-import-file" type="file" accept=".md,.markdown,.txt,.srt,.vtt,text/markdown,text/plain,text/vtt,application/x-subrip" hidden/>',
-    '    <p class="ec-sub" id="ec-script-status">讲稿在提词器面板内载入或编辑；录后的逐字稿和字幕仍以实际音频为准。</p>',
+    '    <p class="ec-sub" id="ec-script-status">讲稿仅供提词；逐字稿和字幕以录音为准。</p>',
     "  </div>",
     '  <div class="ec-section ec-camera-section">',
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头与麦克风</span></span></div>',
@@ -1360,7 +1360,7 @@
     "  </div>",
     '  <div class="ec-section ec-recording-settings">',
     '    <div class="ec-section-title">' + sectionIconRecord.replace("<span>录制</span>", "<span>录制设置</span>") + "</div>",
-    '    <div class="ec-row"><label>画幅</label><select id="ec-ratio"><option value="youtube">YouTube / B站 横版 16:9</option><option value="wechat-video">视频号 / 小红书 竖版 9:16</option><option value="square">小红书 / 社媒 方形 1:1</option><option value="slides">课件 / 投屏 4:3</option><option value="custom">自定义画幅…</option></select><span class="ec-value" id="ec-ratio-v">1920×1080</span></div>',
+    '    <div class="ec-row"><label>画幅</label><select id="ec-ratio"><option value="youtube">B站 / YouTube 16:9</option><option value="wechat-video">视频号 / 小红书 9:16</option><option value="square">小红书 / 社媒 1:1</option><option value="slides">课件 / 投屏 4:3</option><option value="custom">自定义尺寸…</option></select><span class="ec-value" id="ec-ratio-v">1920×1080</span></div>',
     '    <div class="ec-row ec-custom-size-row" id="ec-custom-size-row" style="display:none"><label>自定义</label><input id="ec-custom-width" type="number" min="320" max="7680" step="2" value="1280" aria-label="自定义宽度"/><span class="ec-size-separator">×</span><input id="ec-custom-height" type="number" min="320" max="7680" step="2" value="720" aria-label="自定义高度"/></div>',
     '    <div class="ec-row"><label>范围</label><select id="ec-scope"><option value="screen">选择的屏幕/窗口</option><option value="canvas">白板全景</option><option value="frame">当前幻灯片聚焦</option></select></div>',
     '    <div id="ec-native-status-row" style="display:none"><span id="ec-native-status" class="ec-native-status">检测中…</span></div>',
@@ -1774,24 +1774,33 @@
   }
 
   function frameViewport(frame) {
-    var viewportW = Math.max(800, window.innerWidth || 1280);
-    var viewportH = Math.max(600, window.innerHeight || 720);
-    var margin = 180;
-    var zoom = Math.min(
-      (viewportW - margin) / Math.max(1, frame.width || 1600),
-      (viewportH - margin) / Math.max(1, frame.height || 900),
+    var size = editorViewportSize();
+    var core = editorCoreApi();
+    if (core && typeof core.calculateFrameFocusViewport === "function") {
+      return core.calculateFrameFocusViewport(frame, size);
+    }
+    /* Compatibility fallback for an incompletely updated local deployment. */
+    var zoom = Math.max(0.12, Math.min(
+      size.w * 0.75 / Math.max(1, frame.width || 1600),
+      size.h * 0.79 / Math.max(1, frame.height || 900),
       1,
-    );
-    zoom = Math.max(0.12, Math.min(1, zoom));
+    ));
     return {
-      scrollX: viewportW / (2 * zoom) - ((frame.x || 0) + (frame.width || 0) / 2),
-      scrollY: viewportH / (2 * zoom) - ((frame.y || 0) + (frame.height || 0) / 2),
+      scrollX: size.w * 0.515 / zoom - ((frame.x || 0) + (frame.width || 0) / 2),
+      scrollY: size.h * 0.525 / zoom - ((frame.y || 0) + (frame.height || 0) / 2),
       zoom: { value: zoom },
       selectedElementIds: {},
       selectedGroupIds: {},
       editingElement: null,
       showWelcomeScreen: false,
     };
+  }
+
+  function applyFrameViewport(api, frame) {
+    var patch = frameViewport(frame);
+    writeAppStatePatch(patch);
+    if (api) api.updateScene({ appState: patch });
+    return patch;
   }
 
   function editorViewportSize() {
@@ -2197,24 +2206,15 @@
   function navigateToFrame(frame) {
     localStorage.setItem(ACTIVE_FRAME_KEY, frame.id);
     v011RecordFrameChange(frame, "navigation");
-    writeAppStatePatch(frameViewport(frame));
     if (window.__excalicordSuppressProps) window.__excalicordSuppressProps();
 
     var api = getLiveExcalidrawAPI();
     if (api) {
       try {
-        api.updateScene({
-          appState: {
-            selectedElementIds: {},
-            selectedGroupIds: {},
-            editingElement: null,
-          },
-        });
-        api.setViewport({
-          target: frame,
-          fit: "scale-down",
-          animation: true,
-        });
+        /* Excalidraw's generic scale-down fit uses its own padding and can
+           overwrite our requested size. Commit the exact adaptive safe-area
+           viewport so clicking every page ends at the same visible scale. */
+        applyFrameViewport(api, frame);
         history.replaceState(
           null,
           "",
@@ -2274,7 +2274,7 @@
       var liveApi = getLiveExcalidrawAPI();
       if (!liveApi) return;
       try {
-        liveApi.setViewport({ target: frame, fit: "scale-down", animation: false });
+        applyFrameViewport(liveApi, frame);
       } catch (err) {}
     }, 120);
     toast("已新增幻灯片，已聚焦到新幻灯片");
@@ -7635,6 +7635,14 @@
   function updateV011ProjectStatus(message) {
     if (!projectStatus) return;
     var text = String(message || "");
+    if (!text) {
+      projectStatus.hidden = true;
+      projectStatus.setAttribute("aria-hidden", "true");
+      if (projectStatusText) projectStatusText.textContent = "";
+      return;
+    }
+    projectStatus.hidden = false;
+    projectStatus.setAttribute("aria-hidden", "false");
     if (projectStatusText) projectStatusText.textContent = text;
     else projectStatus.textContent = text;
     var tone = /失败|未写入|无效|超过 128 MB/i.test(text)
@@ -7676,7 +7684,7 @@
   }
 
   function updateScriptStatus(message) {
-    if (scriptStatus) scriptStatus.textContent = message || "讲稿在提词器面板内载入或编辑；录后的逐字稿和字幕仍以实际音频为准。";
+    if (scriptStatus) scriptStatus.textContent = message || "讲稿仅供提词；逐字稿和字幕以录音为准。";
   }
 
   function applyLoadedV011Project() {
@@ -7988,8 +7996,7 @@
         return true;
       });
     }
-    var loadedFiles = scene && isPlainObject(scene.files) ? Object.keys(scene.files).length : 0;
-    updateV011ProjectStatus("已打开白板：" + scene.elements.length + " 个元素、" + loadedFiles + " 个附件；项目内容已载入。");
+    updateV011ProjectStatus("");
     if (!options.silent) toast("白板及全部项目内容已打开");
     return manifest ? verifyActiveProjectMedia(manifest, options).then(function () { return true; }) : Promise.resolve(true);
   }
@@ -8085,7 +8092,7 @@
     var segments = state.v011.text.subtitles && Array.isArray(state.v011.text.subtitles.segments)
       ? state.v011.text.subtitles.segments
       : [];
-    scriptStatus.textContent = message || ("讲稿在提词器面板内载入或编辑；录后的逐字稿和字幕仍以实际音频为准。");
+    scriptStatus.textContent = message || "讲稿仅供提词；逐字稿和字幕以录音为准。";
   }
 
   function exportSubtitleTrack() {

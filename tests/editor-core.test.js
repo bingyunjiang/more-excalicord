@@ -14,6 +14,24 @@ assert.strictEqual(project.text.script.path, "text/script.md");
 assert.strictEqual(core.safeRelativePath("recordings/session/video.mp4", ""), "recordings/session/video.mp4");
 assert.strictEqual(core.safeRelativePath("../outside.mp4", "fallback"), "fallback");
 assert.strictEqual(core.safeRelativePath("/tmp/outside.mp4", "fallback"), "fallback");
+
+var focusedViewport = core.calculateFrameFocusViewport(
+  { x: 0, y: 0, width: 1600, height: 900 },
+  { w: 1494, h: 792 }
+);
+close(focusedViewport.zoom.value, 0.6952, "focused slide zoom matches desktop safe area");
+close(focusedViewport.scrollX, 306.7462600690451, "focused slide horizontal position");
+close(focusedViewport.scrollY, 148.10126582278485, "focused slide vertical position");
+var focusedLeft = focusedViewport.zoom.value * focusedViewport.scrollX;
+var focusedTop = focusedViewport.zoom.value * focusedViewport.scrollY;
+close(focusedLeft, 213.25, "focused slide visible left edge");
+close(focusedTop, 102.96, "focused slide visible top edge");
+var portraitViewport = core.calculateFrameFocusViewport(
+  { x: 20, y: 30, width: 900, height: 1600 },
+  { width: 900, height: 1000 }
+);
+assert.ok(portraitViewport.zoom.value > 0.49 && portraitViewport.zoom.value < 0.5,
+  "non-16:9 frames must also fit the adaptive safe area");
 var rootA = core.projectRootFingerprint({ mode: "native", path: "/Users/Bing/Movies/Project A/" });
 var rootASame = core.projectRootFingerprint({ mode: "native", path: "/Users/Bing/Movies/Project A" });
 var rootB = core.projectRootFingerprint({ mode: "native", path: "/Users/Bing/Movies/Project B" });
