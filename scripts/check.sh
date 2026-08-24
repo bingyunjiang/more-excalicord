@@ -118,7 +118,7 @@ if [ "$project_folder_controls" != "1" ]; then
   echo "expected exactly one project folder selector, found $project_folder_controls"
   exit 1
 fi
-for project_control in ec-project-folder-path ec-project-folder-open ec-project-file-open ec-project-file-input ec-project-whiteboard-save; do
+for project_control in ec-project-folder-name ec-project-folder-path ec-project-folder-badge ec-project-folder-open ec-project-file-open ec-project-file-input ec-project-whiteboard-name ec-project-whiteboard-badge ec-project-whiteboard-save; do
   control_count="$(grep -o "id=\"$project_control\"" "$repo_root/src/studio-recorder.js" | wc -l | tr -d " ")"
   if [ "$control_count" != "1" ]; then
     echo "expected exactly one explicit project control $project_control, found $control_count"
@@ -138,6 +138,9 @@ for recording_panel_contract in \
   'id="ec-cursor-highlight-style"' \
   'id="ec-cursor-shape"' \
   'id="ec-cursor-sound"' \
+  'id="ec-cursor-size"' \
+  'name="ec-cursor-color"' \
+  'id="ec-cursor-done"' \
   'id="ec-light-toggle"' \
   'id="ec-light-intensity"' \
   'id="ec-screen-light-toggle"' \
@@ -152,10 +155,16 @@ for recording_panel_contract in \
   '肤色冷暖' \
   '饱和度' \
   'id="ec-mini-recorder"' \
+  'id="ec-mini-pause-label"' \
+  'ec-slide-tab-delete' \
   'id="ec-smart-typing-focus"' \
   '打字自动缩放' \
   'id="ec-hide-desktop-icons"' \
   '隐藏桌面图标' \
+  'id="ec-mini-drag"' \
+  '拖动录制控制条' \
+  'id="ec-mini-tele"' \
+  '提示词' \
   '屏幕/窗口录制会记录鼠标停留、点击和打字线索；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。'; do
   if ! grep -q "$recording_panel_contract" "$repo_root/src/studio-recorder.js"; then
     echo "recording panel UX contract missing: $recording_panel_contract"
@@ -171,8 +180,12 @@ if grep -q '虚拟补光' "$repo_root/src/studio-recorder.js"; then
   exit 1
 fi
 for recording_panel_css in \
+  '.ec-project-card' \
+  '.ec-project-status' \
   '.ec-whiteboard-actions' \
   '.ec-cursor-options' \
+  '.ec-cursor-color-list' \
+  '.ec-cursor-done' \
   '.ec-mini-recorder' \
   '.ec-screen-light' \
   '.ec-cursor-style-spotlight' \
@@ -183,10 +196,10 @@ for recording_panel_css in \
   fi
 done
 for user_contract in \
-  '设置项目文件夹…' \
-  '在 Finder 中显示' \
-  '打开 Excalidraw 文件…' \
-  '保存白板' \
+  '选择项目文件夹' \
+  '显示位置' \
+  '打开其他白板' \
+  '保存到项目' \
   '保存录制' \
   '打开保存位置' \
   '播放原始录制' \
@@ -277,6 +290,15 @@ if [ -f "$capture_agent_root/CaptureEngine.swift" ]; then
     echo "capture agent session directory contract missing"
     exit 1
   fi
+  for desktop_icons_contract in \
+    '"desktop-icons"' \
+    'hideDesktopIcons' \
+    'restoreDesktopIconsIfNeeded'; do
+    if ! grep -q "$desktop_icons_contract" "$capture_agent_root/CaptureEngine.swift" "$capture_agent_root/Models.swift"; then
+      echo "capture agent desktop icon contract missing: $desktop_icons_contract"
+      exit 1
+    fi
+  done
 fi
 
 package_version="$(node -e "console.log(require(process.argv[1]).version)" "$repo_root/package.json")"

@@ -42,7 +42,7 @@ const manifest = {
       { timeMs: 0, x: 0.5, y: 0.5, scale: 1 },
       { timeMs: 6000, x: 0.7, y: 0.6, scale: 1.4, transitionMs: 400 },
     ] },
-    cursor: { visible: true, clickEffect: true }, webcam: { visible: true, position: "bottom-right" }, audio: { volume: 0.8 },
+    cursor: { visible: true, color: "#f97316", clickEffect: true }, webcam: { visible: true, position: "bottom-right" }, audio: { volume: 0.8 },
   },
   appearance: { background: "#17191d", padding: 20 },
 };
@@ -54,6 +54,7 @@ assert.strictEqual(plan.subtitles.length, 2, "subtitle crossing a cut must split
 assert.strictEqual(plan.subtitles[1].startMs, 2000);
 assert.strictEqual(plan.camera[1].timeMs, 4000);
 assert.strictEqual(plan.cursor.events.length, 2);
+assert.strictEqual(plan.cursor.color, "#f97316");
 assert.strictEqual(plan.cursor.events[1].timeMs, 3000, "cursor time must follow non-destructive time map");
 assert.strictEqual(plan.webcam.visible, true);
 assert.deepStrictEqual(render.atempoFilters(4), ["atempo=2", "atempo=2"]);

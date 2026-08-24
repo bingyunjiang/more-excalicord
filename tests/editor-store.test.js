@@ -92,6 +92,8 @@ var storeApi = require("../src/editor-store.js");
   assert.strictEqual(saved.length, 1);
   assert.strictEqual(saved[0].reason, "test");
   assert.strictEqual(store.isDirty(), false);
+  await store.flush("clean-close");
+  assert.strictEqual(saved.length, 1, "opening and closing an unchanged editor must not persist");
   store.destroy();
 
   console.log("editor store tests ok");

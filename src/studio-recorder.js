@@ -95,10 +95,14 @@
         mode: "none",
         path: "",
         name: "",
+        identity: "",
+        fingerprint: "",
         handle: null,
         loadedOnce: false,
+        loadGeneration: 0,
       },
       projectSceneFiles: {},
+      verifiedMediaPaths: {},
     },
     tele: {
       open: false,
@@ -110,6 +114,7 @@
       height: 260,
       scrolling: false,
       hideWhileRecording: false,
+      userPositioned: false,
       scrollTimer: null,
       scrollCarry: 0,
     },
@@ -136,6 +141,8 @@
     },
     cursor: {
       highlight: true,
+      color: "#ef4444",
+      size: 1,
       highlightStyle: "halo",
       pointerShape: "system",
       sound: "off",
@@ -256,6 +263,8 @@
         },
         cursor: {
           highlight: true,
+          color: "#ef4444",
+          size: 1,
           highlightStyle: "halo",
           pointerShape: "system",
           sound: "off",
@@ -349,6 +358,8 @@
     var rawCursor = isPlainObject(rawEdits.cursor) ? rawEdits.cursor : {};
     project.edits.cursor = {
       highlight: rawCursor.highlight !== false,
+      color: /^#[0-9a-f]{6}$/i.test(rawCursor.color || "") ? rawCursor.color : "#ef4444",
+      size: clamp(Number(rawCursor.size) || 1, 0.6, 1.8),
       highlightStyle: typeof rawCursor.highlightStyle === "string" ? rawCursor.highlightStyle : "halo",
       pointerShape: typeof rawCursor.pointerShape === "string" ? rawCursor.pointerShape : "system",
       sound: typeof rawCursor.sound === "string" ? rawCursor.sound : "off",
@@ -398,6 +409,8 @@
       : [];
     var projectCursor = project.edits && project.edits.cursor || {};
     state.cursor.highlight = projectCursor.highlight !== false;
+    state.cursor.color = /^#[0-9a-f]{6}$/i.test(projectCursor.color || "") ? projectCursor.color : "#ef4444";
+    state.cursor.size = clamp(Number(projectCursor.size) || 1, 0.6, 1.8);
     state.cursor.highlightStyle = typeof projectCursor.highlightStyle === "string" ? projectCursor.highlightStyle : "halo";
     state.cursor.pointerShape = typeof projectCursor.pointerShape === "string" ? projectCursor.pointerShape : "system";
     state.cursor.sound = typeof projectCursor.sound === "string" ? projectCursor.sound : "off";
@@ -508,23 +521,27 @@
   }
 
   function v011LoadProject() {
-    var project = v011DefaultProject();
-    try {
-      var raw = JSON.parse(localStorage.getItem(V011_PROJECT_KEY) || "null");
-      if (raw && typeof raw === "object") project = v011NormalizeProject(raw, false);
-    } catch (err) {
-      project = v011DefaultProject();
-    }
-    return v011ApplyLegacyRuntime(project);
+    /* A project cache is meaningless until the selected root is known. Never
+     * hydrate the page from the last global localStorage project at startup. */
+    return v011ApplyLegacyRuntime(v011DefaultProject());
+  }
+
+  function currentProjectRootFingerprint() {
+    return state.rec.projectFolder.fingerprint || "";
+  }
+
+  function writeBoundProjectCache(project) {
+    var fingerprint = currentProjectRootFingerprint();
+    if (!fingerprint) return false;
+    var core = requireEditorCore();
+    var envelope = core.createBoundProjectCache(project, fingerprint);
+    localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(envelope));
+    return true;
   }
 
   function v011BeginProjectAtNewRoot() {
-    /* Choosing a save root is not the same as opening a project. Keep the
-     * current whiteboard in Excalidraw and the draft script, but detach every
-     * project-relative asset from the previous root. Carrying recordings or
-     * edit ids across roots would make the new manifest point at files that do
-     * not exist below the newly selected folder. */
-    var scriptText = state.tele.text || "";
+    /* A new root starts a fully isolated context. The directory manifest, not
+     * a prior root's script, subtitles, edits or media references, is truth. */
     var recordingScope = typeof scopeSel !== "undefined" && scopeSel
       ? scopeSel.value
       : (state.v011.recordingScope || "screen");
@@ -532,22 +549,21 @@
       ? recordingRatioValue()
       : (typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : (state.v011.recordingRatio || "16:9"));
     var fresh = v011DefaultProject();
-    fresh.text.script.sourceText = scriptText;
     fresh.recording.scope = recordingScope;
     fresh.recording.ratio = recordingRatio;
     state.v011.projectV2 = null;
     v011ApplyLegacyRuntime(fresh);
     state.v011.sessionDirty = false;
-    localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(fresh));
+    state.rec.verifiedMediaPaths = {};
+    writeBoundProjectCache(fresh);
     return fresh;
   }
 
   function v011ProjectSnapshot() {
-    var existing = v011DefaultProject();
-    try {
-      var raw = JSON.parse(localStorage.getItem(V011_PROJECT_KEY) || "null");
-      if (raw && typeof raw === "object") existing = v011NormalizeProject(raw, false);
-    } catch (err) {}
+    var core = requireEditorCore();
+    var existing = state.v011.projectV2
+      ? v011NormalizeProject(core.projectV2ToLegacyRuntime(state.v011.projectV2), false)
+      : v011DefaultProject();
     existing.projectId = state.v011.projectId || existing.projectId;
     existing.schemaVersion = V011_PROJECT_SCHEMA;
     existing.updatedAt = new Date().toISOString();
@@ -572,6 +588,8 @@
     };
     existing.edits.cursor = {
       highlight: !!state.cursor.highlight,
+      color: state.cursor.color || "#ef4444",
+      size: clamp(Number(state.cursor.size) || 1, 0.6, 1.8),
       highlightStyle: state.cursor.highlightStyle || "halo",
       pointerShape: state.cursor.pointerShape || "system",
       sound: state.cursor.sound || "off",
@@ -648,7 +666,7 @@
   function v011SaveProject(reason) {
     try {
       var project = v011ProjectSnapshot();
-      localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(project));
+      writeBoundProjectCache(project);
       state.v011.sessionDirty = false;
       window.dispatchEvent(new CustomEvent("excalicord:project-saved", {
         detail: { projectId: project.projectId, reason: reason || "manual" },
@@ -1194,7 +1212,7 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260823v011q-project-root-isolation";
+  var EC_BUILD_VERSION = "20260824v011w-project-isolation-p1";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
@@ -1205,11 +1223,11 @@
 
   shadow.innerHTML = [
     '<nav class="ec-slide-rail" aria-label="白板幻灯片">',
-    '  <button class="ec-slide-add" id="ec-slide-add" title="新增幻灯片" aria-label="新增幻灯片">＋</button>',
-    '  <button class="ec-slide-overview-toggle" id="ec-slide-overview-toggle" type="button" title="幻灯片总览" aria-label="幻灯片总览"><svg viewBox="0 0 20 20" focusable="false" aria-hidden="true"><rect x="3.2" y="3.4" width="5.1" height="5.1" rx="1.3"/><rect x="11.7" y="3.4" width="5.1" height="5.1" rx="1.3"/><rect x="3.2" y="11.5" width="5.1" height="5.1" rx="1.3"/><rect x="11.7" y="11.5" width="5.1" height="5.1" rx="1.3"/></svg></button>',
-    '  <button class="ec-view-tools-toggle" id="ec-view-tools-toggle" type="button" title="白板控制" aria-label="白板控制"><svg viewBox="0 0 20 20" focusable="false" aria-hidden="true"><circle cx="10" cy="10" r="3.1"/><path d="M2.6 10s2.7-5 7.4-5 7.4 5 7.4 5-2.7 5-7.4 5-7.4-5-7.4-5Z"/></svg></button>',
+    '  <button class="ec-slide-overview-toggle" id="ec-slide-overview-toggle" type="button" aria-label="幻灯片总览"><svg viewBox="0 0 20 20" focusable="false" aria-hidden="true"><rect x="3.2" y="3.4" width="5.1" height="5.1" rx="1.3"/><rect x="11.7" y="3.4" width="5.1" height="5.1" rx="1.3"/><rect x="3.2" y="11.5" width="5.1" height="5.1" rx="1.3"/><rect x="11.7" y="11.5" width="5.1" height="5.1" rx="1.3"/></svg><span class="ec-rail-tooltip" role="tooltip">幻灯片总览</span></button>',
+    '  <button class="ec-view-tools-toggle" id="ec-view-tools-toggle" type="button" aria-label="白板控制"><svg viewBox="0 0 20 20" focusable="false" aria-hidden="true"><circle cx="10" cy="10" r="3.1"/><path d="M2.6 10s2.7-5 7.4-5 7.4 5 7.4 5-2.7 5-7.4 5-7.4-5-7.4-5Z"/></svg><span class="ec-rail-tooltip" role="tooltip">白板控制</span></button>',
     '  <div class="ec-slide-tabs" id="ec-slide-tabs" aria-label="切换幻灯片"></div>',
-    '  <button class="ec-launcher" title="录制面板" aria-label="录制面板"><span class="ec-launcher-icon" aria-hidden="true"><svg viewBox="0 0 28 28" focusable="false"><path class="ec-launcher-lens" d="M8.8 7.5h6.8c1.2 0 2.2.7 2.7 1.8l.5 1.1h.9c1.7 0 3.1 1.4 3.1 3.1v4.9c0 1.7-1.4 3.1-3.1 3.1H8.3c-1.7 0-3.1-1.4-3.1-3.1v-4.9c0-1.7 1.4-3.1 3.1-3.1h.6l.7-1.5c.4-.9 1.2-1.4 2.2-1.4Z"/><circle class="ec-launcher-core" cx="14" cy="16" r="4.1"/><circle class="ec-launcher-dot" cx="21" cy="12" r="1.15"/></svg></span></button>',
+    '  <button class="ec-slide-add" id="ec-slide-add" aria-label="新增幻灯片">＋<span class="ec-rail-tooltip" role="tooltip">新增幻灯片</span></button>',
+    '  <button class="ec-launcher" aria-label="打开 more-excalicord"><span class="ec-launcher-icon" aria-hidden="true"><svg viewBox="0 0 28 28" focusable="false"><path class="ec-launcher-lens" d="M8.8 7.5h6.8c1.2 0 2.2.7 2.7 1.8l.5 1.1h.9c1.7 0 3.1 1.4 3.1 3.1v4.9c0 1.7-1.4 3.1-3.1 3.1H8.3c-1.7 0-3.1-1.4-3.1-3.1v-4.9c0-1.7 1.4-3.1 3.1-3.1h.6l.7-1.5c.4-.9 1.2-1.4 2.2-1.4Z"/><circle class="ec-launcher-core" cx="14" cy="16" r="4.1"/><circle class="ec-launcher-dot" cx="21" cy="12" r="1.15"/></svg></span><span class="ec-rail-tooltip" role="tooltip">打开 more-excalicord</span></button>',
     '</nav>',
     '<div class="ec-view-tools" id="ec-view-tools" role="dialog" aria-label="白板控制" aria-hidden="true">',
     '  <div class="ec-view-tools-head"><div><strong>白板控制</strong><small>视图与设置</small></div><button id="ec-view-tools-close" type="button" title="关闭白板控制">×</button></div>',
@@ -1294,10 +1312,29 @@
     '  <p class="ec-sub">白板 + 摄像头 + 提词器，录制原始素材（本地运行，不上传）</p>',
     '  <div class="ec-section">',
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true">▣</span><span>项目</span></span></div>',
-    '    <div class="ec-row"><label>项目</label><button class="ec-btn ec-btn-ghost" id="ec-project-folder-choose" style="flex:1">设置项目文件夹…</button><button class="ec-btn ec-btn-ghost" id="ec-project-folder-open">在 Finder 中显示</button></div>',
-    '    <div class="ec-project-path" id="ec-project-folder-path" title="未选择项目文件夹"><span>项目文件夹</span><strong>未选择</strong></div>',
-    '    <div class="ec-row ec-whiteboard-actions"><label>白板</label><button class="ec-btn ec-btn-ghost" id="ec-project-file-open">打开 Excalidraw 文件…</button><button class="ec-btn ec-btn-ghost" id="ec-project-whiteboard-save">保存白板</button><input id="ec-project-file-input" type="file" accept=".excalidraw,application/json" hidden/></div>',
-    '    <p class="ec-sub" id="ec-project-status">先设置项目文件夹；打开与保存均由你明确执行。</p>',
+    '    <div class="ec-project-card" id="ec-project-card">',
+    '      <div class="ec-project-summary">',
+    '        <span class="ec-project-item-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M2.8 5.7c0-1 .8-1.8 1.8-1.8h3.2l1.5 1.6h6.1c1 0 1.8.8 1.8 1.8v7c0 1-.8 1.8-1.8 1.8H4.6c-1 0-1.8-.8-1.8-1.8Z"/></svg></span>',
+    '        <div class="ec-project-identity"><strong id="ec-project-folder-name">未选择项目</strong><span class="ec-project-path ec-empty" id="ec-project-folder-path" title="未选择项目文件夹">请选择一个项目文件夹</span></div>',
+    '        <span class="ec-project-badge ec-badge-muted" id="ec-project-folder-badge">未设置</span>',
+    '      </div>',
+    '      <div class="ec-project-actions">',
+    '        <button class="ec-btn ec-btn-ghost" id="ec-project-folder-choose">选择项目文件夹</button>',
+    '        <button class="ec-btn ec-btn-quiet" id="ec-project-folder-open" title="在 Finder 中显示当前项目文件夹"><span aria-hidden="true">⌕</span> 显示位置</button>',
+    '      </div>',
+    '      <div class="ec-project-divider" aria-hidden="true"></div>',
+    '      <div class="ec-project-summary ec-whiteboard-summary">',
+    '        <span class="ec-project-item-icon ec-whiteboard-item-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3" y="3.2" width="14" height="13.6" rx="2.2"/><path d="M6.2 7h7.6M6.2 10h5.6"/></svg></span>',
+    '        <div class="ec-project-identity"><strong>白板</strong><span id="ec-project-whiteboard-name">scene.excalidraw</span></div>',
+    '        <span class="ec-project-badge ec-badge-warning" id="ec-project-whiteboard-badge">待保存</span>',
+    '      </div>',
+    '      <div class="ec-project-actions ec-whiteboard-actions">',
+    '        <button class="ec-btn ec-btn-ghost" id="ec-project-file-open">打开其他白板</button>',
+    '        <button class="ec-btn ec-btn-primary" id="ec-project-whiteboard-save">保存到项目</button>',
+    '        <input id="ec-project-file-input" type="file" accept=".excalidraw,application/json" hidden/>',
+    '      </div>',
+    '      <p class="ec-project-status ec-status-info" id="ec-project-status" role="status"><span class="ec-project-status-icon" aria-hidden="true">i</span><span class="ec-project-status-text">选择项目文件夹后，白板、录制、字幕和成片将统一保存在其中。</span></p>',
+    '    </div>',
     "  </div>",
     '  <div class="ec-section">',
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-tele" aria-hidden="true">Aa</span><span>提词器 / 讲稿</span></span></div>',
@@ -1307,8 +1344,9 @@
     '    <p class="ec-sub" id="ec-script-status">讲稿在提词器面板内载入或编辑；录后的逐字稿和字幕仍以实际音频为准。</p>',
     "  </div>",
     '  <div class="ec-section ec-camera-section">',
-    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头画中画</span></span></div>',
+    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头与麦克风</span></span></div>',
     '    <div class="ec-row"><label>启用</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-enable"/> 摄像头画中画</label></div>',
+    '    <div class="ec-row ec-mic-row" id="ec-mic-row"><label>麦克风</label><select id="ec-mic-device"><option value="">默认麦克风</option></select><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
     '    <div class="ec-camera-details" id="ec-camera-details" aria-hidden="true" hidden>',
     '    <div class="ec-row"><label>设备</label><select id="ec-cam-device"><option value="">默认摄像头</option></select></div>',
     '    <div class="ec-row"><label>形状</label><select id="ec-cam-shape"><option value="circle">圆形</option><option value="rounded">圆角方形</option><option value="pill">胶囊</option></select></div>',
@@ -1328,8 +1366,8 @@
     '    <div class="ec-row"><label>镜像</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-mirror" checked/> 左右翻转</label></div>',
     '    </div>',
     "  </div>",
-    '  <div class="ec-section">',
-    '    <div class="ec-section-title">' + sectionIconRecord + "</div>",
+    '  <div class="ec-section ec-recording-settings">',
+    '    <div class="ec-section-title">' + sectionIconRecord.replace("<span>录制</span>", "<span>录制设置</span>") + "</div>",
     '    <div class="ec-row"><label>画幅</label><select id="ec-ratio"><option value="youtube">YouTube / B站 横版 16:9</option><option value="wechat-video">视频号 / 小红书 竖版 9:16</option><option value="square">小红书 / 社媒 方形 1:1</option><option value="slides">课件 / 投屏 4:3</option><option value="custom">自定义画幅…</option></select><span class="ec-value" id="ec-ratio-v">1920×1080</span></div>',
     '    <div class="ec-row ec-custom-size-row" id="ec-custom-size-row" style="display:none"><label>自定义</label><input id="ec-custom-width" type="number" min="320" max="7680" step="2" value="1280" aria-label="自定义宽度"/><span class="ec-size-separator">×</span><input id="ec-custom-height" type="number" min="320" max="7680" step="2" value="720" aria-label="自定义高度"/></div>',
     '    <div class="ec-row"><label>范围</label><select id="ec-scope"><option value="screen">选择的屏幕/窗口</option><option value="canvas">白板全景</option><option value="frame">当前幻灯片聚焦</option></select></div>',
@@ -1341,14 +1379,34 @@
     '    <div class="ec-row" id="ec-composite-position-row"><label>摄像头位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
     '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 录制时隐藏屏幕上的气泡（与合成进视频无关）</label></div>',
     '    <div class="ec-row"><label></label><label class="ec-toggle"><input type="checkbox" id="ec-hide-desktop-icons"/> 隐藏桌面图标</label></div>',
-    '    <p class="ec-sub" id="ec-hide-desktop-note" style="margin:2px 0 0;display:none">已记录到项目设置；真正隐藏系统桌面图标需要后续原生录制增强。</p>',
-    '    <div class="ec-row ec-mic-row" id="ec-mic-row"><label>麦克风</label><select id="ec-mic-device"><option value="">默认麦克风</option></select><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
-    '    <div class="ec-row"><label>光标</label><label class="ec-toggle"><input type="checkbox" id="ec-cursor-highlight" checked/> 录制中显示光标效果</label></div>',
-    '    <div class="ec-cursor-options" id="ec-cursor-options">',
-    '      <div class="ec-row ec-cursor-detail"><label>高亮</label><select id="ec-cursor-highlight-style"><option value="halo">光环</option><option value="spotlight">聚光</option><option value="ring">圆环</option><option value="dot">圆点</option></select></div>',
-    '      <div class="ec-row ec-cursor-detail"><label>指针</label><select id="ec-cursor-shape"><option value="system">系统指针</option><option value="dot">圆点指针</option><option value="crosshair">十字指针</option><option value="none">不显示指针形状</option></select></div>',
-    '      <div class="ec-row ec-cursor-detail"><label>声音</label><select id="ec-cursor-sound"><option value="off">关闭</option><option value="soft">轻提示音</option><option value="click">清脆点击音</option></select></div>',
-    '    </div>',
+    '    <p class="ec-sub" id="ec-hide-desktop-note" style="margin:2px 0 0;display:none">录制整个屏幕时隐藏；停止录制、启动失败或录制组件重启后自动恢复。</p>',
+    "  </div>",
+    '  <div class="ec-section ec-advanced-section">',
+    '    <details class="ec-advanced-effects">',
+    '      <summary><span>高级效果</span><small>光标与智能镜头</small></summary>',
+    '      <div class="ec-advanced-effects-body">',
+    '    <section class="ec-cursor-card" aria-labelledby="ec-cursor-title">',
+    '      <div class="ec-cursor-card-title" id="ec-cursor-title">鼠标光标效果</div>',
+    '      <label class="ec-cursor-switch"><input type="checkbox" id="ec-cursor-highlight" checked/><span class="ec-cursor-switch-track" aria-hidden="true"></span><span>录制时显示光标高亮</span></label>',
+    '      <div class="ec-cursor-options" id="ec-cursor-options">',
+    '        <div class="ec-cursor-size-row"><label for="ec-cursor-size">光标大小</label><div class="ec-cursor-range"><span>小</span><input type="range" id="ec-cursor-size" min="0.6" max="1.8" step="0.1" value="1"/><span>大</span></div><output id="ec-cursor-size-value" for="ec-cursor-size">100%</output></div>',
+    '        <fieldset class="ec-cursor-colors"><legend>光标颜色</legend><div class="ec-cursor-color-list" role="radiogroup" aria-label="光标颜色">',
+    '          <label class="ec-cursor-color" style="--ec-swatch:#ef4444"><input type="radio" name="ec-cursor-color" value="#ef4444" checked/><span></span><b>红色</b></label>',
+    '          <label class="ec-cursor-color" style="--ec-swatch:#f97316"><input type="radio" name="ec-cursor-color" value="#f97316"/><span></span><b>橙色</b></label>',
+    '          <label class="ec-cursor-color" style="--ec-swatch:#eab308"><input type="radio" name="ec-cursor-color" value="#eab308"/><span></span><b>黄色</b></label>',
+    '          <label class="ec-cursor-color" style="--ec-swatch:#22c55e"><input type="radio" name="ec-cursor-color" value="#22c55e"/><span></span><b>绿色</b></label>',
+    '          <label class="ec-cursor-color" style="--ec-swatch:#3b82f6"><input type="radio" name="ec-cursor-color" value="#3b82f6"/><span></span><b>蓝色</b></label>',
+    '          <label class="ec-cursor-color" style="--ec-swatch:#a855f7"><input type="radio" name="ec-cursor-color" value="#a855f7"/><span></span><b>紫色</b></label>',
+    '          <label class="ec-cursor-color" style="--ec-swatch:#ec4899"><input type="radio" name="ec-cursor-color" value="#ec4899"/><span></span><b>粉色</b></label>',
+    '        </div></fieldset>',
+    '        <details class="ec-cursor-advanced"><summary>更多设置</summary><div class="ec-cursor-advanced-grid">',
+    '          <label>高亮<select id="ec-cursor-highlight-style"><option value="halo">光环</option><option value="spotlight">聚光</option><option value="ring">圆环</option><option value="dot">圆点</option></select></label>',
+    '          <label>指针<select id="ec-cursor-shape"><option value="system">系统指针</option><option value="dot">圆点指针</option><option value="crosshair">十字指针</option><option value="none">不显示指针形状</option></select></label>',
+    '          <label>点击声<select id="ec-cursor-sound"><option value="off">关闭</option><option value="soft">轻提示音</option><option value="click">清脆点击音</option></select></label>',
+    '        </div></details>',
+    '        <button type="button" class="ec-cursor-done" id="ec-cursor-done">完成</button>',
+    '      </div>',
+    '    </section>',
     '    <div class="ec-row"><label>智能镜头</label><label class="ec-toggle"><input type="checkbox" id="ec-smart-camera"/> 开启录后镜头建议</label></div>',
     '    <div class="ec-smart-camera-options" id="ec-smart-camera-options" style="display:none">',
     '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-slide-focus" checked/> 幻灯片聚焦</label>',
@@ -1360,6 +1418,11 @@
     '      <div class="ec-row ec-smart-camera-detail"><label>速度</label><select id="ec-smart-camera-speed"><option value="slow">慢</option><option value="standard">标准</option><option value="fast">快</option></select></div>',
     '      <p class="ec-sub" id="ec-smart-camera-hint">录制时只记录镜头线索；缩放节奏和焦点可在录后编辑里调整。</p>',
     '    </div>',
+    '      </div>',
+    '    </details>',
+    "  </div>",
+    '  <div class="ec-section ec-recording-result">',
+    '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-record" aria-hidden="true">●</span><span>录制结果</span></span></div>',
     '    <div class="ec-reccontrols"><span class="ec-rec-indicator" id="ec-indicator"></span><span class="ec-timer" id="ec-timer">00:00</span></div>',
     '    <div class="ec-reccontrols ec-rec-actions">',
     '      <button class="ec-btn ec-btn-success" id="ec-rec-start" title="开始录制（快捷键：' + shortcutLabel("R") + '）" aria-label="开始录制，快捷键 ' + shortcutLabel("R") + '">' + buttonWithShortcut("开始录制", shortcutLabel("R")) + '</button>',
@@ -1369,11 +1432,12 @@
     '    <div class="ec-row ec-export-row" style="margin-top:4px"><label style="flex:0 0 auto">原始录制</label><button class="ec-btn ec-btn-ghost" id="ec-export" style="flex:1">保存录制</button><button class="ec-btn ec-btn-ghost" id="ec-export-open">播放原始录制</button></div>',
     "  </div>",
     "</div>",
-    '<div class="ec-mini-recorder" id="ec-mini-recorder" aria-hidden="true">',
-    '  <span class="ec-mini-dot" id="ec-mini-indicator"></span><span class="ec-mini-timer" id="ec-mini-timer">00:00</span>',
-    '  <button type="button" class="ec-mini-btn ec-mini-start" id="ec-mini-start" title="录制中">开始</button>',
-    '  <button type="button" class="ec-mini-btn ec-mini-pause" id="ec-mini-pause" title="暂停或继续录制">暂停</button>',
-    '  <button type="button" class="ec-mini-btn ec-mini-stop" id="ec-mini-stop" title="停止录制">停止</button>',
+    '<div class="ec-mini-recorder" id="ec-mini-recorder" role="toolbar" aria-label="录制控制" aria-hidden="true">',
+    '  <span class="ec-mini-drag" id="ec-mini-drag" role="button" tabindex="0" title="拖动录制控制条" aria-label="拖动录制控制条"><span aria-hidden="true">⠿</span></span>',
+    '  <span class="ec-mini-status" aria-label="录制时间"><span class="ec-mini-dot" id="ec-mini-indicator" aria-hidden="true"></span><span class="ec-mini-timer" id="ec-mini-timer">00:00</span></span>',
+    '  <button type="button" class="ec-mini-btn ec-mini-tele" id="ec-mini-tele" title="打开提示词" aria-label="打开提示词" aria-pressed="false"><span class="ec-mini-tele-icon" aria-hidden="true">Aa</span><span class="ec-mini-tele-label">提示词</span></button>',
+    '  <button type="button" class="ec-mini-btn ec-mini-pause" id="ec-mini-pause" title="暂停或继续录制"><span class="ec-mini-btn-icon" aria-hidden="true">Ⅱ</span><span id="ec-mini-pause-label">暂停</span></button>',
+    '  <button type="button" class="ec-mini-btn ec-mini-stop" id="ec-mini-stop" title="停止录制"><span class="ec-mini-stop-icon" aria-hidden="true"></span><span>停止</span></button>',
     '</div>',
     '<div class="ec-toast" id="ec-toast"></div>',
     '<div class="ec-source-modal" id="ec-source-modal" aria-hidden="true">',
@@ -3844,6 +3908,8 @@
       }
       var index = item.index;
       var frame = frames[index];
+      var tabWrap = document.createElement("span");
+      tabWrap.className = "ec-slide-tab-wrap";
       var button = document.createElement("button");
       button.className = "ec-slide-tab" + (frame.id === activeId ? " ec-active" : "");
       button.type = "button";
@@ -3862,7 +3928,24 @@
         }
         showSlideContextMenu(ev, frame, index);
       });
-      slideTabsEl.appendChild(button);
+      var deleteButton = document.createElement("button");
+      deleteButton.className = "ec-slide-tab-delete";
+      deleteButton.type = "button";
+      deleteButton.textContent = "×";
+      deleteButton.title = "删除幻灯片 " + (index + 1);
+      deleteButton.setAttribute("aria-label", "删除第 " + (index + 1) + " 张幻灯片");
+      deleteButton.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (frames.length <= 1) {
+          toast("至少保留一个幻灯片");
+          return;
+        }
+        showSlideContextMenu(ev, frame, index);
+      });
+      tabWrap.appendChild(button);
+      tabWrap.appendChild(deleteButton);
+      slideTabsEl.appendChild(tabWrap);
     });
     if (isSlideOverviewOpen()) renderSlideOverview();
     slideAddBtn.disabled = slideBusy;
@@ -4225,6 +4308,18 @@
     '<div class="ec-tele-resize"></div>';
   document.body.appendChild(tele);
 
+  function layoutTeleprompter() {
+    if (state.tele.userPositioned) return;
+    var recorderPanel = shadow.querySelector(".ec-panel");
+    var panelOpen = !!(recorderPanel && recorderPanel.classList.contains("ec-open"));
+    var panelLeft = panelOpen ? recorderPanel.getBoundingClientRect().left : window.innerWidth;
+    var availableRight = Math.max(8, panelLeft - 16);
+    var width = Math.min(state.tele.width, Math.max(280, availableRight - 16));
+    var left = Math.max(8, Math.round((availableRight - width) / 2));
+    tele.style.left = left + "px";
+    tele.style.top = (window.innerHeight <= 720 ? 68 : 96) + "px";
+  }
+
   /* ============ Gestures (drag / resize) ============ */
   var gesture = null;
   function beginGesture(kind, el, ev) {
@@ -4247,6 +4342,7 @@
       } catch (e) {}
     }
     if (el === bubble) bubble.classList.add("ec-dragging");
+    if (el === tele && kind === "drag") state.tele.userPositioned = true;
   }
 
   document.addEventListener("pointermove", function (ev) {
@@ -4254,9 +4350,13 @@
     var el = gesture.el;
     var dx = ev.clientX - gesture.startX;
     var dy = ev.clientY - gesture.startY;
-    if (gesture.kind === "drag") {
-      el.style.left = clamp(gesture.x + dx, -80, window.innerWidth - 40) + "px";
-      el.style.top = clamp(gesture.y + dy, 0, window.innerHeight - 40) + "px";
+    if (gesture.kind === "drag" || gesture.kind === "drag-contained") {
+      var minX = gesture.kind === "drag-contained" ? 8 : -80;
+      var maxX = gesture.kind === "drag-contained" ? Math.max(8, window.innerWidth - gesture.w - 8) : window.innerWidth - 40;
+      var minY = gesture.kind === "drag-contained" ? 8 : 0;
+      var maxY = gesture.kind === "drag-contained" ? Math.max(8, window.innerHeight - gesture.h - 8) : window.innerHeight - 40;
+      el.style.left = clamp(gesture.x + dx, minX, maxX) + "px";
+      el.style.top = clamp(gesture.y + dy, minY, maxY) + "px";
     } else {
       var nw = clamp(gesture.w + dx, 90, 640);
       var nh = clamp(gesture.h + dy, 70, 480);
@@ -4870,10 +4970,12 @@
   var timerEl = shadow.getElementById("ec-timer");
   var indicator = shadow.getElementById("ec-indicator");
   var miniRecorder = shadow.getElementById("ec-mini-recorder");
+  var miniDrag = shadow.getElementById("ec-mini-drag");
   var miniTimer = shadow.getElementById("ec-mini-timer");
   var miniIndicator = shadow.getElementById("ec-mini-indicator");
-  var miniStart = shadow.getElementById("ec-mini-start");
+  var miniTele = shadow.getElementById("ec-mini-tele");
   var miniPause = shadow.getElementById("ec-mini-pause");
+  var miniPauseLabel = shadow.getElementById("ec-mini-pause-label");
   var miniStop = shadow.getElementById("ec-mini-stop");
   var ratioSel = shadow.getElementById("ec-ratio");
   var ratioV = shadow.getElementById("ec-ratio-v");
@@ -4895,6 +4997,10 @@
   var hideDesktopNote = shadow.getElementById("ec-hide-desktop-note");
   var cursorHighlightChk = shadow.getElementById("ec-cursor-highlight");
   var cursorOptions = shadow.getElementById("ec-cursor-options");
+  var cursorSizeInput = shadow.getElementById("ec-cursor-size");
+  var cursorSizeValue = shadow.getElementById("ec-cursor-size-value");
+  var cursorColorInputs = Array.from(shadow.querySelectorAll('input[name="ec-cursor-color"]'));
+  var cursorDoneBtn = shadow.getElementById("ec-cursor-done");
   var cursorHighlightStyleSel = shadow.getElementById("ec-cursor-highlight-style");
   var cursorShapeSel = shadow.getElementById("ec-cursor-shape");
   var cursorSoundSel = shadow.getElementById("ec-cursor-sound");
@@ -4915,6 +5021,37 @@
   var sourcePickerMode = "system";
   var lastDisplaySourceValue = "display:";
   var lastWindowSourceValue = "";
+
+  function placeMiniRecorder(left, top) {
+    if (!miniRecorder) return;
+    var rect = miniRecorder.getBoundingClientRect();
+    miniRecorder.classList.add("ec-positioned");
+    miniRecorder.style.left = clamp(Number(left) || 8, 8, Math.max(8, window.innerWidth - rect.width - 8)) + "px";
+    miniRecorder.style.top = clamp(Number(top) || 8, 8, Math.max(8, window.innerHeight - rect.height - 8)) + "px";
+  }
+
+  if (miniDrag && miniRecorder) {
+    miniDrag.addEventListener("pointerdown", function (ev) {
+      var rect = miniRecorder.getBoundingClientRect();
+      placeMiniRecorder(rect.left, rect.top);
+      beginGesture("drag-contained", miniRecorder, ev);
+    });
+    miniDrag.addEventListener("keydown", function (ev) {
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(ev.key)) return;
+      ev.preventDefault();
+      var rect = miniRecorder.getBoundingClientRect();
+      var step = ev.shiftKey ? 32 : 12;
+      placeMiniRecorder(
+        rect.left + (ev.key === "ArrowLeft" ? -step : ev.key === "ArrowRight" ? step : 0),
+        rect.top + (ev.key === "ArrowUp" ? -step : ev.key === "ArrowDown" ? step : 0),
+      );
+    });
+    window.addEventListener("resize", function () {
+      if (!miniRecorder.classList.contains("ec-positioned")) return;
+      var rect = miniRecorder.getBoundingClientRect();
+      placeMiniRecorder(rect.left, rect.top);
+    });
+  }
 
   compositePositionSel.addEventListener("change", function () {
     state.camera.compositePosition = compositePositionSel.value || "bottom-right";
@@ -5039,7 +5176,7 @@
       state.settings.hideDesktopIcons = hideDesktopIconsChk.checked;
       updateHideDesktopIconsUI();
       if (state.settings.hideDesktopIcons) {
-        toast("已记录隐藏桌面图标设置；真正隐藏需要后续原生录制增强");
+        toast("录制整个屏幕时将隐藏桌面图标，停止后自动恢复");
       }
       v011ScheduleSave("hide-desktop-icons");
     });
@@ -5254,24 +5391,41 @@
 
   function setNativeProjectFolder(folder) {
     var path = folder && folder.path ? folder.path : "";
-    if (state.rec.projectFolder.mode !== "native" || state.rec.projectFolder.path !== path) {
+    var core = requireEditorCore();
+    var fingerprint = path ? core.projectRootFingerprint({ mode: "native", path: path }) : "";
+    if (state.rec.projectFolder.fingerprint !== fingerprint) {
       state.rec.projectFolder.loadedOnce = false;
       state.rec.projectSceneFiles = {};
+      state.rec.projectFolder.loadGeneration += 1;
+      state.rec.verifiedMediaPaths = {};
     }
     state.rec.projectFolder.mode = path ? "native" : "none";
     state.rec.projectFolder.path = path;
     state.rec.projectFolder.name = path ? shortPath(path) : "";
+    state.rec.projectFolder.identity = path;
+    state.rec.projectFolder.fingerprint = fingerprint;
     state.rec.projectFolder.handle = null;
   }
 
   function setBrowserProjectFolder(handle) {
-    if (state.rec.projectFolder.mode !== "browser" || state.rec.projectFolder.handle !== handle) {
+    var identity = handle
+      ? (state.rec.projectFolder.handle === handle && state.rec.projectFolder.identity
+        ? state.rec.projectFolder.identity
+        : (handle.name || "project") + ":" + v011Id("root"))
+      : "";
+    var core = requireEditorCore();
+    var fingerprint = handle ? core.projectRootFingerprint({ mode: "browser", identity: identity }) : "";
+    if (state.rec.projectFolder.fingerprint !== fingerprint) {
       state.rec.projectFolder.loadedOnce = false;
       state.rec.projectSceneFiles = {};
+      state.rec.projectFolder.loadGeneration += 1;
+      state.rec.verifiedMediaPaths = {};
     }
     state.rec.projectFolder.mode = handle ? "browser" : "none";
     state.rec.projectFolder.path = "";
     state.rec.projectFolder.name = handle && handle.name ? handle.name : "";
+    state.rec.projectFolder.identity = identity;
+    state.rec.projectFolder.fingerprint = fingerprint;
     state.rec.projectFolder.handle = handle || null;
   }
 
@@ -5279,9 +5433,20 @@
     return state.rec.projectFolder.name || shortPath(state.rec.projectFolder.path) || "未选择";
   }
 
+  function projectFolderDisplayName() {
+    if (state.rec.projectFolder.mode === "native" && state.rec.projectFolder.path) {
+      var parts = state.rec.projectFolder.path.replace(/\/$/, "").split("/");
+      return parts[parts.length - 1] || "项目";
+    }
+    if (state.rec.projectFolder.mode === "browser" && state.rec.projectFolder.name) {
+      return state.rec.projectFolder.name;
+    }
+    return "未选择项目";
+  }
+
   function projectFolderDisplayPath() {
     if (state.rec.projectFolder.mode === "native" && state.rec.projectFolder.path) {
-      return state.rec.projectFolder.path;
+      return shortPath(state.rec.projectFolder.path);
     }
     if (state.rec.projectFolder.mode === "browser" && state.rec.projectFolder.name) {
       return state.rec.projectFolder.name + "（浏览器授权目录）";
@@ -5291,23 +5456,36 @@
 
   function renderProjectFolderPath() {
     var pathDisplay = shadow.getElementById("ec-project-folder-path");
+    var nameDisplay = shadow.getElementById("ec-project-folder-name");
+    var folderBadge = shadow.getElementById("ec-project-folder-badge");
+    var folderOpenButton = shadow.getElementById("ec-project-folder-open");
+    var whiteboardSaveButton = shadow.getElementById("ec-project-whiteboard-save");
     var chooseButton = shadow.getElementById("ec-project-folder-choose");
     if (!pathDisplay) return;
     var displayPath = projectFolderDisplayPath();
-    var value = pathDisplay.querySelector("strong");
-    if (value) value.textContent = displayPath;
-    pathDisplay.title = displayPath === "未选择" ? "未选择项目文件夹" : displayPath;
+    var selected = displayPath !== "未选择";
+    pathDisplay.textContent = selected ? displayPath : "请选择一个项目文件夹";
+    if (nameDisplay) nameDisplay.textContent = projectFolderDisplayName();
+    pathDisplay.title = selected
+      ? (state.rec.projectFolder.path || displayPath)
+      : "未选择项目文件夹";
     pathDisplay.classList.toggle("ec-empty", displayPath === "未选择");
-    if (chooseButton) chooseButton.textContent = "设置项目文件夹…";
+    if (folderBadge) {
+      folderBadge.textContent = selected ? "已就绪" : "未设置";
+      folderBadge.className = "ec-project-badge " + (selected ? "ec-badge-ready" : "ec-badge-muted");
+    }
+    if (chooseButton) chooseButton.textContent = selected ? "更换项目" : "选择项目文件夹";
+    if (folderOpenButton) folderOpenButton.disabled = !selected;
+    if (whiteboardSaveButton) whiteboardSaveButton.disabled = !selected;
   }
 
   function updateProjectFolderStatus() {
     updateOutputActions();
     renderProjectFolderPath();
     if (state.rec.projectFolder.mode !== "none") {
-      updateV011ProjectStatus("项目文件夹已设置：" + projectFolderLabel() + "；白板、录制和成片都会写入这里。");
+      updateV011ProjectStatus("项目已就绪；白板、录制、字幕和成片将统一保存在此目录。");
     } else {
-      updateV011ProjectStatus("未设置项目文件夹；打开与保存均不会写入其他位置。");
+      updateV011ProjectStatus("选择项目文件夹后，白板、录制、字幕和成片将统一保存在其中。");
     }
   }
 
@@ -5359,7 +5537,8 @@
       .then(function (folder) {
         setNativeProjectFolder(folder);
         updateProjectFolderStatus();
-        return true;
+        if (!state.rec.projectFolder.fingerprint || state.rec.projectFolder.loadedOnce) return true;
+        return activateSelectedProjectFolder({ silent: true, source: "startup" });
       })
       .catch(function () {
         updateProjectFolderStatus();
@@ -5508,6 +5687,7 @@
   function finalizeSavedRecording(filePath, fileName, mimeType, duration) {
     var relativePath = recordingRelativePath(filePath, fileName);
     v011RecordSavedMedia(relativePath, mimeType, duration);
+    state.rec.verifiedMediaPaths[relativePath] = true;
     return writeRecordingMetadata(relativePath).then(function (result) {
       dispatchRecordingReady(relativePath, duration);
       return result;
@@ -6103,12 +6283,12 @@
     if (miniIndicator) {
       miniIndicator.classList.toggle("ec-paused", !!active && !!paused);
     }
-    if (miniStart) miniStart.disabled = !!active;
     if (miniPause) {
       miniPause.disabled = !active;
-      miniPause.textContent = paused ? "继续" : "暂停";
       miniPause.title = paused ? "继续录制" : "暂停录制";
+      miniPause.setAttribute("aria-label", paused ? "继续录制" : "暂停录制");
     }
+    if (miniPauseLabel) miniPauseLabel.textContent = paused ? "继续" : "暂停";
     if (miniStop) miniStop.disabled = !active;
     updateRecordingTimers();
     updateOutputActions();
@@ -6454,17 +6634,18 @@
     var shape = state.cursor.pointerShape || "system";
     ctx.save();
     ctx.translate(x, y);
+    ctx.scale(clamp(Number(state.cursor.size) || 1, 0.6, 1.8), clamp(Number(state.cursor.size) || 1, 0.6, 1.8));
     if (style === "spotlight") {
       var glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 34);
       glow.addColorStop(0, "rgba(255,255,255,0.48)");
-      glow.addColorStop(0.38, "rgba(105,101,219,0.24)");
-      glow.addColorStop(1, "rgba(105,101,219,0)");
+      glow.addColorStop(0.38, cursorRgba(0.24));
+      glow.addColorStop(1, cursorRgba(0));
       ctx.fillStyle = glow;
       ctx.beginPath();
       ctx.arc(0, 0, 34, 0, Math.PI * 2);
       ctx.fill();
     } else if (style === "ring") {
-      ctx.strokeStyle = "rgba(105,101,219,0.88)";
+      ctx.strokeStyle = cursorRgba(0.88);
       ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.arc(0, 0, 17, 0, Math.PI * 2);
@@ -6475,7 +6656,7 @@
       ctx.arc(0, 0, 22, 0, Math.PI * 2);
       ctx.stroke();
     } else if (style === "dot") {
-      ctx.fillStyle = "rgba(105,101,219,0.88)";
+      ctx.fillStyle = cursorRgba(0.88);
       ctx.beginPath();
       ctx.arc(0, 0, 6, 0, Math.PI * 2);
       ctx.fill();
@@ -6483,11 +6664,11 @@
       ctx.lineWidth = 2;
       ctx.stroke();
     } else {
-      ctx.fillStyle = "rgba(105,101,219,0.22)";
+      ctx.fillStyle = cursorRgba(0.22);
       ctx.beginPath();
       ctx.arc(0, 0, 18, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = "rgba(105,101,219,0.76)";
+      ctx.strokeStyle = cursorRgba(0.76);
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(0, 0, 14, 0, Math.PI * 2);
@@ -6750,6 +6931,9 @@
   function startNativeRecording() {
     var bridge = nativeBridge();
     if (!bridge) {
+      if (state.settings.hideDesktopIcons) {
+        toast("桌面录制服务未连接，无法隐藏系统桌面图标；改用浏览器共享录制");
+      }
       startBrowserRecording();
       return;
     }
@@ -6784,6 +6968,7 @@
       smoothing: beautyToggle.checked ? state.camera.smoothing : 0,
       whitening: beautyToggle.checked ? state.camera.whitening : 0,
       lightIntensity: state.camera.lightEnabled ? state.camera.lightIntensity : 0,
+      hideDesktopIcons: sourceType === "display" && !!state.settings.hideDesktopIcons,
     })
       .then(function (response) {
         state.rec.nativeActive = true;
@@ -6793,9 +6978,7 @@
         state.rec.selectedDisplaySurface = "native-" + sourceType;
         state.rec.usingDirectDisplay = true;
         state.rec.timer = setInterval(tickTimer, 1000);
-        if (state.tele.hideWhileRecording && state.tele.open) {
-          tele.style.visibility = "hidden";
-        }
+        if (state.tele.hideWhileRecording && state.tele.open) setTelePanelOpen(false);
         setRecUI(true, false);
         nativeStatusEl.textContent = "桌面录制中 · 浏览器可最小化";
         toast(nativeCameraComposite
@@ -6828,13 +7011,17 @@
     }
     refreshNativeEngine(true).then(function (available) {
       if (!available) {
-        toast("桌面录制服务未连接，改用浏览器共享录制");
+        toast(state.settings.hideDesktopIcons
+          ? "桌面录制服务未连接，无法隐藏系统桌面图标；改用浏览器共享录制"
+          : "桌面录制服务未连接，改用浏览器共享录制");
         startBrowserRecording();
         return;
       }
       loadNativeSources().then(function (loaded) {
         if (!loaded) {
-          toast("录制来源不可用，改用浏览器共享录制");
+          toast(state.settings.hideDesktopIcons
+            ? "录制来源不可用，无法隐藏系统桌面图标；改用浏览器共享录制"
+            : "录制来源不可用，改用浏览器共享录制");
           startBrowserRecording();
           return;
         }
@@ -6845,7 +7032,9 @@
             return;
           }
           if (nativeSourceSel.value === "browser-picker:") {
-            toast("请选择要录制的浏览器标签页、窗口或屏幕");
+            toast(state.settings.hideDesktopIcons
+              ? "浏览器共享录制无法隐藏系统桌面图标；请在共享窗口中选择录制范围"
+              : "请选择要录制的浏览器标签页、窗口或屏幕");
             startBrowserRecording();
             return;
           }
@@ -6894,9 +7083,7 @@
       if (hideBubbleChk.checked && state.camera.enabled) {
         bubble.style.visibility = "hidden";
       }
-      if (state.tele.hideWhileRecording && state.tele.open) {
-        tele.style.visibility = "hidden";
-      }
+      if (state.tele.hideWhileRecording && state.tele.open) setTelePanelOpen(false);
 
       var mime = pickMimeType();
       var options = { mimeType: mime, videoBitsPerSecond: 8000000 };
@@ -7033,9 +7220,7 @@
         } else if (hideBubbleChk.checked && state.camera.enabled) {
           bubble.style.visibility = "hidden";
         }
-        if (state.tele.hideWhileRecording && state.tele.open) {
-          tele.style.visibility = "hidden";
-        }
+        if (state.tele.hideWhileRecording && state.tele.open) setTelePanelOpen(false);
 
         var mime = pickMimeType();
         var options = { mimeType: mime, videoBitsPerSecond: 8000000 };
@@ -7359,7 +7544,6 @@
   recStart.addEventListener("click", startRecording);
   recPause.addEventListener("click", pauseRecording);
   recStop.addEventListener("click", stopRecording);
-  if (miniStart) miniStart.addEventListener("click", startRecording);
   if (miniPause) miniPause.addEventListener("click", pauseRecording);
   if (miniStop) miniStop.addEventListener("click", stopRecording);
   recExport.addEventListener("click", exportRecording);
@@ -7385,12 +7569,55 @@
   var projectFileOpenBtn = shadow.getElementById("ec-project-file-open");
   var projectFileInput = shadow.getElementById("ec-project-file-input");
   var projectStatus = shadow.getElementById("ec-project-status");
+  var projectStatusText = shadow.querySelector("#ec-project-status .ec-project-status-text");
+  var projectStatusIcon = shadow.querySelector("#ec-project-status .ec-project-status-icon");
+  var projectWhiteboardBadge = shadow.getElementById("ec-project-whiteboard-badge");
+  var projectWhiteboardName = shadow.getElementById("ec-project-whiteboard-name");
   var scriptImportBtn = shadow.getElementById("ec-script-import");
   var scriptImportFileInput = shadow.getElementById("ec-script-import-file");
   var scriptStatus = shadow.getElementById("ec-script-status");
 
   function updateV011ProjectStatus(message) {
-    if (projectStatus) projectStatus.textContent = message;
+    if (!projectStatus) return;
+    var text = String(message || "");
+    if (projectStatusText) projectStatusText.textContent = text;
+    else projectStatus.textContent = text;
+    var tone = /失败|未写入|无效|超过 128 MB/i.test(text)
+      ? "error"
+      : /尚未|尚无|未设置|未找到|缺失|取消|待保存/i.test(text)
+        ? "warning"
+        : /已保存|已同步|已打开|已载入|已创建|已就绪/i.test(text)
+          ? "success"
+          : "info";
+    projectStatus.className = "ec-project-status ec-status-" + tone;
+    if (projectStatusIcon) projectStatusIcon.textContent = tone === "success" ? "✓" : tone === "error" ? "!" : tone === "warning" ? "!" : "i";
+    if (!projectWhiteboardBadge) return;
+    var badgeText = projectWhiteboardBadge.textContent || "待保存";
+    var badgeClass = "ec-badge-warning";
+    if (/已保存白板|项目内容已同步|项目内容已保存|已保存：|已载入并补全/i.test(text)) {
+      badgeText = "已保存";
+      badgeClass = "ec-badge-saved";
+      if (projectWhiteboardName) projectWhiteboardName.textContent = "scene.excalidraw";
+    } else if (/已打开单个|尚未写入|尚无可打开|没有 scene\.excalidraw|白板文件缺失|未设置项目文件夹/i.test(text)) {
+      badgeText = "待保存";
+      badgeClass = "ec-badge-warning";
+    } else if (/已打开白板|项目内容已载入|已载入项目/i.test(text)) {
+      badgeText = "已载入";
+      badgeClass = "ec-badge-ready";
+    } else if (/保存白板失败|白板未写入|单文件打开失败|项目载入失败/i.test(text)) {
+      badgeText = "操作失败";
+      badgeClass = "ec-badge-error";
+    }
+    projectWhiteboardBadge.textContent = badgeText;
+    projectWhiteboardBadge.className = "ec-project-badge " + badgeClass;
+  }
+
+  function setWhiteboardDisplay(name, badge, badgeClass) {
+    if (projectWhiteboardName && name) projectWhiteboardName.textContent = name;
+    if (projectWhiteboardBadge && badge) {
+      projectWhiteboardBadge.textContent = badge;
+      projectWhiteboardBadge.className = "ec-project-badge " + (badgeClass || "ec-badge-warning");
+    }
   }
 
   function updateScriptStatus(message) {
@@ -7421,7 +7648,6 @@
     smartCameraStrength.value = state.smartCamera.strength || "gentle";
     smartCameraSpeed.value = state.smartCamera.speed || "standard";
     updateSmartCameraUI();
-    updateV011ProjectStatus("已载入项目 " + state.v011.projectId + "；录制媒体按项目内相对路径关联。");
   }
 
   function selectedProjectFolderAvailable() {
@@ -7454,6 +7680,7 @@
       state.rec.projectFolder.loadedOnce = true;
       var elementCount = scene && Array.isArray(scene.elements) ? scene.elements.length : 0;
       var fileCount = scene && isPlainObject(scene.files) ? Object.keys(scene.files).length : 0;
+      setWhiteboardDisplay("scene.excalidraw", "已保存", "ec-badge-saved");
       updateV011ProjectStatus("已保存白板：" + elementCount + " 个元素、" + fileCount + " 个附件；项目内容已同步。");
       toast("白板及全部项目内容已保存");
     }).catch(function (error) {
@@ -7470,15 +7697,7 @@
     }
     chooseProjectFolder().then(function (chosen) {
       if (!chosen) return false;
-      state.rec.projectFolder.loadedOnce = false;
-      state.rec.projectSceneFiles = {};
-      v011BeginProjectAtNewRoot();
-      resetCompletedRecordingState();
-      applyLoadedV011Project();
-      renderProjectFolderPath();
-      updateV011ProjectStatus("项目文件夹已设置：" + projectFolderLabel() + "；当前白板和讲稿尚未写入，请点击“保存白板”。");
-      toast("项目文件夹已设置；旧项目录制和编辑内容未带入");
-      return true;
+      return activateSelectedProjectFolder({ silent: false, source: "choose" });
     });
   });
   if (projectWhiteboardOpenBtn) {
@@ -7493,19 +7712,7 @@
       setProjectActionBusy(projectWhiteboardOpenBtn, true, "打开中…");
       chooseProjectFolder().then(function (chosen) {
         if (!chosen) return false;
-        state.rec.projectFolder.loadedOnce = false;
-        state.rec.projectSceneFiles = {};
-        /* Detach the previous project's relative assets before probing the new
-         * folder. A valid manifest replaces this fresh context below; an empty or
-         * incomplete folder can never inherit stale recording paths. */
-        v011BeginProjectAtNewRoot();
-        resetCompletedRecordingState();
-        applyLoadedV011Project();
-        renderProjectFolderPath();
-        var loader = state.rec.projectFolder.mode === "native"
-          ? loadProjectFromNativeFolder
-          : loadProjectFromBrowserFolder;
-        return loader({ initializeIfMissing: false, requireScene: true, explicitOpen: true });
+        return activateSelectedProjectFolder({ silent: false, source: "open", requireScene: true });
       })
         .finally(function () { setProjectActionBusy(projectWhiteboardOpenBtn, false); });
     });
@@ -7532,6 +7739,7 @@
     file.text().then(parseProjectScene).then(function (scene) {
       applyLoadedProjectFiles(null, scene);
       state.rec.projectFolder.loadedOnce = false;
+      setWhiteboardDisplay(file.name || "外部白板.excalidraw", "待保存", "ec-badge-warning");
       updateV011ProjectStatus("已打开单个 Excalidraw 文件；项目文件夹保持不变。保存白板可写入当前项目。");
       toast("Excalidraw 文件已打开；项目文件夹未改变");
     }).catch(function (error) {
@@ -7584,6 +7792,61 @@
     return !!(error && (error.name === "NotFoundError" || /not found|不存在/i.test(error.message || "")));
   }
 
+  function projectLoadIsCurrent(options) {
+    return !!options
+      && options.rootFingerprint === currentProjectRootFingerprint()
+      && options.loadGeneration === state.rec.projectFolder.loadGeneration;
+  }
+
+  function readBrowserProjectMedia(path) {
+    var parts = String(path || "").split("/");
+    var cursor = Promise.resolve(state.rec.projectFolder.handle);
+    parts.slice(0, -1).forEach(function (part) {
+      cursor = cursor.then(function (directory) { return directory.getDirectoryHandle(part, { create: false }); });
+    });
+    return cursor
+      .then(function (directory) { return directory.getFileHandle(parts[parts.length - 1], { create: false }); })
+      .then(function (handle) { return handle.getFile(); })
+      .then(function (file) {
+        if (!file || file.size <= 0) throw new Error("项目素材不存在");
+        return file;
+      });
+  }
+
+  function verifyActiveProjectMedia(project, options) {
+    var core = requireEditorCore();
+    var path = core.activeRecordingAssetPath(project);
+    if (!path || !projectLoadIsCurrent(options)) return Promise.resolve(false);
+    var check;
+    if (state.rec.projectFolder.mode === "native") {
+      check = fetch("/api/project-media?path=" + encodeURIComponent(path), {
+        method: "GET",
+        headers: { Range: "bytes=0-0" },
+        cache: "no-store",
+      }).then(function (response) {
+        if (response.body && typeof response.body.cancel === "function") response.body.cancel().catch(function () {});
+        if (!response.ok) throw new Error("项目素材不存在");
+        return true;
+      });
+    } else if (state.rec.projectFolder.handle) {
+      check = readBrowserProjectMedia(path).then(function () { return true; });
+    } else {
+      check = Promise.reject(new Error("项目文件夹不可用"));
+    }
+    return check.then(function () {
+      if (!projectLoadIsCurrent(options)) return false;
+      state.rec.verifiedMediaPaths[path] = true;
+      window.dispatchEvent(new CustomEvent("excalicord:project-context-changed"));
+      return true;
+    }).catch(function () {
+      if (projectLoadIsCurrent(options)) {
+        delete state.rec.verifiedMediaPaths[path];
+        window.dispatchEvent(new CustomEvent("excalicord:project-context-changed"));
+      }
+      return false;
+    });
+  }
+
   function applyLoadedProjectFiles(manifest, scene) {
     var api = null;
     var files = {};
@@ -7606,7 +7869,7 @@
       var normalizedManifest = core.normalizeProject(manifest);
       var legacyRuntime = core.projectV2ToLegacyRuntime(normalizedManifest);
       state.v011.projectV2 = normalizedManifest;
-      localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(v011NormalizeProject(legacyRuntime, true)));
+      writeBoundProjectCache(normalizedManifest);
       v011ApplyLegacyRuntime(legacyRuntime);
       applyLoadedV011Project();
     }
@@ -7625,28 +7888,33 @@
 
   function finishProjectFolderLoad(manifest, scene, options) {
     options = options || {};
+    if (!projectLoadIsCurrent(options)) return Promise.resolve(false);
     if (!manifest && !scene) {
       if (!options.initializeIfMissing) {
         state.rec.projectFolder.loadedOnce = true;
+        setWhiteboardDisplay("scene.excalidraw", "待保存", "ec-badge-warning");
         updateV011ProjectStatus("项目文件夹中尚无可打开的白板；可点击“保存白板”创建完整项目。");
         if (!options.silent) toast("该项目文件夹中尚无白板");
         return Promise.resolve(false);
       }
       return saveProjectAssets(v011ProjectSnapshot()).then(function () {
         state.rec.projectFolder.loadedOnce = true;
+        setWhiteboardDisplay("scene.excalidraw", "已保存", "ec-badge-saved");
         updateV011ProjectStatus("已在 " + projectFolderLabel() + " 创建项目");
         if (!options.silent) toast("已创建项目文件夹结构");
         return true;
       });
     }
+    if (manifest) applyLoadedProjectFiles(manifest, null);
     if (options.requireScene && !scene) {
       state.rec.projectFolder.loadedOnce = true;
       updateV011ProjectStatus("项目文件夹中没有 scene.excalidraw，当前画布未改变。");
       if (!options.silent) toast("未找到可打开的白板文件");
-      return Promise.resolve(false);
+      return verifyActiveProjectMedia(manifest, options).then(function () { return false; });
     }
-    applyLoadedProjectFiles(manifest, scene);
+    applyLoadedProjectFiles(null, scene);
     state.rec.projectFolder.loadedOnce = true;
+    if (scene) setWhiteboardDisplay("scene.excalidraw", "已载入", "ec-badge-ready");
     if (!manifest || !scene) {
       if (!options.initializeIfMissing) {
         var partialMessage = scene
@@ -7654,9 +7922,12 @@
           : "已载入项目清单；白板文件缺失。";
         updateV011ProjectStatus(partialMessage);
         if (!options.silent) toast(scene ? "白板已打开，保存后可补全项目" : "项目清单已载入");
-        return Promise.resolve(!!scene || !!manifest);
+        return manifest
+          ? verifyActiveProjectMedia(manifest, options).then(function () { return !!scene || !!manifest; })
+          : Promise.resolve(!!scene);
       }
       return saveProjectAssets(v011ProjectSnapshot()).then(function () {
+        setWhiteboardDisplay("scene.excalidraw", "已保存", "ec-badge-saved");
         updateV011ProjectStatus("已载入并补全项目：" + projectFolderLabel());
         if (!options.silent) toast("已载入并补全项目文件夹");
         return true;
@@ -7665,7 +7936,38 @@
     var loadedFiles = scene && isPlainObject(scene.files) ? Object.keys(scene.files).length : 0;
     updateV011ProjectStatus("已打开白板：" + scene.elements.length + " 个元素、" + loadedFiles + " 个附件；项目内容已载入。");
     if (!options.silent) toast("白板及全部项目内容已打开");
-    return Promise.resolve(true);
+    return manifest ? verifyActiveProjectMedia(manifest, options).then(function () { return true; }) : Promise.resolve(true);
+  }
+
+  function activateSelectedProjectFolder(options) {
+    options = options || {};
+    if (!selectedProjectFolderAvailable()) return Promise.resolve(false);
+    state.rec.projectFolder.loadGeneration += 1;
+    state.rec.projectFolder.loadedOnce = false;
+    state.rec.projectSceneFiles = {};
+    v011BeginProjectAtNewRoot();
+    resetCompletedRecordingState();
+    applyLoadedV011Project();
+    renderProjectFolderPath();
+    setWhiteboardDisplay("scene.excalidraw", "待保存", "ec-badge-warning");
+    window.dispatchEvent(new CustomEvent("excalicord:project-context-changed"));
+    var loadOptions = {
+      initializeIfMissing: false,
+      requireScene: options.requireScene === true,
+      explicitOpen: options.source === "open",
+      silent: !!options.silent,
+      rootFingerprint: currentProjectRootFingerprint(),
+      loadGeneration: state.rec.projectFolder.loadGeneration,
+    };
+    var loader = state.rec.projectFolder.mode === "native"
+      ? loadProjectFromNativeFolder
+      : loadProjectFromBrowserFolder;
+    return loader(loadOptions).then(function (loaded) {
+      if (!loaded && projectLoadIsCurrent(loadOptions) && !options.silent) {
+        toast("已切换到空项目；旧项目数据未带入");
+      }
+      return loaded;
+    });
   }
 
   function loadProjectFromNativeFolder(options) {
@@ -7815,16 +8117,35 @@
     }
   }
 
-  teleToggle.addEventListener("click", function () {
-    state.tele.open = !state.tele.open;
-    tele.classList.toggle("ec-open", state.tele.open);
+  function updateTeleToggleUI() {
     teleToggle.textContent = state.tele.open ? "关闭提词器" : "打开提词器";
+    if (!miniTele) return;
+    miniTele.classList.toggle("ec-active", !!state.tele.open);
+    miniTele.setAttribute("aria-pressed", state.tele.open ? "true" : "false");
+    miniTele.setAttribute("aria-label", state.tele.open ? "收起提示词" : "打开提示词");
+    miniTele.title = state.tele.open ? "收起提示词" : "打开提示词";
+  }
+
+  function setTelePanelOpen(open) {
+    state.tele.open = !!open;
+    tele.classList.toggle("ec-open", state.tele.open);
+    tele.style.visibility = state.tele.open ? "visible" : "";
+    if (!state.tele.open) setTeleScrolling(false);
+    else requestAnimationFrame(layoutTeleprompter);
+    updateTeleToggleUI();
+  }
+
+  teleToggle.addEventListener("click", function () {
+    setTelePanelOpen(!state.tele.open);
   });
+  if (miniTele) {
+    miniTele.addEventListener("click", function () {
+      setTelePanelOpen(!state.tele.open);
+      if (state.tele.open) toast("提示词已打开，可拖动标题栏调整位置");
+    });
+  }
   teleClose.addEventListener("click", function () {
-    state.tele.open = false;
-    tele.classList.remove("ec-open");
-    teleToggle.textContent = "打开提词器";
-    setTeleScrolling(false);
+    setTelePanelOpen(false);
   });
   teleScrollBtn.addEventListener("click", function () {
     setTeleScrolling(!state.tele.scrolling);
@@ -7832,6 +8153,7 @@
   teleHide.addEventListener("change", function () {
     state.tele.hideWhileRecording = teleHide.checked;
   });
+  updateTeleToggleUI();
   teleText.addEventListener("input", function () {
     state.tele.text = teleText.value;
     state.v011.text.script.sourceText = teleText.value;
@@ -7875,6 +8197,8 @@
     "keydown",
     function (ev) {
       if (!state.tele.open) return;
+      if (window.ExcalicordPostEditor && typeof window.ExcalicordPostEditor.isOpen === "function"
+        && window.ExcalicordPostEditor.isOpen()) return;
       var t = ev.target;
       var editing =
         t instanceof HTMLInputElement ||
@@ -7899,8 +8223,26 @@
   );
 
   /* ============ Cursor highlight ============ */
+  function cursorRgb() {
+    var color = /^#[0-9a-f]{6}$/i.test(state.cursor.color || "") ? state.cursor.color : "#ef4444";
+    return [
+      parseInt(color.slice(1, 3), 16),
+      parseInt(color.slice(3, 5), 16),
+      parseInt(color.slice(5, 7), 16),
+    ];
+  }
+
+  function cursorRgba(alpha) {
+    return "rgba(" + cursorRgb().join(",") + "," + clamp(Number(alpha), 0, 1) + ")";
+  }
+
   function updateCursorSettingsUI() {
     if (cursorHighlightChk) cursorHighlightChk.checked = state.cursor.highlight !== false;
+    if (cursorSizeInput) cursorSizeInput.value = String(clamp(Number(state.cursor.size) || 1, 0.6, 1.8));
+    if (cursorSizeValue) cursorSizeValue.textContent = Math.round((Number(state.cursor.size) || 1) * 100) + "%";
+    cursorColorInputs.forEach(function (input) {
+      input.checked = input.value.toLowerCase() === String(state.cursor.color || "#ef4444").toLowerCase();
+    });
     if (cursorHighlightStyleSel) cursorHighlightStyleSel.value = state.cursor.highlightStyle || "halo";
     if (cursorShapeSel) cursorShapeSel.value = state.cursor.pointerShape || "system";
     if (cursorSoundSel) cursorSoundSel.value = state.cursor.sound || "off";
@@ -7917,6 +8259,8 @@
     );
     cursorHighlight.classList.add("ec-cursor-style-" + (state.cursor.highlightStyle || "halo"));
     cursorHighlight.classList.add("ec-cursor-shape-" + (state.cursor.pointerShape || "system"));
+    cursorHighlight.style.setProperty("--ec-cursor-rgb", cursorRgb().join(" "));
+    cursorHighlight.style.setProperty("--ec-cursor-scale", String(clamp(Number(state.cursor.size) || 1, 0.6, 1.8)));
     if (!state.rec.active || state.cursor.highlight === false) cursorHighlight.style.display = "none";
   }
 
@@ -8021,6 +8365,21 @@
     if (state.rec.active) cursorHighlight.style.display = cursorHighlightChk.checked ? "block" : "none";
     saveCursorSettings("cursor-highlight");
   });
+  cursorSizeInput.addEventListener("input", function () {
+    state.cursor.size = clamp(Number(cursorSizeInput.value) || 1, 0.6, 1.8);
+    saveCursorSettings("cursor-size");
+  });
+  cursorColorInputs.forEach(function (input) {
+    input.addEventListener("change", function () {
+      if (!input.checked) return;
+      state.cursor.color = input.value;
+      saveCursorSettings("cursor-color");
+    });
+  });
+  cursorDoneBtn.addEventListener("click", function () {
+    saveCursorSettings("cursor-settings-done");
+    toast("光标设置已保存");
+  });
   cursorHighlightStyleSel.addEventListener("change", function () {
     state.cursor.highlightStyle = cursorHighlightStyleSel.value || "halo";
     saveCursorSettings("cursor-highlight-style");
@@ -8117,8 +8476,11 @@
   var panelCollapse = shadow.getElementById("ec-panel-collapse");
   function setPanelOpen(open) {
     if (open) closeSlideOverview();
+    var wasOpen = panel.classList.contains("ec-open");
     panel.classList.toggle("ec-open", !!open);
     launcher.classList.toggle("ec-panel-open", !!open);
+    if (open && !wasOpen) panel.scrollTop = 0;
+    if (state.tele.open && !state.tele.userPositioned) requestAnimationFrame(layoutTeleprompter);
   }
   launcher.addEventListener("click", function () {
     setPanelOpen(!panel.classList.contains("ec-open"));
@@ -8130,12 +8492,21 @@
   if (new URLSearchParams(window.location.search).get("excalicordPanel") === "open") {
     setTimeout(function () { setPanelOpen(true); }, 500);
   }
+  window.addEventListener("resize", function () {
+    if (state.tele.open && !state.tele.userPositioned) layoutTeleprompter();
+  });
 
   /* ============ Page unload safety ============ */
   window.addEventListener("beforeunload", function () {
     if (state.v011.session && !state.v011.session.endedAt) v011EndSession();
     else if (state.v011.sessionDirty) v011SaveProject("beforeunload");
     stopCamera();
+    if (state.rec.nativeActive) {
+      var unloadBridge = nativeBridge();
+      if (unloadBridge && unloadBridge.restoreDesktopIcons) {
+        unloadBridge.restoreDesktopIcons().catch(function () {});
+      }
+    }
     if (state.rec.recorder && state.rec.recorder.state !== "inactive") {
       try {
         state.rec.recorder.stop();
@@ -8162,7 +8533,7 @@
     normalized = JSON.parse(JSON.stringify(normalized));
     var legacyRuntime = core.projectV2ToLegacyRuntime(normalized);
     state.v011.projectV2 = normalized;
-    localStorage.setItem(V011_PROJECT_KEY, JSON.stringify(v011NormalizeProject(legacyRuntime, true)));
+    writeBoundProjectCache(normalized);
     v011ApplyLegacyRuntime(legacyRuntime);
     if (typeof teleText !== "undefined" && teleText) applyLoadedV011Project();
     window.dispatchEvent(new CustomEvent("excalicord:project-saved", {
@@ -8282,7 +8653,17 @@
         name: state.rec.projectFolder.name,
         hasBrowserHandle: !!state.rec.projectFolder.handle,
         loadedOnce: !!state.rec.projectFolder.loadedOnce,
+        fingerprint: state.rec.projectFolder.fingerprint,
       };
+    },
+    hasVerifiedProjectMedia: function (path) {
+      return !!(path && state.rec.verifiedMediaPaths[path]);
+    },
+    readProjectMediaBlob: function (path) {
+      if (!state.rec.projectFolder.handle || !state.rec.verifiedMediaPaths[path]) {
+        return Promise.reject(new Error("项目素材尚未验证"));
+      }
+      return readBrowserProjectMedia(path);
     },
     setPanelOpen: setPanelOpen,
     saveV011Project: function (reason) {
@@ -8297,7 +8678,15 @@
       var loader = state.rec.projectFolder.mode === "native"
         ? loadProjectFromNativeFolder
         : loadProjectFromBrowserFolder;
-      return loader({ initializeIfMissing: false, requireScene: true, explicitOpen: true, silent: true });
+      state.rec.projectFolder.loadGeneration += 1;
+      return loader({
+        initializeIfMissing: false,
+        requireScene: true,
+        explicitOpen: true,
+        silent: true,
+        rootFingerprint: currentProjectRootFingerprint(),
+        loadGeneration: state.rec.projectFolder.loadGeneration,
+      });
     },
     getProjectSceneSnapshot: function () {
       return JSON.parse(JSON.stringify(projectSceneSnapshot()));

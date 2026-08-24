@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-final class AgentController {
+final class AgentController: NSObject, NSApplicationDelegate {
   private let engine = CaptureEngine()
   private let sessionToken = UUID().uuidString
   private lazy var server = HTTPServer { [weak self] request in
@@ -21,10 +21,12 @@ final class AgentController {
 
   func start(background: Bool) throws {
     if background {
+      recoverDesktopIconsAfterInterruptedSession()
       try server.start(port: 5002)
     } else {
       let secondaryLaunch = isAgentAlreadyRunning()
       if !secondaryLaunch {
+        recoverDesktopIconsAfterInterruptedSession()
         try server.start(port: 5002)
       }
       DispatchQueue.main.async { [weak self] in
@@ -68,6 +70,8 @@ final class AgentController {
         return .json(engine.saveFolderResponse())
       case ("GET", "/v1/project-folder"):
         return .json(engine.projectFolderResponse())
+      case ("GET", "/v1/desktop-icons"):
+        return .json(engine.desktopIconsStatus())
       case ("POST", "/v1/save-folder/choose"):
         guard let url = try await chooseSaveFolder() else {
           return .json(FolderSelectionCancelledResponse(ok: false, cancelled: true))
@@ -91,6 +95,9 @@ final class AgentController {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         await revealInFinder(url)
         return .json(engine.projectFolderResponse())
+      case ("POST", "/v1/desktop-icons/restore"):
+        try engine.restoreDesktopIconsIfNeeded()
+        return .json(engine.desktopIconsStatus())
       case ("POST", "/v1/project-file"):
         let payload = try JSONDecoder().decode(ProjectFileRequest.self, from: request.body)
         guard let content = payload.content else { throw AgentError.badRequest("Project file content is required") }
@@ -211,6 +218,18 @@ final class AgentController {
     }.resume()
     _ = semaphore.wait(timeout: .now() + 0.8)
     return available
+  }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    try? engine.restoreDesktopIconsIfNeeded()
+  }
+
+  private func recoverDesktopIconsAfterInterruptedSession() {
+    do {
+      try engine.restoreDesktopIconsIfNeeded()
+    } catch {
+      fputs("Capture Agent could not restore desktop icons: \(error)\n", stderr)
+    }
   }
 
   private func chooseSaveFolder() async throws -> URL? {

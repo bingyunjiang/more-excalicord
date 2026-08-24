@@ -101,8 +101,13 @@ def render_caption(width: int, height: int, text: str, destination: Path) -> Non
     image.save(destination, format="PNG", optimize=True)
 
 
-def render_pointer_assets(output_dir: Path, size: int) -> list[str]:
+def render_pointer_assets(output_dir: Path, size: int, color: str = "#ef4444") -> list[str]:
     size = max(20, min(128, size))
+    clean_color = color if len(color) == 7 and color.startswith("#") else "#ef4444"
+    try:
+        accent = tuple(int(clean_color[index:index + 2], 16) for index in (1, 3, 5))
+    except ValueError:
+        accent = (239, 68, 68)
     output_dir.mkdir(parents=True, exist_ok=True)
     cursor_path = output_dir / "cursor.png"
     click_path = output_dir / "click.png"
@@ -123,8 +128,8 @@ def render_pointer_assets(output_dir: Path, size: int) -> list[str]:
     stroke = max(3, round(ring_size * 0.08))
     ring_draw.ellipse(
         (inset, inset, ring_size - inset, ring_size - inset),
-        fill=(101, 221, 202, 34),
-        outline=(101, 221, 202, 220),
+        fill=(*accent, 34),
+        outline=(*accent, 220),
         width=stroke,
     )
     ring.save(click_path, format="PNG", optimize=True)
@@ -132,8 +137,12 @@ def render_pointer_assets(output_dir: Path, size: int) -> list[str]:
 
 
 def main() -> int:
-    if len(sys.argv) == 4 and sys.argv[1] == "--pointer-assets":
-        files = render_pointer_assets(Path(sys.argv[2]).resolve(), int(sys.argv[3]))
+    if len(sys.argv) in (4, 5) and sys.argv[1] == "--pointer-assets":
+        files = render_pointer_assets(
+            Path(sys.argv[2]).resolve(),
+            int(sys.argv[3]),
+            sys.argv[4] if len(sys.argv) == 5 else "#ef4444",
+        )
         print(json.dumps({"ok": True, "files": files}, ensure_ascii=False))
         return 0
     if len(sys.argv) != 5:

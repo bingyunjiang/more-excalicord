@@ -14,6 +14,11 @@ assert.strictEqual(project.text.script.path, "text/script.md");
 assert.strictEqual(core.safeRelativePath("recordings/session/video.mp4", ""), "recordings/session/video.mp4");
 assert.strictEqual(core.safeRelativePath("../outside.mp4", "fallback"), "fallback");
 assert.strictEqual(core.safeRelativePath("/tmp/outside.mp4", "fallback"), "fallback");
+var rootA = core.projectRootFingerprint({ mode: "native", path: "/Users/Bing/Movies/Project A/" });
+var rootASame = core.projectRootFingerprint({ mode: "native", path: "/Users/Bing/Movies/Project A" });
+var rootB = core.projectRootFingerprint({ mode: "native", path: "/Users/Bing/Movies/Project B" });
+assert.strictEqual(rootA, rootASame, "trailing slash must not change project-root identity");
+assert.notStrictEqual(rootA, rootB, "different project roots must not share a cache identity");
 
 var migrated = core.normalizeProject({
   schemaVersion: 1,
@@ -37,6 +42,7 @@ var migrated = core.normalizeProject({
   edits: {
     cuts: [{ start: 2, end: 3 }],
     camera: { enabled: false, strength: "dynamic", keyframes: [] },
+    cursor: { color: "#3b82f6", size: 1.4 },
     webcam: { screenLightEnabled: true, screenLightIntensity: 0.7 },
   },
 });
@@ -53,6 +59,8 @@ assert.strictEqual(migrated.edits[0].subtitles.segments[0].startMs, 0);
 assert.strictEqual(migrated.edits[0].subtitles.segments[0].endMs, 1000);
 assert.strictEqual(migrated.edits[0].camera.enabled, false);
 assert.strictEqual(migrated.edits[0].camera.strength, "dynamic");
+assert.strictEqual(migrated.edits[0].cursor.color, "#3b82f6");
+assert.strictEqual(migrated.edits[0].cursor.size, 1.4);
 assert.strictEqual(migrated.edits[0].webcam.screenLightEnabled, true);
 assert.strictEqual(migrated.edits[0].webcam.screenLightIntensity, 0.7);
 var legacyRoundTrip = core.projectV2ToLegacyRuntime(migrated);
@@ -63,6 +71,7 @@ assert.strictEqual(legacyRoundTrip.text.subtitles.segments[0].start, 0);
 assert.strictEqual(legacyRoundTrip.text.subtitles.segments[0].end, 1);
 assert.strictEqual(legacyRoundTrip.edits.camera.enabled, false);
 assert.strictEqual(legacyRoundTrip.edits.camera.strength, "dynamic");
+assert.strictEqual(legacyRoundTrip.edits.cursor.color, "#3b82f6");
 assert.strictEqual(legacyRoundTrip.edits.webcam.screenLightEnabled, true);
 var mergedRoundTrip = core.mergeLegacyRuntimeIntoProjectV2(migrated, legacyRoundTrip);
 assert.strictEqual(mergedRoundTrip.schemaVersion, 2);
@@ -155,5 +164,17 @@ var manifest = core.createCompositionManifest(project);
 assert.strictEqual(manifest.recordingId, "recording-1");
 assert.strictEqual(manifest.timeMap.outputDurationMs, 10000);
 assert.strictEqual(core.validateProject(project).valid, true);
+var boundCache = core.createBoundProjectCache(project, rootA);
+assert.strictEqual(core.readBoundProjectCache(boundCache, rootA).projectId, "project-test");
+assert.strictEqual(core.readBoundProjectCache(boundCache, rootB), null, "stale cache from another root must be rejected");
+assert.strictEqual(core.readBoundProjectCache(project, rootA), null, "unbound legacy cache must be rejected");
+assert.strictEqual(core.activeRecordingAssetPath(project), "recordings/recording-1/screen.mp4");
+assert.strictEqual(core.canOpenEditorProject(project, {}, false), false, "a manifest path is not proof that its MP4 exists");
+assert.strictEqual(core.canOpenEditorProject(project, { "recordings/recording-1/screen.mp4": true }, false), true);
+assert.strictEqual(core.canOpenEditorProject(project, {}, true), true, "a valid in-memory Blob may open the editor");
+var missingAssetProject = JSON.parse(JSON.stringify(project));
+missingAssetProject.recordings[0].assets.screen = null;
+assert.strictEqual(core.activeRecordingAssetPath(missingAssetProject), "");
+assert.strictEqual(core.canOpenEditorProject(missingAssetProject, {}, false), false, "an empty project cannot open the editor");
 
 console.log("editor core tests ok");

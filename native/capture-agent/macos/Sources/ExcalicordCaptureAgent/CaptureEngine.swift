@@ -9,6 +9,7 @@ import UniformTypeIdentifiers
 final class CaptureEngine: NSObject {
   private let saveFolderDefaultsKey = "ExcalicordCaptureSaveFolderPath"
   private let maxProjectAssetBytes = 128 * 1024 * 1024
+  private let desktopIcons = DesktopIconController()
 
   enum State: String {
     case idle
@@ -74,6 +75,7 @@ final class CaptureEngine: NSObject {
         "save-folder",
         "project-folder",
         "project-files",
+        "desktop-icons",
       ],
       permissions: [
         // On newer macOS releases the legacy CoreGraphics preflight can lag
@@ -353,6 +355,12 @@ final class CaptureEngine: NSObject {
       let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
       try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: screenQueue)
       self.stream = stream
+      let desktopIconsHidden = try desktopIcons.hideIfRequested(
+        request.sourceType == "display" && request.hideDesktopIcons == true
+      )
+      if desktopIconsHidden {
+        try await Task.sleep(nanoseconds: 250_000_000)
+      }
       try await stream.startCapture()
       return url
     } catch {
@@ -402,9 +410,14 @@ final class CaptureEngine: NSObject {
     }
 
     completeStop(url: url)
+    try desktopIcons.restoreIfNeeded()
     guard let url else { throw AgentError.noRecording }
     return url
   }
+
+  func desktopIconsStatus() -> DesktopIconsResponse { desktopIcons.status() }
+
+  func restoreDesktopIconsIfNeeded() throws { try desktopIcons.restoreIfNeeded() }
 
   func status() -> StatusResponse {
     writerLock.lock()
@@ -797,6 +810,13 @@ final class CaptureEngine: NSObject {
     cameraSession?.stopRunning()
     cameraSession = nil
     stream = nil
+    do {
+      try desktopIcons.restoreIfNeeded()
+    } catch {
+      writerLock.withLock {
+        lastError = (lastError ?? "录制失败") + "；桌面图标恢复失败：" + error.localizedDescription
+      }
+    }
   }
 
   private func beginStarting() throws {

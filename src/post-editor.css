@@ -320,8 +320,9 @@
 
 .ec-editor-cursor-overlay {
   --cursor-size: 1;
-  --cursor-main: rgba(105, 101, 219, 0.86);
-  --cursor-soft: rgba(105, 101, 219, 0.22);
+  --cursor-rgb: 239 68 68;
+  --cursor-main: rgb(var(--cursor-rgb) / 0.86);
+  --cursor-soft: rgb(var(--cursor-rgb) / 0.22);
   position: absolute;
   z-index: 4;
   width: calc(50px * var(--cursor-size));
@@ -345,7 +346,7 @@
   border: 3px solid var(--cursor-main);
   border-radius: 999px;
   background: var(--cursor-soft);
-  box-shadow: 0 0 0 6px rgba(105, 101, 219, 0.08), 0 0 18px rgba(105, 101, 219, 0.28);
+  box-shadow: 0 0 0 6px rgb(var(--cursor-rgb) / 0.08), 0 0 18px rgb(var(--cursor-rgb) / 0.28);
   transform: translate(-50%, -50%);
 }
 
@@ -354,8 +355,8 @@
   height: 46px;
   border: 0;
   background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.42) 0 22%, rgba(105, 101, 219, 0.22) 26% 58%, transparent 64%);
-  box-shadow: 0 0 24px rgba(105, 101, 219, 0.32);
+    radial-gradient(circle, rgba(255, 255, 255, 0.42) 0 22%, rgb(var(--cursor-rgb) / 0.22) 26% 58%, transparent 64%);
+  box-shadow: 0 0 24px rgb(var(--cursor-rgb) / 0.32);
 }
 
 .ec-editor-cursor-overlay.ec-cursor-style-ring::before {
@@ -363,7 +364,7 @@
   height: 34px;
   border: 4px solid var(--cursor-main);
   background: transparent;
-  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.24), 0 0 16px rgba(105, 101, 219, 0.28);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.24), 0 0 16px rgb(var(--cursor-rgb) / 0.28);
 }
 
 .ec-editor-cursor-overlay.ec-cursor-style-dot::before {
@@ -371,7 +372,7 @@
   height: 12px;
   border: 2px solid rgba(255, 255, 255, 0.92);
   background: var(--cursor-main);
-  box-shadow: 0 0 0 7px rgba(105, 101, 219, 0.14);
+  box-shadow: 0 0 0 7px rgb(var(--cursor-rgb) / 0.14);
 }
 
 .ec-editor-cursor-overlay::after {

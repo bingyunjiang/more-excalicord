@@ -83,10 +83,16 @@
     var debug = studioDebug();
     if (!debug || typeof debug.getRecordingState !== "function") return false;
     var recording = debug.getRecordingState();
-    if (recording && (recording.nativeRecordingReady || recording.lastBlobSize > 0)) return true;
+    if (recording && recording.lastBlobSize > 0) return true;
     try {
       var project = getCurrentProject();
-      return !!activeRecording(project);
+      var path = typeof core.activeRecordingAssetPath === "function"
+        ? core.activeRecordingAssetPath(project)
+        : "";
+      var verified = !!(path && typeof debug.hasVerifiedProjectMedia === "function" && debug.hasVerifiedProjectMedia(path));
+      return typeof core.canOpenEditorProject === "function"
+        ? core.canOpenEditorProject(project, verified && path ? (function () { var map = {}; map[path] = true; return map; })() : {}, false)
+        : verified;
     } catch (error) {
       return false;
     }
@@ -235,7 +241,6 @@
 
   function persistProject(project, reason) {
     var debug = studioDebug();
-    try { localStorage.setItem("excalicord-v011-editor-project", JSON.stringify(project)); } catch (error) {}
     if (debug && typeof debug.saveEditorProject === "function") {
       return Promise.resolve(debug.saveEditorProject(project, reason)).then(function (result) {
         return persistCorrectedTranscriptAssets(project).then(function () { return result; });
@@ -268,15 +273,27 @@
     var recording = project && activeRecording(project);
     var sourceAsset = recording && recording.assets && recording.assets.screen;
     var folder = debug && typeof debug.getProjectFolderState === "function" ? debug.getProjectFolderState() : null;
-    if (sourceAsset && sourceAsset.path && folder && folder.mode === "native") {
+    var verified = !!(sourceAsset && sourceAsset.path && debug
+      && typeof debug.hasVerifiedProjectMedia === "function"
+      && debug.hasVerifiedProjectMedia(sourceAsset.path));
+    if (verified && folder && folder.mode === "native") {
       return Promise.resolve({
         url: "/api/project-media?path=" + encodeURIComponent(sourceAsset.path),
         fileName: sourceAsset.path.split("/").pop(),
       });
     }
+    if (verified && folder && folder.mode === "browser"
+      && debug && typeof debug.readProjectMediaBlob === "function") {
+      return Promise.resolve(debug.readProjectMediaBlob(sourceAsset.path)).then(function (blob) {
+        return { blob: blob, fileName: sourceAsset.path.split("/").pop() };
+      });
+    }
     if (debug && typeof debug.getLastRecordingBlob === "function") {
       var blob = debug.getLastRecordingBlob();
       if (blob) return Promise.resolve({ blob: blob, fileName: "recording.webm" });
+    }
+    if (folder && folder.mode !== "none") {
+      return Promise.reject(new Error("当前项目的原始录制不存在或尚未验证"));
     }
     var bridge = nativeBridge();
     if (bridge && typeof bridge.downloadLastRecording === "function") {
@@ -423,6 +440,10 @@
       cursor.style.left = (clamp(pointer.x, 0, 1) * 100) + "%";
       cursor.style.top = (clamp(pointer.y, 0, 1) * 100) + "%";
       cursor.style.setProperty("--cursor-size", String(edit.cursor.size || 1));
+      var cursorColor = /^#[0-9a-f]{6}$/i.test(edit.cursor.color || "") ? edit.cursor.color : "#ef4444";
+      cursor.style.setProperty("--cursor-rgb", [1, 3, 5].map(function (index) {
+        return parseInt(cursorColor.slice(index, index + 2), 16);
+      }).join(" "));
       cursor.classList.remove(
         "ec-cursor-style-halo",
         "ec-cursor-style-spotlight",
@@ -868,6 +889,11 @@
   function renderCursorInspector(target, edit) {
     target.appendChild(sectionTitle("光标", "使用录制事件重放光标，样式调整不会改写原始视频。"));
     target.appendChild(controlRow("显示光标", checkbox(edit.cursor.visible, "cursor.visible")));
+    var cursorColor = document.createElement("input");
+    cursorColor.type = "color";
+    cursorColor.value = /^#[0-9a-f]{6}$/i.test(edit.cursor.color || "") ? edit.cursor.color : "#ef4444";
+    cursorColor.dataset.setting = "cursor.color";
+    target.appendChild(controlRow("高亮颜色", cursorColor));
     target.appendChild(controlRow("点击强调", checkbox(edit.cursor.clickEffect, "cursor.clickEffect")));
     target.appendChild(controlRow("高亮形式", selectControl(edit.cursor.highlightStyle || "halo", [["halo", "光环"], ["spotlight", "聚光"], ["ring", "圆环"], ["dot", "圆点"]], "cursor.highlightStyle")));
     target.appendChild(controlRow("鼠标形状", selectControl(edit.cursor.pointerShape || "system", [["system", "系统指针"], ["dot", "圆点指针"], ["crosshair", "十字指针"], ["none", "不显示指针形状"]], "cursor.pointerShape")));
@@ -1292,7 +1318,7 @@
     var closing = session;
     closing.video.pause();
     closing.webcamVideo.pause();
-    closing.store.flush("close-editor").catch(function () {}).finally(function () {
+    var finalizeClose = function () {
       if (closing.unsubscribe) closing.unsubscribe();
       closing.store.destroy();
       if (closing.objectUrl) URL.revokeObjectURL(closing.objectUrl);
@@ -1301,7 +1327,12 @@
       document.documentElement.classList.remove("ec-editor-open");
       if (session === closing) session = null;
       ensureLauncher();
-    });
+    };
+    if (!closing.store.isDirty()) {
+      finalizeClose();
+      return;
+    }
+    closing.store.flush("close-editor").catch(function () {}).finally(finalizeClose);
   }
 
   window.ExcalicordPostEditor = {
@@ -1312,6 +1343,7 @@
 
   window.addEventListener("excalicord:project-saved", ensureLauncher);
   window.addEventListener("excalicord:recording-ready", ensureLauncher);
+  window.addEventListener("excalicord:project-context-changed", ensureLauncher);
   launcherTimer = window.setInterval(ensureLauncher, 1200);
   window.addEventListener("beforeunload", function () {
     if (launcherTimer) clearInterval(launcherTimer);

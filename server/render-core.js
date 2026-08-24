@@ -174,13 +174,14 @@ function eventSourceTimeMs(event) {
 
 function mapCursorTrack(cursor, recording, timeMap) {
   const settings = cursor && typeof cursor === "object" ? cursor : {};
+  const color = /^#[0-9a-f]{6}$/i.test(settings.color || "") ? settings.color : "#ef4444";
   const sourceEvents = recording && Array.isArray(recording.embeddedEvents)
     ? recording.embeddedEvents
     : recording && recording.embeddedSession && Array.isArray(recording.embeddedSession.events)
       ? recording.embeddedSession.events
       : [];
   if (settings.visible === false || !sourceEvents.length) {
-    return { visible: false, size: 1, smoothing: 0.55, clickEffect: true, events: [], clicks: [] };
+    return { visible: false, size: 1, color, smoothing: 0.55, clickEffect: true, events: [], clicks: [] };
   }
   const smoothing = clamp(finite(settings.smoothing, 0.55), 0, 1);
   const mapped = [];
@@ -217,6 +218,7 @@ function mapCursorTrack(cursor, recording, timeMap) {
   return {
     visible: mapped.length > 0,
     size: clamp(finite(settings.size, 1), 0.5, 2.5),
+    color,
     smoothing,
     clickEffect: settings.clickEffect !== false,
     events: mapped,

@@ -38,6 +38,13 @@ struct CaptureStartRequest: Codable {
   let smoothing: Double?
   let whitening: Double?
   let lightIntensity: Double?
+  let hideDesktopIcons: Bool?
+}
+
+struct DesktopIconsResponse: Codable {
+  let ok: Bool
+  let hidden: Bool
+  let managedByRecording: Bool
 }
 
 struct CommandResponse: Codable {

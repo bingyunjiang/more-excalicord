@@ -5,6 +5,7 @@ let application = NSApplication.shared
 application.setActivationPolicy(.accessory)
 
 let controller = AgentController()
+application.delegate = controller
 do {
   try controller.start(background: CommandLine.arguments.contains("--background"))
 } catch {

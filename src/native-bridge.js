@@ -157,6 +157,23 @@
     openProjectFolder: function () {
       return jsonRequest("/project-folder/open", "POST", {}, 3000);
     },
+    desktopIconsStatus: function () {
+      return jsonRequest("/desktop-icons", "GET", null, 1500);
+    },
+    restoreDesktopIcons: function () {
+      return request(
+        "/desktop-icons/restore",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+          keepalive: true,
+        },
+        3000,
+      ).then(function (response) {
+        return response.json();
+      });
+    },
     writeProjectFile: function (path, content) {
       return jsonRequest("/project-file", "POST", { path: path, content: content }, 30000);
     },

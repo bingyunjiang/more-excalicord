@@ -285,6 +285,7 @@
       cursor: {
         visible: cursor.visible !== false,
         size: clamp(finite(cursor.size, 1), 0.25, 4),
+        color: /^#[0-9a-f]{6}$/i.test(cursor.color || "") ? cursor.color : "#ef4444",
         smoothing: clamp(finite(cursor.smoothing, 0.55), 0, 1),
         clickEffect: cursor.clickEffect !== false,
         highlightStyle: typeof cursor.highlightStyle === "string" ? cursor.highlightStyle : "halo",
@@ -786,6 +787,54 @@
     };
   }
 
+  function projectRootFingerprint(folder) {
+    if (!isObject(folder)) return "";
+    var mode = folder.mode === "native" ? "native" : folder.mode === "browser" ? "browser" : "";
+    if (!mode) return "";
+    var identity = mode === "native" ? folder.path : (folder.identity || folder.name);
+    identity = String(identity || "").trim().replace(/\\/g, "/").replace(/\/+$/, "");
+    if (!identity) return "";
+    var input = mode + ":" + identity.normalize("NFC");
+    var hash = 2166136261;
+    for (var index = 0; index < input.length; index += 1) {
+      hash ^= input.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return mode + ":" + (hash >>> 0).toString(16).padStart(8, "0");
+  }
+
+  function createBoundProjectCache(projectInput, rootFingerprint) {
+    var fingerprint = String(rootFingerprint || "");
+    if (!fingerprint) throw new Error("Project cache requires a root fingerprint");
+    return {
+      cacheVersion: 1,
+      rootFingerprint: fingerprint,
+      project: normalizeProject(projectInput),
+    };
+  }
+
+  function readBoundProjectCache(cacheInput, rootFingerprint) {
+    if (!isObject(cacheInput) || cacheInput.cacheVersion !== 1) return null;
+    if (!rootFingerprint || cacheInput.rootFingerprint !== rootFingerprint) return null;
+    if (!isObject(cacheInput.project)) return null;
+    return normalizeProject(cacheInput.project);
+  }
+
+  function activeRecordingAssetPath(projectInput) {
+    var project = normalizeProject(projectInput);
+    var edit = project.edits.find(function (item) { return item.id === project.activeEditId; });
+    if (!edit) return "";
+    var recording = project.recordings.find(function (item) { return item.id === edit.recordingId; });
+    var screen = recording && recording.assets && recording.assets.screen;
+    return screen && screen.path ? safeRelativePath(screen.path, "") : "";
+  }
+
+  function canOpenEditorProject(projectInput, verifiedPaths, hasMemoryBlob) {
+    if (hasMemoryBlob) return true;
+    var path = activeRecordingAssetPath(projectInput);
+    return !!(path && isObject(verifiedPaths) && verifiedPaths[path] === true);
+  }
+
   return {
     PROJECT_SCHEMA_VERSION: PROJECT_SCHEMA_VERSION,
     DEFAULT_SCENE_PATH: DEFAULT_SCENE_PATH,
@@ -808,5 +857,10 @@
     projectV2ToLegacyRuntime: projectV2ToLegacyRuntime,
     mergeLegacyRuntimeIntoProjectV2: mergeLegacyRuntimeIntoProjectV2,
     createCompositionManifest: createCompositionManifest,
+    projectRootFingerprint: projectRootFingerprint,
+    createBoundProjectCache: createBoundProjectCache,
+    readBoundProjectCache: readBoundProjectCache,
+    activeRecordingAssetPath: activeRecordingAssetPath,
+    canOpenEditorProject: canOpenEditorProject,
   };
 });

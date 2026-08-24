@@ -235,6 +235,7 @@ async function renderPointerAssets(plan, jobDir) {
     '--pointer-assets',
     outputDir,
     String(Math.round(42 * plan.cursor.size)),
+    plan.cursor.color || '#ef4444',
   ]);
   const payload = JSON.parse(result.stdout || '{}');
   if (!payload.ok || !Array.isArray(payload.files) || payload.files.length !== 2) {

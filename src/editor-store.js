@@ -369,6 +369,7 @@
         clearTimeout(saveTimer);
         saveTimer = null;
       }
+      if (!dirty) return Promise.resolve(clone(project));
       if (!persist) {
         dirty = false;
         return Promise.resolve(clone(project));
