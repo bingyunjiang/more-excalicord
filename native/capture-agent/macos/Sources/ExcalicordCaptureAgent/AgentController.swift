@@ -72,6 +72,9 @@ final class AgentController: NSObject, NSApplicationDelegate {
         return .json(engine.projectFolderResponse())
       case ("GET", "/v1/desktop-icons"):
         return .json(engine.desktopIconsStatus())
+      case ("POST", "/v1/screen-light"):
+        let payload = try JSONDecoder().decode(ScreenLightRequest.self, from: request.body)
+        return .json(engine.setScreenLight(payload))
       case ("POST", "/v1/save-folder/choose"):
         guard let url = try await chooseSaveFolder() else {
           return .json(FolderSelectionCancelledResponse(ok: false, cancelled: true))

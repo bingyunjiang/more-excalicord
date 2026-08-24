@@ -1738,7 +1738,7 @@
     0 8px 28px rgba(15, 23, 42, 0.13),
     inset 0 1px 0 rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.58);
-  padding: 16px;
+  padding: 13px;
   display: none;
   backdrop-filter: blur(26px) saturate(1.32);
   -webkit-backdrop-filter: blur(26px) saturate(1.32);
@@ -1765,8 +1765,8 @@
   position: sticky;
   top: 0;
   z-index: 12;
-  margin: -16px -16px 8px;
-  padding: 16px 16px 10px;
+  margin: -13px -13px 6px;
+  padding: 12px 13px 9px;
   justify-content: space-between;
   border-radius: 24px 24px 15px 15px;
   background:
@@ -1873,9 +1873,9 @@
 }
 
 .ec-panel .ec-sub {
-  margin: 0 0 14px;
+  margin: 0 2px 9px;
   font-size: 11.5px;
-  line-height: 1.45;
+  line-height: 1.35;
   color: #64748b;
 }
 
@@ -1884,12 +1884,12 @@
 }
 
 .ec-advanced-effects > summary {
-  min-height: 44px;
+  min-height: 38px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid rgba(var(--ec-share-rgb), 0.16);
   border-radius: 13px;
   color: #334155;
@@ -1926,8 +1926,8 @@
 
 .ec-advanced-effects-body {
   display: grid;
-  gap: 10px;
-  padding-top: 10px;
+  gap: 7px;
+  padding-top: 7px;
 }
 
 .ec-recording-result .ec-reccontrols:first-of-type {
@@ -1935,15 +1935,15 @@
 }
 
 .ec-section {
-  margin-top: 10px;
-  padding: 12px;
+  margin-top: 7px;
+  padding: 9px 10px;
   border: 1px solid rgba(255, 255, 255, 0.56);
-  border-radius: 18px;
+  border-radius: 15px;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.68), rgba(248, 250, 252, 0.46)),
     rgba(255, 255, 255, 0.42);
   box-shadow:
-    0 12px 32px rgba(15, 23, 42, 0.07),
+    0 8px 22px rgba(15, 23, 42, 0.055),
     inset 0 1px 0 rgba(255, 255, 255, 0.68);
   backdrop-filter: blur(10px) saturate(1.12);
   -webkit-backdrop-filter: blur(10px) saturate(1.12);
@@ -1953,7 +1953,7 @@
   font-size: 13px;
   font-weight: 760;
   color: #1e293b;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   letter-spacing: -0.01em;
   display: flex;
   align-items: center;
@@ -1968,13 +1968,13 @@
 }
 
 .ec-section-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.6);
   background:
     radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.18) 32%, transparent 52%),
@@ -1985,8 +1985,8 @@
 }
 
 .ec-section-icon svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   display: block;
   fill: none;
   stroke: rgba(255, 255, 255, 0.96);
@@ -2025,17 +2025,17 @@
 .ec-row {
   display: flex;
   align-items: center;
-  gap: 9px;
-  min-height: 34px;
-  margin-bottom: 8px;
-  font-size: 12.5px;
+  gap: 8px;
+  min-height: 30px;
+  margin-bottom: 5px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
 .ec-project-card {
-  padding: 14px;
+  padding: 10px;
   border: 1px solid rgba(203, 213, 225, 0.7);
-  border-radius: 17px;
+  border-radius: 13px;
   background:
     radial-gradient(circle at 96% 0%, rgba(99, 102, 241, 0.07), transparent 36%),
     rgba(255, 255, 255, 0.72);
@@ -2046,26 +2046,26 @@
 
 .ec-project-summary {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .ec-project-item-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   color: #5b57d1;
   background: rgba(var(--ec-share-rgb), 0.11);
   box-shadow: inset 0 0 0 1px rgba(var(--ec-share-rgb), 0.12);
 }
 
 .ec-project-item-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
   fill: rgba(var(--ec-share-rgb), 0.14);
   stroke: currentColor;
   stroke-width: 1.45;
@@ -2152,14 +2152,14 @@
 .ec-project-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  margin-top: 11px;
+  gap: 6px;
+  margin-top: 7px;
 }
 
 .ec-project-actions .ec-btn {
   min-width: 0;
-  min-height: 37px;
-  padding: 8px 12px;
+  min-height: 32px;
+  padding: 6px 10px;
   white-space: nowrap;
 }
 
@@ -2187,7 +2187,7 @@
 
 .ec-project-divider {
   height: 1px;
-  margin: 14px 0;
+  margin: 9px 0;
   background: linear-gradient(90deg, transparent, rgba(203, 213, 225, 0.8) 10%, rgba(203, 213, 225, 0.8) 90%, transparent);
 }
 
@@ -2200,13 +2200,13 @@
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: start;
   gap: 7px;
-  margin: 13px 0 0;
-  padding: 9px 10px;
+  margin: 8px 0 0;
+  padding: 7px 8px;
   border-radius: 11px;
   color: #475569;
   background: rgba(241, 245, 249, 0.7);
   font-size: 10.8px;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .ec-project-status-icon {
@@ -2298,7 +2298,7 @@
 }
 
 .ec-smart-camera-options {
-  margin: -2px 0 8px 65px;
+  margin: 8px 0 0;
   padding: 10px 11px;
   border: 1px solid rgba(203, 213, 225, 0.66);
   border-radius: 14px;
@@ -2325,16 +2325,57 @@
 }
 
 .ec-cursor-card {
-  margin: 8px 0 12px;
-  padding: 14px;
+  margin: 0;
+  padding: 10px;
   border: 1px solid rgba(203, 213, 225, 0.72);
-  border-radius: 16px;
+  border-radius: 13px;
   background: rgba(255, 255, 255, 0.72);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
+.ec-effect-card {
+  padding: 10px;
+  border: 1px solid rgba(203, 213, 225, 0.72);
+  border-radius: 13px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(var(--ec-share-rgb), 0.08), transparent 36%),
+    rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.ec-effect-card-camera {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(251, 191, 36, 0.14), transparent 38%),
+    rgba(255, 255, 255, 0.72);
+}
+
+.ec-effect-card-lens {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.13), transparent 38%),
+    rgba(255, 255, 255, 0.72);
+}
+
+.ec-effect-card-title {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 7px;
+}
+
+.ec-effect-card-title strong {
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 820;
+  letter-spacing: -0.01em;
+}
+
+.ec-effect-card-title span {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .ec-cursor-card-title {
-  margin-bottom: 11px;
+  margin-bottom: 7px;
   color: #64748b;
   font-size: 12px;
   font-weight: 700;
@@ -2396,7 +2437,7 @@
 }
 
 .ec-cursor-options {
-  margin-top: 14px;
+  margin-top: 9px;
 }
 
 .ec-cursor-size-row {
@@ -2404,7 +2445,7 @@
   grid-template-columns: 68px minmax(0, 1fr) 44px;
   align-items: center;
   gap: 9px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   color: #64748b;
   font-size: 12px;
 }
@@ -2431,7 +2472,7 @@
 
 .ec-cursor-colors {
   min-width: 0;
-  margin: 0 0 14px;
+  margin: 0 0 9px;
   padding: 0;
   border: 0;
 }
@@ -2909,8 +2950,8 @@
 .ec-reccontrols {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 .ec-rec-actions {
@@ -2918,7 +2959,7 @@
   bottom: -2px;
   z-index: 3;
   margin: 0 -4px;
-  padding: 9px 4px 7px;
+  padding: 7px 4px 5px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.86));
   border-top: 1px solid rgba(226, 232, 240, 0.66);
@@ -3175,7 +3216,7 @@
 .ec-btn {
   border: none;
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 7px 11px;
   font-size: 12px;
   font-weight: 760;
   cursor: pointer;
@@ -3280,15 +3321,20 @@
 .ec-tele {
   position: fixed;
   z-index: 2147483643;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.72)),
-    rgba(255, 255, 255, 0.68);
+    radial-gradient(circle at 16% 0%, rgba(129, 140, 248, 0.2), transparent 38%),
+    radial-gradient(circle at 94% 24%, rgba(56, 189, 248, 0.14), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.76)),
+    rgba(255, 255, 255, 0.7);
   color: #1f2430;
-  border-radius: 22px;
+  border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.58);
   box-shadow:
-    0 28px 70px rgba(15, 23, 42, 0.22),
-    0 8px 24px rgba(15, 23, 42, 0.14),
+    0 30px 76px rgba(15, 23, 42, 0.23),
+    0 8px 24px rgba(15, 23, 42, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.76);
   display: none;
   flex-direction: column;
@@ -3304,42 +3350,145 @@
 .ec-tele-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 9px 8px 11px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(238, 242, 255, 0.34));
+    radial-gradient(circle at 12% 0%, rgba(105, 101, 219, 0.13), transparent 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(238, 242, 255, 0.38));
   border-bottom: 1px solid rgba(226, 232, 240, 0.66);
   cursor: move;
   user-select: none;
-  font-size: 11px;
   color: #64748b;
+}
+
+.ec-tele-heading,
+.ec-tele-bar-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ec-tele-heading {
+  min-width: 0;
+  gap: 8px;
+}
+
+.ec-tele-icon {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.16) 34%, transparent 54%),
+    linear-gradient(145deg, rgba(99, 102, 241, 0.92), rgba(79, 70, 229, 0.84));
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+
+.ec-tele-icon svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.96);
+  stroke-width: 1.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ec-tele-heading-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
 }
 
 .ec-tele-bar .ec-tele-title {
-  flex: 1;
-  font-weight: 600;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 790;
+  line-height: 1.15;
+}
+
+.ec-tele-heading-copy small {
+  overflow: hidden;
+  color: #7c8798;
+  font-size: 9.5px;
+  font-weight: 560;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ec-tele-bar-actions {
+  flex: none;
+  gap: 5px;
 }
 
 .ec-tele-bar button {
-  background: rgba(248, 250, 252, 0.68);
-  border: none;
+  min-height: 30px;
+  border: 1px solid rgba(203, 213, 225, 0.66);
+  background: rgba(255, 255, 255, 0.7);
   color: #64748b;
   cursor: pointer;
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 6px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 9px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  transition: transform 0.12s ease, color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
 }
 
 .ec-tele-bar button:hover {
-  background: rgba(238, 242, 255, 0.9);
+  border-color: rgba(105, 101, 219, 0.38);
+  background: rgba(238, 242, 255, 0.92);
   color: #3730a3;
 }
 
+.ec-tele-bar button:active {
+  transform: scale(0.96);
+}
+
+.ec-tele-bar button:focus-visible,
+.ec-tele-body :is(button, input, textarea):focus-visible {
+  outline: 2px solid rgba(105, 101, 219, 0.58);
+  outline-offset: 2px;
+}
+
+.ec-tele-bar .ec-tele-scroll {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ec-tele-scroll.ec-active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #6965db, #5b57d1);
+  box-shadow: 0 7px 16px rgba(79, 70, 229, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.ec-tele-scroll-icon {
+  width: 10px;
+  text-align: center;
+  font-size: 10px;
+}
+
+.ec-tele-bar .ec-tele-close {
+  width: 30px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 17px;
+  font-weight: 560;
+}
+
 .ec-tele-body {
-  padding: 8px;
+  padding: 9px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
   flex: 1;
   min-height: 0;
 }
@@ -3350,21 +3499,31 @@
   resize: none;
   border: 1px solid rgba(203, 213, 225, 0.74);
   outline: none;
-  background: rgba(255, 255, 255, 0.7);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(248, 250, 252, 0.78));
   color: #1f2430;
-  border-radius: 14px;
-  padding: 8px;
+  border-radius: 12px;
+  padding: 10px 11px;
   font-size: inherit;
-  line-height: 1.55;
+  line-height: 1.58;
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.035), inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
 
 .ec-tele-text::placeholder {
   color: #94a3b8;
 }
 
+.ec-tele-toolbar {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 7px;
+}
+
 .ec-tele-text-actions {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-rows: repeat(2, minmax(28px, 1fr));
+  gap: 5px;
 }
 
 .ec-tele-text-action {
@@ -3374,8 +3533,11 @@
   background: rgba(255, 255, 255, 0.58);
   color: #475569;
   cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
   font-size: 11px;
   padding: 5px 7px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
 
 .ec-tele-text-action:hover {
@@ -3384,18 +3546,74 @@
   color: #3730a3;
 }
 
-.ec-tele-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.ec-tele-text-action-primary {
+  border-color: rgba(105, 101, 219, 0.28);
+  background: rgba(238, 237, 255, 0.82);
+  color: #4f46e5;
+}
+
+.ec-tele-settings {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  padding: 6px 7px;
+  border: 1px solid rgba(203, 213, 225, 0.62);
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.6);
+}
+
+.ec-tele-settings label {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 4px;
   font-size: 11px;
   color: #64748b;
 }
 
-.ec-tele-controls input[type="range"] {
-  flex: 1;
-  accent-color: #6965db;
+.ec-tele-settings label > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ec-tele-settings output {
+  color: #4f46e5;
+  font-size: 10px;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+
+.ec-tele-settings input[type="range"] {
+  width: 100%;
   min-width: 0;
+  margin: 0;
+  accent-color: #6965db;
+}
+
+.ec-tele-shortcuts {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.ec-tele-shortcuts > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.ec-tele-drag-hint {
+  margin-left: auto;
+  color: #94a3b8;
 }
 
 .ec-tele-resize {
@@ -3410,15 +3628,16 @@
     transparent 50%,
     rgba(99, 102, 241, 0.34) 50%
   );
-  border-radius: 0 0 22px 0;
+  border-radius: 0 0 20px 0;
 }
 
 .ec-kbd {
   border: 1px solid rgba(203, 213, 225, 0.82);
-  border-radius: 4px;
-  padding: 0 5px;
-  font-size: 10px;
+  border-radius: 5px;
+  padding: 1px 4px;
+  font-size: 9px;
   background: rgba(248, 250, 252, 0.82);
+  box-shadow: inset 0 -1px 0 rgba(148, 163, 184, 0.16);
 }
 
 .ec-bubble {
@@ -3472,28 +3691,19 @@
 .ec-screen-light {
   --ec-screen-light: 0.85;
   position: fixed;
-  inset: 0;
+  inset: 6px;
   z-index: 2147483638;
   pointer-events: none;
-  background:
-    radial-gradient(
-      ellipse 68% 64% at 50% 42%,
-      rgba(255, 255, 255, 1) 0 18%,
-      rgba(255, 255, 255, 0.96) 30%,
-      rgba(255, 255, 255, 0.78) 44%,
-      rgba(255, 255, 255, 0.50) 58%,
-      rgba(255, 255, 255, 0.24) 70%,
-      transparent 84%
-    ),
-    radial-gradient(
-      ellipse 96% 92% at 50% 42%,
-      rgba(255, 255, 255, 0.34) 0 48%,
-      rgba(255, 255, 255, 0.16) 68%,
-      transparent 92%
-    );
-  box-shadow: inset 0 0 92px rgba(255, 255, 255, 0.48);
+  box-sizing: border-box;
+  border: clamp(28px, 3.6vmin, 56px) solid rgb(255, 254, 250);
+  border-radius: clamp(56px, 8vmin, 112px);
+  background: transparent;
+  box-shadow:
+    0 0 6px rgba(255, 250, 232, 0.34),
+    inset 0 0 5px rgba(255, 250, 232, 0.22);
   mix-blend-mode: screen;
   opacity: var(--ec-screen-light);
+  transition: opacity 0.42s ease-in-out;
 }
 
 .ec-screen-light[hidden] {
@@ -4118,37 +4328,115 @@
 
 @media (max-height: 820px) and (min-width: 521px) {
   .ec-panel {
-    top: 12px;
-    bottom: 12px;
+    top: 8px;
+    bottom: 8px;
     max-height: none;
     transform: none;
-    padding: 12px;
-    border-radius: 20px;
+    padding: 10px;
+    border-radius: 18px;
   }
 
   .ec-panel-header {
-    margin: -12px -12px 6px;
-    padding: 12px 12px 8px;
-    border-radius: 20px 20px 13px 13px;
+    margin: -10px -10px 5px;
+    padding: 9px 10px 7px;
+    border-radius: 18px 18px 12px 12px;
   }
 
   .ec-panel .ec-sub {
-    margin-bottom: 9px;
+    margin-bottom: 6px;
+    font-size: 10.5px;
   }
 
   .ec-section {
-    margin-top: 8px;
-    padding: 10px;
-    border-radius: 15px;
+    margin-top: 5px;
+    padding: 7px 8px;
+    border-radius: 13px;
   }
 
   .ec-section-title {
-    margin-bottom: 7px;
+    margin-bottom: 4px;
+    font-size: 12.5px;
+  }
+
+  .ec-section-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 7px;
   }
 
   .ec-row {
-    min-height: 31px;
-    margin-bottom: 6px;
+    min-height: 28px;
+    margin-bottom: 3px;
+  }
+
+  .ec-project-card {
+    padding: 8px;
+  }
+
+  .ec-project-actions {
+    margin-top: 5px;
+  }
+
+  .ec-project-actions .ec-btn {
+    min-height: 29px;
+    padding-block: 5px;
+  }
+
+  .ec-project-divider {
+    margin: 7px 0;
+  }
+
+  .ec-project-status {
+    margin-top: 6px;
+    padding: 6px 7px;
+  }
+
+  .ec-advanced-effects > summary {
+    min-height: 34px;
+    padding: 6px 8px;
+  }
+
+  .ec-effect-card,
+  .ec-cursor-card {
+    padding: 8px;
+  }
+
+  .ec-rec-actions {
+    padding-top: 5px;
+  }
+
+  .ec-tele {
+    max-width: calc(100vw - 48px);
+    max-height: calc(100vh - 88px);
+  }
+
+  .ec-tele-bar {
+    min-height: 44px;
+    padding-block: 6px;
+  }
+
+  .ec-tele-body {
+    padding: 7px;
+    gap: 5px;
+  }
+
+  .ec-tele-shortcuts {
+    font-size: 9.5px;
+  }
+}
+
+@media (max-width: 680px) {
+  .ec-tele-toolbar {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .ec-tele-settings {
+    padding-inline: 5px;
+  }
+
+  .ec-tele-heading-copy small,
+  .ec-tele-drag-hint {
+    display: none;
   }
 }
 

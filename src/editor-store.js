@@ -147,6 +147,22 @@
       });
     }
 
+    // Media metadata discovered while opening the editor is runtime hydration,
+    // not a user edit. Keep it in the in-memory snapshot so playback/export use
+    // the decoded duration, but do not create history, mark dirty, or autosave.
+    function hydrateActiveRecording(patch) {
+      var next = clone(project);
+      var recording = activeRecording(next);
+      var changes = isObject(patch) ? clone(patch) : {};
+      if (Number.isFinite(Number(changes.durationMs))) {
+        recording.durationMs = Math.max(0, Number(changes.durationMs));
+      }
+      var edit = activeEdit(next);
+      edit.timeline = core.normalizeTimeline(edit.timeline, recording.durationMs);
+      project = core.normalizeProject(next);
+      return clone(project);
+    }
+
     function addCut(startMs, endMs, metadata) {
       return commit("add-cut", function (next) {
         var edit = activeEdit(next);
@@ -414,6 +430,7 @@
       createEdit: createEdit,
       setActiveEdit: setActiveEdit,
       updateActiveRecording: updateActiveRecording,
+      hydrateActiveRecording: hydrateActiveRecording,
       addCut: addCut,
       removeCut: removeCut,
       replaceSpeedRegions: replaceSpeedRegions,

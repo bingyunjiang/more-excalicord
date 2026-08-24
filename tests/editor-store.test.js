@@ -96,6 +96,27 @@ var storeApi = require("../src/editor-store.js");
   assert.strictEqual(saved.length, 1, "opening and closing an unchanged editor must not persist");
   store.destroy();
 
+  var hydratedSaves = [];
+  var hydratedProject = core.normalizeProject(saved[0].snapshot);
+  hydratedProject.recordings[0].durationMs = 99999;
+  var hydratedStore = storeApi.createEditorStore(hydratedProject, {
+    autosaveDelayMs: 100000,
+    persist: function (snapshot, reason) {
+      hydratedSaves.push({ snapshot: snapshot, reason: reason });
+    },
+  });
+  hydratedStore.hydrateActiveRecording({ durationMs: 12000 });
+  assert.strictEqual(hydratedStore.getActiveRecording().durationMs, 12000);
+  assert.strictEqual(hydratedStore.getActiveEdit().timeline.durationMs, 12000);
+  assert.strictEqual(hydratedStore.isDirty(), false, "decoded media metadata must not dirty the editor");
+  await hydratedStore.flush("close-after-hydration");
+  assert.strictEqual(hydratedSaves.length, 0, "opening media and closing without edits must not persist");
+  hydratedStore.addCut(100, 200, { id: "hydrated-cut" });
+  await hydratedStore.flush("edit-after-hydration");
+  assert.strictEqual(hydratedSaves.length, 1);
+  assert.strictEqual(hydratedSaves[0].snapshot.recordings[0].durationMs, 12000);
+  hydratedStore.destroy();
+
   console.log("editor store tests ok");
 })().catch(function (error) {
   console.error(error);

@@ -88,6 +88,7 @@
       nativeAvailable: false,
       nativeOutputPath: "",
       nativeRecordingReady: false,
+      nativeStarting: false,
       sessionId: "",
       recordingReadyDispatched: false,
       restoreCameraAfterNative: false,
@@ -1212,7 +1213,7 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260824v011w-project-isolation-p1";
+  var EC_BUILD_VERSION = "20260824v011y-unified-post-editor";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
@@ -1347,22 +1348,13 @@
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头与麦克风</span></span></div>',
     '    <div class="ec-row"><label>启用</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-enable"/> 摄像头画中画</label></div>',
     '    <div class="ec-row ec-mic-row" id="ec-mic-row"><label>麦克风</label><select id="ec-mic-device"><option value="">默认麦克风</option></select><div class="ec-mic-meter" id="ec-mic-meter"><div class="ec-mic-bar" id="ec-mic-bar"></div></div><span class="ec-value" id="ec-mic-status">—</span></div>',
+    '    <div class="ec-row"><label>合成</label><label class="ec-toggle"><input type="checkbox" id="ec-compose" title="录制时把摄像头圆框直接合成进视频文件，不依赖屏幕里的气泡位置"/> 摄像头合成进视频</label></div>',
+    '    <div class="ec-row" id="ec-composite-position-row"><label>显示位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
+    '    <div class="ec-row"><label>录制时</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 隐藏屏幕气泡（与合成进视频无关）</label></div>',
     '    <div class="ec-camera-details" id="ec-camera-details" aria-hidden="true" hidden>',
     '    <div class="ec-row"><label>设备</label><select id="ec-cam-device"><option value="">默认摄像头</option></select></div>',
     '    <div class="ec-row"><label>形状</label><select id="ec-cam-shape"><option value="circle">圆形</option><option value="rounded">圆角方形</option><option value="pill">胶囊</option></select></div>',
     '    <div class="ec-row"><label>大小</label><input type="range" id="ec-cam-size" min="60" max="400" step="5" value="150"/><span class="ec-value" id="ec-cam-size-v">150</span></div>',
-    '    <div class="ec-row"><label>人像优化</label><label class="ec-toggle"><input type="checkbox" id="ec-beauty-toggle"/> 启用调节</label></div>',
-    '    <div class="ec-row" id="ec-beauty-smooth-row" style="display:none"><label>磨皮</label><input type="range" id="ec-beauty-smooth" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-beauty-smooth-v">0.35</span></div>',
-    '    <div class="ec-row" id="ec-beauty-white-row" style="display:none"><label>亮肤</label><input type="range" id="ec-beauty-white" min="0" max="1" step="0.05" value="0.15"/><span class="ec-value" id="ec-beauty-white-v">0.15</span></div>',
-    '    <div class="ec-row" id="ec-beauty-slim-row" style="display:none"><label>瘦脸</label><input type="range" id="ec-beauty-slim" min="0" max="1" step="0.05" value="0"/><span class="ec-value" id="ec-beauty-slim-v">0</span></div>',
-    '    <div class="ec-row" id="ec-beauty-warm-row" style="display:none"><label>肤色冷暖</label><input type="range" id="ec-beauty-warm" min="-1" max="1" step="0.1" value="0"/><span class="ec-value" id="ec-beauty-warm-v">0</span></div>',
-    '    <div class="ec-row" id="ec-beauty-sat-row" style="display:none"><label>饱和度</label><input type="range" id="ec-beauty-sat" min="-1" max="1" step="0.1" value="0"/><span class="ec-value" id="ec-beauty-sat-v">0</span></div>',
-    '    <div class="ec-row"><label>镜头增亮</label><label class="ec-toggle"><input type="checkbox" id="ec-light-toggle"/> 增强摄像头画面</label></div>',
-    '    <div class="ec-row" id="ec-light-row" style="display:none"><label>强度</label><input type="range" id="ec-light-intensity" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-light-intensity-v">0.35</span></div>',
-    '    <div class="ec-row"><label>屏幕补光</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 屏幕补光灯</label></div>',
-    '    <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0" max="1" step="0.05" value="0.85"/><span class="ec-value" id="ec-screen-light-intensity-v">0.85</span></div>',
-    '    <p class="ec-sub" id="ec-screen-light-note" style="display:none;margin:2px 0 0">在屏幕四周显示一圈补光灯，像真实补光灯一样照亮人脸；录制整个浏览器页面时可能入镜。</p>',
-    '    <p class="ec-sub" id="ec-faceapi-status" style="margin:2px 0 0;display:none">人脸检测模型加载中…（本地运行）</p>',
     '    <div class="ec-row"><label>镜像</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-mirror" checked/> 左右翻转</label></div>',
     '    </div>',
     "  </div>",
@@ -1375,18 +1367,43 @@
     '    <div id="ec-native-source-row" style="display:none"><select id="ec-native-source"><option value="display:">自动选择主显示器</option></select></div>',
     '    <div class="ec-row"><label>格式</label><select id="ec-format"><option value="auto">自动（优先 MP4）</option><option value="video/mp4">MP4</option><option value="video/webm">WebM</option></select></div>',
     '    <div class="ec-row"><label>背景</label><select id="ec-bg-style"><option value="warm-gradient">暖色渐变</option><option value="paper">纸张纹理</option><option value="dark">深色舞台</option><option value="solid">纯色</option></select><input type="color" id="ec-bg" value="#f4f1ea" title="纯色或渐变主色"/></div>',
-    '    <div class="ec-row"><label>合成</label><label class="ec-toggle"><input type="checkbox" id="ec-compose" title="录制时把摄像头圆框直接合成进视频文件，不依赖屏幕里的气泡位置"/> 摄像头合成进视频</label></div>',
-    '    <div class="ec-row" id="ec-composite-position-row"><label>摄像头位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
-    '    <div class="ec-row"><label>隐藏</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 录制时隐藏屏幕上的气泡（与合成进视频无关）</label></div>',
-    '    <div class="ec-row"><label></label><label class="ec-toggle"><input type="checkbox" id="ec-hide-desktop-icons"/> 隐藏桌面图标</label></div>',
+    '    <div class="ec-row"><label>桌面</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-desktop-icons"/> 隐藏桌面图标</label></div>',
     '    <p class="ec-sub" id="ec-hide-desktop-note" style="margin:2px 0 0;display:none">录制整个屏幕时隐藏；停止录制、启动失败或录制组件重启后自动恢复。</p>',
     "  </div>",
     '  <div class="ec-section ec-advanced-section">',
     '    <details class="ec-advanced-effects">',
-    '      <summary><span>高级效果</span><small>光标与智能镜头</small></summary>',
+    '      <summary><span>录制效果</span><small>智能镜头、光标、人像和补光</small></summary>',
     '      <div class="ec-advanced-effects-body">',
+    '    <section class="ec-effect-card ec-effect-card-camera" aria-labelledby="ec-effect-camera-title">',
+    '      <div class="ec-effect-card-title" id="ec-effect-camera-title"><strong>人像与补光</strong><span>只影响讲解者画面和录制现场光线</span></div>',
+    '      <div class="ec-row"><label>AI 补光（屏幕补光）</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 屏幕补光灯（环形灯）</label></div>',
+    '      <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0" max="1" step="0.05" value="0.85"/><span class="ec-value" id="ec-screen-light-intensity-v">0.85</span></div>',
+    '      <div class="ec-row"><label>镜头增亮</label><label class="ec-toggle"><input type="checkbox" id="ec-light-toggle"/> 增强摄像头画面</label></div>',
+    '      <div class="ec-row" id="ec-light-row" style="display:none"><label>强度</label><input type="range" id="ec-light-intensity" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-light-intensity-v">0.35</span></div>',
+    '      <div class="ec-row"><label>人像优化</label><label class="ec-toggle"><input type="checkbox" id="ec-beauty-toggle"/> 启用调节</label></div>',
+    '      <div class="ec-row" id="ec-beauty-smooth-row" style="display:none"><label>磨皮</label><input type="range" id="ec-beauty-smooth" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-beauty-smooth-v">0.35</span></div>',
+    '      <div class="ec-row" id="ec-beauty-white-row" style="display:none"><label>亮肤</label><input type="range" id="ec-beauty-white" min="0" max="1" step="0.05" value="0.15"/><span class="ec-value" id="ec-beauty-white-v">0.15</span></div>',
+    '      <div class="ec-row" id="ec-beauty-slim-row" style="display:none"><label>瘦脸</label><input type="range" id="ec-beauty-slim" min="0" max="1" step="0.05" value="0"/><span class="ec-value" id="ec-beauty-slim-v">0</span></div>',
+    '      <div class="ec-row" id="ec-beauty-warm-row" style="display:none"><label>肤色冷暖</label><input type="range" id="ec-beauty-warm" min="-1" max="1" step="0.1" value="0"/><span class="ec-value" id="ec-beauty-warm-v">0</span></div>',
+    '      <div class="ec-row" id="ec-beauty-sat-row" style="display:none"><label>饱和度</label><input type="range" id="ec-beauty-sat" min="-1" max="1" step="0.1" value="0"/><span class="ec-value" id="ec-beauty-sat-v">0</span></div>',
+    '      <p class="ec-sub" id="ec-faceapi-status" style="margin:2px 0 0;display:none">人脸检测模型加载中…（本地运行）</p>',
+    '    </section>',
+    '    <section class="ec-effect-card ec-effect-card-lens" aria-labelledby="ec-effect-lens-title">',
+    '      <div class="ec-effect-card-title" id="ec-effect-lens-title"><strong>智能镜头</strong><span>录制时只收集线索，录后生成可调关键帧</span></div>',
+    '      <div class="ec-row"><label>建议</label><label class="ec-toggle"><input type="checkbox" id="ec-smart-camera"/> 开启录后镜头建议</label></div>',
+    '      <div class="ec-smart-camera-options" id="ec-smart-camera-options" style="display:none">',
+    '        <label class="ec-toggle"><input type="checkbox" id="ec-smart-slide-focus" checked/> 幻灯片聚焦</label>',
+    '        <label class="ec-toggle"><input type="checkbox" id="ec-smart-mouse-focus" checked/> 鼠标智能聚焦</label>',
+    '        <label class="ec-toggle"><input type="checkbox" id="ec-smart-click-focus" checked/> 点击时聚焦</label>',
+    '        <label class="ec-toggle"><input type="checkbox" id="ec-smart-typing-focus" checked/> 打字自动缩放</label>',
+    '        <div class="ec-row ec-smart-camera-detail"><label>运镜模式</label><select id="ec-smart-camera-motion"><option value="2d">2D 缩放</option><option value="3d">3D 运镜</option></select></div>',
+    '        <div class="ec-row ec-smart-camera-detail"><label>强度</label><select id="ec-smart-camera-strength"><option value="gentle">轻微</option><option value="medium">适中</option><option value="strong">明显</option></select></div>',
+    '        <div class="ec-row ec-smart-camera-detail"><label>速度</label><select id="ec-smart-camera-speed"><option value="slow">慢</option><option value="standard">标准</option><option value="fast">快</option></select></div>',
+    '        <p class="ec-sub" id="ec-smart-camera-hint">屏幕/窗口录制会记录鼠标停留、点击和打字线索；录后可生成并调整聚焦镜头，幻灯片聚焦仅用于白板。</p>',
+    '      </div>',
+    '    </section>',
     '    <section class="ec-cursor-card" aria-labelledby="ec-cursor-title">',
-    '      <div class="ec-cursor-card-title" id="ec-cursor-title">鼠标光标效果</div>',
+    '      <div class="ec-effect-card-title" id="ec-cursor-title"><strong>鼠标光标效果</strong><span>让点击、指向和演示节奏更清楚</span></div>',
     '      <label class="ec-cursor-switch"><input type="checkbox" id="ec-cursor-highlight" checked/><span class="ec-cursor-switch-track" aria-hidden="true"></span><span>录制时显示光标高亮</span></label>',
     '      <div class="ec-cursor-options" id="ec-cursor-options">',
     '        <div class="ec-cursor-size-row"><label for="ec-cursor-size">光标大小</label><div class="ec-cursor-range"><span>小</span><input type="range" id="ec-cursor-size" min="0.6" max="1.8" step="0.1" value="1"/><span>大</span></div><output id="ec-cursor-size-value" for="ec-cursor-size">100%</output></div>',
@@ -1407,17 +1424,6 @@
     '        <button type="button" class="ec-cursor-done" id="ec-cursor-done">完成</button>',
     '      </div>',
     '    </section>',
-    '    <div class="ec-row"><label>智能镜头</label><label class="ec-toggle"><input type="checkbox" id="ec-smart-camera"/> 开启录后镜头建议</label></div>',
-    '    <div class="ec-smart-camera-options" id="ec-smart-camera-options" style="display:none">',
-    '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-slide-focus" checked/> 幻灯片聚焦</label>',
-    '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-mouse-focus" checked/> 鼠标智能聚焦</label>',
-    '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-click-focus" checked/> 点击时聚焦</label>',
-    '      <label class="ec-toggle"><input type="checkbox" id="ec-smart-typing-focus" checked/> 打字自动缩放</label>',
-    '      <div class="ec-row ec-smart-camera-detail"><label>运镜模式</label><select id="ec-smart-camera-motion"><option value="2d">2D 缩放</option><option value="3d">3D 运镜</option></select></div>',
-    '      <div class="ec-row ec-smart-camera-detail"><label>强度</label><select id="ec-smart-camera-strength"><option value="gentle">轻微</option><option value="medium">适中</option><option value="strong">明显</option></select></div>',
-    '      <div class="ec-row ec-smart-camera-detail"><label>速度</label><select id="ec-smart-camera-speed"><option value="slow">慢</option><option value="standard">标准</option><option value="fast">快</option></select></div>',
-    '      <p class="ec-sub" id="ec-smart-camera-hint">录制时只记录镜头线索；缩放节奏和焦点可在录后编辑里调整。</p>',
-    '    </div>',
     '      </div>',
     '    </details>',
     "  </div>",
@@ -4267,14 +4273,18 @@
   Object.assign(screenLight.style, {
     display: "none",
     position: "fixed",
-    inset: "0",
+    inset: "6px",
     zIndex: "2147483638",
     pointerEvents: "none",
-    background:
-      "radial-gradient(ellipse 68% 64% at 50% 42%, rgba(255,255,255,1) 0 18%, rgba(255,255,255,0.96) 30%, rgba(255,255,255,0.78) 44%, rgba(255,255,255,0.50) 58%, rgba(255,255,255,0.24) 70%, transparent 84%), radial-gradient(ellipse 96% 92% at 50% 42%, rgba(255,255,255,0.34) 0 48%, rgba(255,255,255,0.16) 68%, transparent 92%)",
-    boxShadow: "inset 0 0 92px rgba(255,255,255,0.48)",
+    boxSizing: "border-box",
+    border: "clamp(28px, 3.6vmin, 56px) solid rgb(255,254,250)",
+    borderRadius: "clamp(56px, 8vmin, 112px)",
+    background: "transparent",
+    boxShadow:
+      "0 0 6px rgba(255,250,232,0.34), inset 0 0 5px rgba(255,250,232,0.22)",
     mixBlendMode: "screen",
     opacity: "0",
+    transition: "opacity 0.42s ease-in-out",
   });
   screenLight.hidden = true;
   screenLight.setAttribute("aria-hidden", "true");
@@ -4296,14 +4306,14 @@
   tele.style.top = "96px";
   tele.style.opacity = state.tele.opacity;
   tele.innerHTML =
-    '<div class="ec-tele-bar"><span class="ec-tele-title">📜 提词器</span>' +
-    '<button class="ec-tele-scroll" title="滚动（空格）">▶</button>' +
-    '<button class="ec-tele-close" title="关闭">✕</button></div>' +
+    '<div class="ec-tele-bar"><span class="ec-tele-heading"><span class="ec-tele-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M5.2 3.4h9.6a1.8 1.8 0 0 1 1.8 1.8v7.2a1.8 1.8 0 0 1-1.8 1.8H8.1l-3.7 2.4v-2.4h-.2a1.8 1.8 0 0 1-1.8-1.8V5.2a1.8 1.8 0 0 1 1.8-1.8Z"/><path d="M6.2 7.2h7.6M6.2 10h5.7"/></svg></span><span class="ec-tele-heading-copy"><strong class="ec-tele-title">提词器</strong><small>讲稿辅助 · 不作为逐字稿</small></span></span>' +
+    '<span class="ec-tele-bar-actions"><button class="ec-tele-scroll" type="button" title="开始滚动（空格）" aria-label="开始滚动" aria-pressed="false"><span class="ec-tele-scroll-icon" aria-hidden="true">▶</span><span class="ec-tele-scroll-label">滚动</span></button>' +
+    '<button class="ec-tele-close" type="button" title="关闭提词器" aria-label="关闭提词器">×</button></span></div>' +
     '<div class="ec-tele-body">' +
     '<textarea class="ec-tele-text" placeholder="粘贴讲稿…按空格开始/暂停自动滚动，↑↓ 手动微调"></textarea>' +
-    '<div class="ec-tele-text-actions"><button class="ec-tele-text-action" type="button" data-action="save-script">保存为讲稿</button><button class="ec-tele-text-action" type="button" data-action="load-script">载入讲稿文件…</button></div>' +
-    '<div class="ec-tele-controls"><span>速度</span><input type="range" class="ec-tele-speed" min="1" max="40" step="1" value="6"/><span>字号</span><input type="range" class="ec-tele-fs" min="12" max="48" step="1" value="22"/><span>透明</span><input type="range" class="ec-tele-opacity" min="5" max="100" step="5" value="85"/></div>' +
-    '<div class="ec-tele-controls"><span class="ec-kbd">空格</span>滚动/暂停 <span class="ec-kbd">↑</span><span class="ec-kbd">↓</span>微调</div>' +
+    '<div class="ec-tele-toolbar"><div class="ec-tele-text-actions"><button class="ec-tele-text-action ec-tele-text-action-primary" type="button" data-action="save-script">保存讲稿</button><button class="ec-tele-text-action" type="button" data-action="load-script">载入讲稿文件…</button></div>' +
+    '<div class="ec-tele-settings" aria-label="提词器显示设置"><label><span>速度 <output class="ec-tele-speed-value">6</output></span><input type="range" class="ec-tele-speed" min="1" max="40" step="1" value="6"/></label><label><span>字号 <output class="ec-tele-fs-value">22</output></span><input type="range" class="ec-tele-fs" min="12" max="48" step="1" value="22"/></label><label><span>透明 <output class="ec-tele-opacity-value">85%</output></span><input type="range" class="ec-tele-opacity" min="5" max="100" step="5" value="85"/></label></div></div>' +
+    '<div class="ec-tele-shortcuts"><span><span class="ec-kbd">空格</span>滚动 / 暂停</span><span><span class="ec-kbd">↑</span><span class="ec-kbd">↓</span>微调</span><span class="ec-tele-drag-hint">拖动标题栏移动</span></div>' +
     "</div>" +
     '<div class="ec-tele-resize"></div>';
   document.body.appendChild(tele);
@@ -4419,7 +4429,6 @@
   var screenLightRow = shadow.getElementById("ec-screen-light-row");
   var screenLightIntensity = shadow.getElementById("ec-screen-light-intensity");
   var screenLightIntensityV = shadow.getElementById("ec-screen-light-intensity-v");
-  var screenLightNote = shadow.getElementById("ec-screen-light-note");
   var faceapiStatus = shadow.getElementById("ec-faceapi-status");
 
   /* face-api lazy init (local models only) */
@@ -4572,8 +4581,8 @@
     if (screenLightIntensity) {
       state.camera.screenLightIntensity = clamp(parseFloat(screenLightIntensity.value) || 0, 0, 1);
     }
-    var cameraRequested = !!(state.camera.enabled || (camEnable && camEnable.checked));
-    var enabled = !!(cameraRequested && state.camera.screenLightEnabled);
+    var nativeOwnsLight = !!state.rec.nativeAvailable;
+    var enabled = !!(state.camera.screenLightEnabled && !nativeOwnsLight);
     var intensity = clamp(state.camera.screenLightIntensity || 0, 0, 1);
     screenLight.style.setProperty("--ec-screen-light", String(intensity));
     screenLight.style.opacity = enabled ? String(intensity) : "0";
@@ -4581,8 +4590,31 @@
     screenLight.hidden = !enabled;
     screenLight.setAttribute("aria-hidden", enabled ? "false" : "true");
     if (screenLightRow) screenLightRow.style.display = state.camera.screenLightEnabled ? "flex" : "none";
-    if (screenLightNote) screenLightNote.style.display = state.camera.screenLightEnabled ? "block" : "none";
     if (screenLightIntensityV) screenLightIntensityV.textContent = Number(intensity).toFixed(2);
+  }
+
+  var screenLightSyncTimer = null;
+  function syncNativeScreenLight(immediate) {
+    var bridge = nativeBridge();
+    if (!bridge || typeof bridge.screenLight !== "function") return Promise.resolve(false);
+    if (screenLightSyncTimer) clearTimeout(screenLightSyncTimer);
+    return new Promise(function (resolve) {
+      screenLightSyncTimer = setTimeout(function () {
+        screenLightSyncTimer = null;
+        bridge.screenLight(
+          !!state.camera.screenLightEnabled,
+          clamp(state.camera.screenLightIntensity || 0, 0, 1),
+        ).then(function () {
+          state.rec.nativeAvailable = true;
+          updateScreenLight();
+          resolve(true);
+        }).catch(function () {
+          state.rec.nativeAvailable = false;
+          updateScreenLight();
+          resolve(false);
+        });
+      }, immediate ? 0 : 80);
+    });
   }
 
   function applyBeautyFrame(video, w, h) {
@@ -4953,11 +4985,13 @@
   screenLightToggle.addEventListener("change", function () {
     updateScreenLight();
     saveScreenLightPreferences();
-    toast(screenLightToggle.checked ? "屏幕补光灯已开启" : "屏幕补光灯已关闭");
+    syncNativeScreenLight(true);
+    toast(screenLightToggle.checked ? "AI 补光灯已开启" : "AI 补光灯已关闭");
   });
   screenLightIntensity.addEventListener("input", function () {
     updateScreenLight();
     saveScreenLightPreferences();
+    syncNativeScreenLight(false);
   });
   updateScreenLight();
 
@@ -6189,7 +6223,10 @@
               : "已连接 · 浏览器可最小化"
             : "桌面录制服务尚未就绪",
         );
-        if (ready) refreshProjectFolderStatus();
+        if (ready) {
+          refreshProjectFolderStatus();
+          syncNativeScreenLight(true);
+        }
         else updateProjectFolderStatus();
         if (ready && (health.state === "recording" || health.state === "paused")) {
           return bridge.status().then(function (status) {
@@ -6292,6 +6329,7 @@
     if (miniStop) miniStop.disabled = !active;
     updateRecordingTimers();
     updateOutputActions();
+    updateScreenLight();
   }
 
   function stopCursorSoundMix() {
@@ -6950,9 +6988,11 @@
     if (nativeCameraComposite && state.camera.enabled) stopCamera();
     state.rec.nativeRecordingReady = false;
     state.rec.nativeOutputPath = "";
+    state.rec.nativeStarting = true;
     state.rec.seconds = 0;
     state.rec.paused = false;
     updateRecordingTimers();
+    updateScreenLight();
     nativeStatusEl.textContent = "正在启动桌面录制…";
 
     bridge.start({
@@ -6968,9 +7008,12 @@
       smoothing: beautyToggle.checked ? state.camera.smoothing : 0,
       whitening: beautyToggle.checked ? state.camera.whitening : 0,
       lightIntensity: state.camera.lightEnabled ? state.camera.lightIntensity : 0,
+      screenLightEnabled: cameraRequested && state.camera.screenLightEnabled,
+      screenLightIntensity: state.camera.screenLightIntensity,
       hideDesktopIcons: sourceType === "display" && !!state.settings.hideDesktopIcons,
     })
       .then(function (response) {
+        state.rec.nativeStarting = false;
         state.rec.nativeActive = true;
         state.rec.active = true;
         v011BeginSession();
@@ -6986,9 +7029,11 @@
           : "桌面录制已开始，摄像头只作为屏幕气泡显示");
       })
       .catch(function (error) {
+        state.rec.nativeStarting = false;
         state.rec.nativeActive = false;
         state.rec.active = false;
         setRecUI(false, false);
+        updateScreenLight();
         nativeStatusEl.textContent = "启动失败 · 可使用浏览器回退";
         if (state.rec.restoreCameraAfterNative && camEnable.checked) {
           startCamera({ silentSuccess: true, silentError: true });
@@ -7556,12 +7601,22 @@
   var teleSpeed = tele.querySelector(".ec-tele-speed");
   var teleFs = tele.querySelector(".ec-tele-fs");
   var teleOpacity = tele.querySelector(".ec-tele-opacity");
+  var teleSpeedValue = tele.querySelector(".ec-tele-speed-value");
+  var teleFsValue = tele.querySelector(".ec-tele-fs-value");
+  var teleOpacityValue = tele.querySelector(".ec-tele-opacity-value");
   var teleScrollBtn = tele.querySelector(".ec-tele-scroll");
   var teleClose = tele.querySelector(".ec-tele-close");
   var teleResize = tele.querySelector(".ec-tele-resize");
   var teleSaveScript = tele.querySelector('[data-action="save-script"]');
   var teleLoadScript = tele.querySelector('[data-action="load-script"]');
   teleText.value = state.tele.text || "";
+  teleText.style.fontSize = state.tele.fontSize + "px";
+  teleSpeed.value = String(state.tele.speed);
+  teleFs.value = String(state.tele.fontSize);
+  teleOpacity.value = String(Math.round(state.tele.opacity * 100));
+  if (teleSpeedValue) teleSpeedValue.textContent = String(state.tele.speed);
+  if (teleFsValue) teleFsValue.textContent = String(state.tele.fontSize);
+  if (teleOpacityValue) teleOpacityValue.textContent = Math.round(state.tele.opacity * 100) + "%";
   var projectWhiteboardOpenBtn = shadow.getElementById("ec-project-whiteboard-open");
   var projectWhiteboardSaveBtn = shadow.getElementById("ec-project-whiteboard-save");
   var projectFolderChooseBtn = shadow.getElementById("ec-project-folder-choose");
@@ -8100,7 +8155,14 @@
 
   function setTeleScrolling(on) {
     state.tele.scrolling = on;
-    teleScrollBtn.textContent = on ? "⏸" : "▶";
+    var icon = teleScrollBtn.querySelector(".ec-tele-scroll-icon");
+    var label = teleScrollBtn.querySelector(".ec-tele-scroll-label");
+    if (icon) icon.textContent = on ? "Ⅱ" : "▶";
+    if (label) label.textContent = on ? "暂停" : "滚动";
+    teleScrollBtn.classList.toggle("ec-active", !!on);
+    teleScrollBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    teleScrollBtn.setAttribute("aria-label", on ? "暂停滚动" : "开始滚动");
+    teleScrollBtn.title = on ? "暂停滚动（空格）" : "开始滚动（空格）";
     if (on) {
       state.tele.scrollCarry = 0;
       state.tele.scrollTimer = setInterval(function () {
@@ -8168,14 +8230,17 @@
   teleLoadScript.addEventListener("click", openScriptImportPicker);
   teleSpeed.addEventListener("input", function () {
     state.tele.speed = parseInt(teleSpeed.value, 10);
+    if (teleSpeedValue) teleSpeedValue.textContent = String(state.tele.speed);
   });
   teleFs.addEventListener("input", function () {
     state.tele.fontSize = parseInt(teleFs.value, 10);
     teleText.style.fontSize = state.tele.fontSize + "px";
+    if (teleFsValue) teleFsValue.textContent = String(state.tele.fontSize);
   });
   teleOpacity.addEventListener("input", function () {
     state.tele.opacity = parseInt(teleOpacity.value, 10) / 100;
     tele.style.opacity = state.tele.opacity;
+    if (teleOpacityValue) teleOpacityValue.textContent = Math.round(state.tele.opacity * 100) + "%";
   });
   teleResize.addEventListener("pointerdown", function (ev) {
     beginGesture("resize", tele, ev);
@@ -8183,10 +8248,7 @@
   tele
     .querySelector(".ec-tele-bar")
     .addEventListener("pointerdown", function (ev) {
-      if (
-        ev.target.classList.contains("ec-tele-close") ||
-        ev.target.classList.contains("ec-tele-scroll")
-      ) {
+      if (ev.target.closest && ev.target.closest(".ec-tele-close, .ec-tele-scroll")) {
         return;
       }
       beginGesture("drag", tele, ev);

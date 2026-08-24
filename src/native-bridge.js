@@ -139,6 +139,12 @@
     status: function () {
       return jsonRequest("/status", "GET", null, 1500);
     },
+    screenLight: function (enabled, intensity) {
+      return jsonRequest("/screen-light", "POST", {
+        enabled: !!enabled,
+        intensity: Number(intensity) || 0,
+      }, 3000);
+    },
     saveFolder: function () {
       return jsonRequest("/save-folder", "GET", null, 1500);
     },

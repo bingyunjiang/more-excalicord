@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import AppKit
 import CoreImage
 import CoreGraphics
 import Foundation
@@ -10,6 +11,7 @@ final class CaptureEngine: NSObject {
   private let saveFolderDefaultsKey = "ExcalicordCaptureSaveFolderPath"
   private let maxProjectAssetBytes = 128 * 1024 * 1024
   private let desktopIcons = DesktopIconController()
+  private let ringLightOverlay = RingLightOverlayController()
 
   enum State: String {
     case idle
@@ -56,6 +58,8 @@ final class CaptureEngine: NSObject {
   private var smoothing = 0.0
   private var whitening = 0.0
   private var lightIntensity = 0.0
+  private var screenLightEnabled = false
+  private var screenLightIntensity = 0.85
 
   func health(token: String) -> HealthResponse {
     writerLock.lock()
@@ -76,6 +80,7 @@ final class CaptureEngine: NSObject {
         "project-folder",
         "project-files",
         "desktop-icons",
+        "screen-light",
       ],
       permissions: [
         // On newer macOS releases the legacy CoreGraphics preflight can lag
@@ -104,14 +109,18 @@ final class CaptureEngine: NSObject {
     }
     let windows = content.windows.compactMap { window -> CaptureSource? in
       let title = window.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-      guard window.frame.width >= 160, window.frame.height >= 120 else { return nil }
+      let application = window.owningApplication?.applicationName ?? ""
+      guard window.frame.width >= 160,
+            window.frame.height >= 140,
+            shouldExposeWindowSource(title: title, application: application, frame: window.frame)
+      else { return nil }
       return CaptureSource(
         id: String(window.windowID),
         type: "window",
         name: title.isEmpty ? "窗口 \(window.windowID)" : title,
         width: Int(window.frame.width),
         height: Int(window.frame.height),
-        application: window.owningApplication?.applicationName,
+        application: application.isEmpty ? nil : application,
         thumbnail: thumbnailForWindow(window.windowID)
       )
     }
@@ -119,6 +128,73 @@ final class CaptureEngine: NSObject {
       ($0.application ?? "") + $0.name < ($1.application ?? "") + $1.name
     }
     return SourcesResponse(displays: displays, windows: windows)
+  }
+
+  private func shouldExposeWindowSource(
+    title: String,
+    application: String,
+    frame: CGRect
+  ) -> Bool {
+    if title.isEmpty { return false }
+    let haystack = "\(application) \(title)"
+    let suppressedPatterns = [
+      "AccessibilityVisualsAgent",
+      "Open and Save Panel Service",
+      "Save Panel",
+      "Open Panel",
+      "自动填充",
+      "Autofill",
+      "Notification Center",
+      "通知中心",
+      "Control Center",
+      "控制中心",
+      "Dock",
+      "程序坞",
+      "Wallpaper",
+      "聚焦",
+      "Spotlight",
+      "loginwindow",
+      "Display \\d+ Backstop",
+      "Ring Light Helper",
+      "Excalicord Capture",
+      "ChatGPT Computer Use",
+      "Enable ChatGPT with Messages Permissions",
+      "SafariPlatformSupport\\.Helper",
+      "输入法",
+      "搜狗输入法",
+      "NacAssUIWindow",
+    ]
+    if matchesAny(haystack, patterns: suppressedPatterns) { return false }
+
+    if isGenericWindowTitle(title) {
+      return false
+    }
+    return true
+  }
+
+  private func isGenericWindowTitle(_ title: String) -> Bool {
+    let normalized = title.trimmingCharacters(in: .whitespacesAndNewlines)
+    for prefix in ["窗口", "Window"] {
+      guard normalized.localizedCaseInsensitiveCompare(prefix) != .orderedSame else {
+        return true
+      }
+      if normalized.lowercased().hasPrefix(prefix.lowercased()) {
+        let suffix = normalized.dropFirst(prefix.count)
+          .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !suffix.isEmpty, suffix.allSatisfy({ $0.isNumber }) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  private func matchesAny(_ value: String, patterns: [String]) -> Bool {
+    patterns.contains { matches(value, pattern: $0) }
+  }
+
+  private func matches(_ value: String, pattern: String) -> Bool {
+    value.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
   }
 
   func defaultSaveFolderURL() -> URL {
@@ -135,6 +211,25 @@ final class CaptureEngine: NSObject {
   }
 
   func projectFolderURL() -> URL { saveFolderURL() }
+
+  func setScreenLight(_ request: ScreenLightRequest) -> ScreenLightResponse {
+    screenLightEnabled = request.enabled
+    screenLightIntensity = clamp(request.intensity ?? screenLightIntensity, 0, 1)
+    applyScreenLightPreference()
+    return ScreenLightResponse(
+      ok: true,
+      enabled: screenLightEnabled,
+      intensity: screenLightIntensity
+    )
+  }
+
+  private func applyScreenLightPreference() {
+    if screenLightEnabled, screenLightIntensity > 0 {
+      ringLightOverlay.show(displayID: nil, sourceFrame: nil, intensity: screenLightIntensity)
+    } else {
+      ringLightOverlay.hide()
+    }
+  }
 
   private func recordingsFolderURL() -> URL {
     projectFolderURL().appendingPathComponent("recordings", isDirectory: true)
@@ -303,6 +398,8 @@ final class CaptureEngine: NSObject {
       let filter: SCContentFilter
       let sourceWidth: Int
       let sourceHeight: Int
+      var ringLightDisplayID: CGDirectDisplayID?
+      var ringLightSourceFrame: CGRect?
 
       if request.sourceType == "window" {
         guard let id = CGWindowID(request.sourceId),
@@ -311,6 +408,7 @@ final class CaptureEngine: NSObject {
         filter = SCContentFilter(desktopIndependentWindow: window)
         sourceWidth = max(2, Int(window.frame.width))
         sourceHeight = max(2, Int(window.frame.height))
+        ringLightSourceFrame = window.frame
       } else {
         let requestedDisplay = CGDirectDisplayID(request.sourceId).flatMap { id in
           content.displays.first(where: { $0.displayID == id })
@@ -321,6 +419,7 @@ final class CaptureEngine: NSObject {
         filter = SCContentFilter(display: display, excludingWindows: [])
         sourceWidth = max(2, display.width)
         sourceHeight = max(2, display.height)
+        ringLightDisplayID = display.displayID
       }
 
       let dimensions = scaledDimensions(width: sourceWidth, height: sourceHeight)
@@ -335,6 +434,17 @@ final class CaptureEngine: NSObject {
       smoothing = clamp(request.smoothing ?? 0, 0, 1)
       whitening = clamp(request.whitening ?? 0, 0, 1)
       lightIntensity = clamp(request.lightIntensity ?? 0, 0, 1)
+      screenLightEnabled = request.screenLightEnabled ?? screenLightEnabled
+      screenLightIntensity = clamp(request.screenLightIntensity ?? screenLightIntensity, 0, 1)
+      if screenLightEnabled, screenLightIntensity > 0 {
+        ringLightOverlay.show(
+          displayID: ringLightDisplayID,
+          sourceFrame: ringLightSourceFrame,
+          intensity: screenLightIntensity
+        )
+      } else {
+        ringLightOverlay.hide()
+      }
 
       let url = try makeOutputURL(sessionId: request.sessionId)
       try configureWriter(url: url, width: outputWidth, height: outputHeight)
@@ -410,6 +520,7 @@ final class CaptureEngine: NSObject {
     }
 
     completeStop(url: url)
+    applyScreenLightPreference()
     try desktopIcons.restoreIfNeeded()
     guard let url else { throw AgentError.noRecording }
     return url
@@ -810,6 +921,7 @@ final class CaptureEngine: NSObject {
     cameraSession?.stopRunning()
     cameraSession = nil
     stream = nil
+    applyScreenLightPreference()
     do {
       try desktopIcons.restoreIfNeeded()
     } catch {

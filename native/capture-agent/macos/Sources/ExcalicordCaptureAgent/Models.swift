@@ -25,6 +25,17 @@ struct SourcesResponse: Codable {
   let windows: [CaptureSource]
 }
 
+struct ScreenLightRequest: Codable {
+  let enabled: Bool
+  let intensity: Double?
+}
+
+struct ScreenLightResponse: Codable {
+  let ok: Bool
+  let enabled: Bool
+  let intensity: Double
+}
+
 struct CaptureStartRequest: Codable {
   let sourceType: String
   let sourceId: String
@@ -38,6 +49,8 @@ struct CaptureStartRequest: Codable {
   let smoothing: Double?
   let whitening: Double?
   let lightIntensity: Double?
+  let screenLightEnabled: Bool?
+  let screenLightIntensity: Double?
   let hideDesktopIcons: Bool?
 }
 

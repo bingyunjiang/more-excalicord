@@ -131,12 +131,12 @@
     return [
       '<div class="ec-editor-shell" role="dialog" aria-modal="true" aria-label="录后编辑工作台">',
       '  <header class="ec-editor-topbar">',
-      '    <button class="ec-editor-icon-button" type="button" data-action="close" aria-label="返回白板">←</button>',
-      '    <div class="ec-editor-brand"><span class="ec-editor-kicker">MORE EXCALICORD</span><strong>录后编辑</strong><span id="ec-editor-project-name"></span></div>',
+      '    <button class="ec-editor-back-button" type="button" data-action="close" aria-label="返回白板"><span aria-hidden="true">←</span><span>返回白板</span></button>',
+      '    <div class="ec-editor-brand"><span class="ec-editor-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span><span class="ec-editor-brand-copy"><span class="ec-editor-kicker">more-excalicord</span><strong>录后编辑</strong></span><span id="ec-editor-project-name"></span></div>',
       '    <div class="ec-editor-top-actions">',
       '      <span class="ec-editor-save-state" id="ec-editor-save-state">已载入</span>',
-      '      <button class="ec-editor-icon-button" type="button" data-action="undo" title="撤销">↶</button>',
-      '      <button class="ec-editor-icon-button" type="button" data-action="redo" title="重做">↷</button>',
+      '      <button class="ec-editor-icon-button" type="button" data-action="undo" title="撤销" aria-label="撤销">↶</button>',
+      '      <button class="ec-editor-icon-button" type="button" data-action="redo" title="重做" aria-label="重做">↷</button>',
       '      <button class="ec-editor-button" type="button" data-action="open-export">打开成片</button>',
       '      <button class="ec-editor-button ec-editor-button-export" type="button" data-action="export">导出成片</button>',
       '    </div>',
@@ -315,7 +315,7 @@
           video.removeEventListener("loadedmetadata", loaded);
           video.removeEventListener("error", failed);
           var durationMs = Math.max(0, Math.round(video.duration * 1000));
-          if (durationMs) session.store.updateActiveRecording({ durationMs: durationMs });
+          if (durationMs) session.store.hydrateActiveRecording({ durationMs: durationMs });
           resolve(media);
         }
         function failed() {
