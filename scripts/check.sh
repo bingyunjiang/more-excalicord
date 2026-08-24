@@ -266,7 +266,7 @@ for native_asset in \
   'text/subtitles.vtt' \
   'session.json' \
   'events.json'; do
-  if ! grep -q "$native_asset" "$repo_root/README.md"; then
+  if ! grep -q "$native_asset" "$repo_root/docs/project-format.zh-CN.md"; then
     echo "native asset whitelist documentation missing: $native_asset"
     exit 1
   fi

@@ -10,8 +10,8 @@
 
 <p align="center">
   <a href="#快速开始">快速开始</a> ·
-  <a href="#它能为你做什么">功能概览</a> ·
-  <a href="#真实运行效果">真实截图</a> ·
+  <a href="#核心体验">核心体验</a> ·
+  <a href="#先看实际效果">真实截图</a> ·
   <a href="docs/user-guide.zh-CN.md">使用指南</a> ·
   <a href="LICENSE">MIT License</a>
 </p>
@@ -20,7 +20,7 @@
 
 ## 在白板里创作，也在白板里开讲
 
-Excalidraw 很适合自由思考，却不天然适合按页讲解、稳定录制和后期交付。`more-excalicord` 在你的本地 Excalidraw 上增加一套轻量工作台/插件：默认设置即可开始录制，合成带有画中画的 MP4；兼顾自定义幻灯片Frame、提词器、画中画、字幕和录后编辑。
+Excalidraw 很适合自由思考，却不天然适合按页讲解、稳定录制和后期交付。`more-excalicord` 是面向自托管 Excalidraw 的轻量增强插件：默认设置即可开始录制并生成 MP4；需要时，还可以加入 Frame 幻灯片、提词器、摄像头画中画、字幕和录后编辑。
 
 <p align="center">
   <img src="docs/assets/readme/workflow-concept.svg" alt="more-excalicord 落笔成画开讲成片概念图" width="100%">
@@ -61,46 +61,15 @@ Frame 会成为可搜索、可重命名、可排序的讲解幻灯页。你可�
 
 剪辑、逐字稿、字幕、镜头、光标、摄像头、画面和音频设置都写入项目时间线；原始录制始终保留。
 
-## 能为你做什么
+## 核心体验
 
-### 让大白板变得可讲、可控
-
-- 把同一场景中的 Frame 当作幻灯片使用；
-- 页码导航、真实缩略图总览、搜索、重命名和拖拽排序；
-- 新增、批量删除、指定页聚焦和全局鸟瞰；
-- 缩放、撤回/前进、播放模式、网格和智能吸附；
-- 白板控制栏支持四向停靠，减少对内容的遮挡。
-
-### 覆盖三种常见录制方式
-
-| 录制范围 | 适合场景 |
+| 体验 | 你可以做什么 |
 | --- | --- |
-| 白板全景 | 课程、脑图、方案推演和自由讲解 |
-| 当前幻灯片 | 逐页汇报、固定画幅内容和竖屏视频 |
-| 屏幕或窗口 | 软件教程、资料演示和跨应用操作 |
-
-提供真实显示器与应用窗口预览；录制过程中支持倒计时、暂停、继续、停止和可拖动的迷你工具条。
-
-### 帮你更自然地完成口播
-
-- 可调速度、字号与透明度的提词器；
-- 麦克风授权、设备选择和实时电平；
-- 摄像头画中画、四角位置、形状、大小和镜像；
-- 屏幕边缘柔光补光；
-- 智能镜头与 Frame、鼠标、点击、输入事件记录。
-
-### 从原片走到智能剪辑（自定义）
-
-- 区间剪切、撤销与重做，原片不被覆盖；
-- 本地 ASR 或词级逐字稿导入与校对；
-- 字幕生成、编辑、SRT/VTT 导出与画面烧录；
-- 结合语音、Frame 切换和点击事件的智能粗剪建议；
-- 镜头关键帧、光标提示、摄像头位置、背景、圆角、留白和音频调节；
-- 导出 H.264/AAC MP4，并可直接用系统默认播放器打开。
-
-### 所有资产都留在一个本地项目里
-
-白板、原片、事件、逐字稿、字幕、编辑时间线与最终成片保存在用户选择的目录中。项目可以备份、迁移和复查，不依赖云端内容库。
+| 白板即幻灯片 | 用 Frame 组织、搜索、排序和聚焦讲解页，也能随时回到全局鸟瞰 |
+| 默认即可录制 | 直接录制白板全景或当前页；需要时再选择桌面窗口、麦克风和摄像头 |
+| 讲解更自然 | 使用提词器、画中画、柔光补光和可拖动的录制工具条 |
+| 录后继续精修 | 非破坏剪辑、逐字稿、字幕、智能镜头与画面包装都不会覆盖原片 |
+| 本地项目交付 | 白板、原片、事件、字幕和成片保存在同一项目目录，便于备份与迁移 |
 
 ## 默认设置，直接开录
 
@@ -112,26 +81,11 @@ Frame 会成为可搜索、可重命名、可排序的讲解幻灯页。你可�
   <img src="docs/assets/readme/operation-steps-concept.svg" alt="more-excalicord 三步开录概念图" width="100%">
 </p>
 
-Frame 整理、桌面窗口选择、摄像头画中画、提词器、字幕和智能剪辑都是自定义增强项；默认不配置也能先把讲解录下来。下面三张是真实页面操作截图，对应“项目载入 → 录制中 → 录后编辑”的主路径。
-
-<p align="center">
-  <img src="docs/assets/readme/21-v011-rich-sketch-project.png" alt="more-excalicord 打开示例白板和项目面板" width="32%">
-  <img src="docs/assets/readme/22-v011-recording-toolbar.png" alt="more-excalicord 录制中的迷你工具条" width="32%">
-  <img src="docs/assets/readme/23-v011-real-post-editor.png" alt="more-excalicord 真实录后编辑界面" width="32%">
-</p>
+Frame 整理、桌面窗口、摄像头、提词器、字幕和智能剪辑都是可选增强项，不是开始录制的前置条件。
 
 ## 快速开始
 
-### 运行条件
-
-- macOS/windows；
-- Node.js 与 npm；
-- 已运行的自托管 Excalidraw；
-- 按需授予屏幕录制、摄像头和麦克风权限。
-
-默认假设 Excalidraw 位于 `~/.local/share/excalidraw`，页面运行在 `http://localhost:5001/`。
-
-### 安装
+准备好 Node.js、npm 和一个可运行的自托管 Excalidraw，然后执行：
 
 ```bash
 git clone https://github.com/bingyunjiang/more-excalicord.git
@@ -139,134 +93,21 @@ cd more-excalicord
 npm run setup:local
 npm run check
 npm run deploy:local
-npm run verify:deploy
 ```
 
-部署后打开 `http://localhost:5001/`。右侧出现 more-excalicord 工具栏，即可载入 [`examples/more-paper-workflow-video-rich-sketch-20260815.excalidraw`](examples/more-paper-workflow-video-rich-sketch-20260815.excalidraw) 体验。
+部署后打开 `http://localhost:5001/`。右侧出现 more-excalicord 工具栏，即可载入[示例白板](examples/more-paper-workflow-video-rich-sketch-20260815.excalidraw)体验。
 
-如果 Excalidraw 不在默认目录：
-
-```bash
-npm run configure:local -- --runtime-root /path/to/excalidraw
-npm run preflight
-```
-
-需要录制真实显示器或普通应用窗口时，安装 macOS Capture Agent：
-
-```bash
-npm run deploy:capture-agent
-```
-
-需要本地自动逐字稿时：
-
-```bash
-npm run setup:asr
-```
-
-更完整的安装和首次使用步骤见[快速开始](docs/quickstart.zh-CN.md)与[安装说明](docs/install.zh-CN.md)。
-
-## 项目里会保存什么
-
-```text
-project-root/
-├── project.excalicord.json       # 项目清单与编辑状态
-├── scene.excalidraw              # 当前白板
-├── attachments/                  # 白板附件
-├── recordings/
-│   └── <session-id>/
-│       ├── recording.mp4         # 原始录制
-│       ├── session.json          # 当次录制配置
-│       └── events.json           # Frame、指针与点击事件
-├── text/
-│   ├── transcript.raw.json
-│   ├── transcript.corrections.json
-│   ├── transcript.corrected.json
-│   ├── subtitles.srt
-│   └── subtitles.vtt
-└── exports/
-    └── final.mp4
-```
-
-常见原始资产路径包括 `recordings/<session-id>/recording.mp4`、`recordings/<session-id>/webcam-*.mp4`、`recordings/<session-id>/session.json`、`recordings/<session-id>/events.json`、`text/transcript.raw.json`、`text/transcript.corrected.json`、`text/transcript.corrections.json`、`text/subtitles.srt` 与 `text/subtitles.vtt`。
-
-`project.excalicord.json` 是项目真值，`localStorage` 只用于崩溃恢复。每次录制进入独立 session，剪辑和效果以非破坏方式保存。
-
-## 真实运行效果
-
-本仓库已用包含 **6 个 Frame、284 个元素**的示例白板。验证依据包括实际落盘文件、项目重载、`ffprobe` 检查和 QuickTime 回放。
-
-<p align="center">
-  <img src="docs/assets/readme/33-external-display-source-picker-20260824.png" alt="macOS Capture Agent 的真实桌面来源选择" width="100%">
-</p>
-
-| 链路 | 实测结果 |
-| --- | --- |
-| 白板全景 | 1920×1080、30 fps、H.264/AAC；摄像头画中画合成 |
-| 当前幻灯片 | 1080×1920、H.264/AAC；Frame 聚焦与麦克风音轨生效 |
-| 扩展屏桌面 | 1920×1080、H.264/AAC；真实来源选择并完成 QuickTime 回放 |
-| 最终成片 | 38.40 秒、H.264/AAC；字幕、镜头关键帧与光标事件参与渲染 |
-
-<p align="center">
-  <img src="docs/assets/readme/37-final-export-burned-subtitle-20260824.png" alt="more-excalicord 导出的字幕烧录成片" width="100%">
-</p>
-
-更细的功能与 UX 验证记录见 [v0.1.1 UX 复核](docs/v0.1.1-ux-review.zh-CN.md)。
-
-## 当前边界
-
-这里明确保留仍然存在的限制：
-
-- Native 桌面合成录制会把人像烧入主视频，录后不能单独移动或隐藏；白板、Frame 与浏览器共享录制可保存独立同步的 `webcam` 素材；
-- Virtual Ring Light 是屏幕边缘柔光，不是人脸分割或自动曝光 AI；
-- 智能粗剪给出的是建议。静音区间内存在 Frame 切换、点击或指针操作时，会要求人工复核；
-- 浏览器、摄像头、麦克风和屏幕录制权限仍受 macOS 与浏览器安全策略约束；
-- 当前主要面向本机自托管部署，不是托管式 SaaS 服务。
-
-## 隐私与安全
-
-- 白板、原片、逐字稿和成片默认保存在用户选择的本地项目目录；
-- 摄像头与麦克风只在用户主动启用并授权后读取；
-- Capture Agent 严格限制可写项目路径，拒绝绝对路径、反斜杠、`..` 和任意目录写入；
-- Native overlay 在支持的桌面录制链路中设置为不进入屏幕共享；浏览器兜底录制仍应通过实际回放确认；
-- 公开文档不提交真实摄像头人像截图。
-
-## 常用命令
-
-| 命令 | 用途 |
-| --- | --- |
-| `npm run preflight` | 检查本地环境、运行目录、写权限和页面状态 |
-| `npm run configure:local -- --runtime-root <path>` | 配置本机 Excalidraw 目录 |
-| `npm run setup:local` | 配置默认目录并执行预检 |
-| `npm run setup:asr` | 安装本地 faster-whisper 并缓存 base 模型 |
-| `npm run check` | 运行语法、schema、单元测试和仓库检查 |
-| `npm run deploy:local` | 部署插件到本地 Excalidraw |
-| `npm run deploy:capture-agent` | 构建并安装 macOS Capture Agent |
-| `npm run verify:deploy` | 比较仓库源码与已部署文件 |
-| `npm run smoke:render` | 执行录后渲染 smoke test |
-| `npm run status` | 查看 Git 与部署状态 |
-| `npm run pack:release` | 生成 Release ZIP |
+自定义 Excalidraw 目录、macOS Capture Agent、本地 ASR 和权限配置见[完整安装说明](docs/install.zh-CN.md)。
 
 ## 文档与开发
 
-- [快速开始](docs/quickstart.zh-CN.md)
-- [安装说明](docs/install.zh-CN.md)
-- [用户指南](docs/user-guide.zh-CN.md)
-- [项目格式](docs/project-format.zh-CN.md)
-- [开发指南](docs/developer-guide.zh-CN.md)
-- [排障说明](docs/troubleshooting.zh-CN.md)
-- [发布检查](docs/release-checklist.zh-CN.md)
-
-仓库结构：
-
-| 路径 | 内容 |
+| 我想…… | 从这里开始 |
 | --- | --- |
-| `src/` | 白板插件、录制面板、项目 I/O 与录后编辑器 |
-| `server/` | 本地服务、ASR 和最终渲染 |
-| `native/capture-agent/macos/` | macOS Capture Agent 源码 |
-| `schemas/` | Excalicord 项目 schema |
-| `scripts/` | 配置、部署、检查、打包与 smoke test |
-| `tests/` | 编辑器、存储、粗剪、镜头与渲染测试 |
-| `examples/` | 可直接载入的 Excalidraw 示例 |
+| 尽快用起来 | [快速开始](docs/quickstart.zh-CN.md) · [使用指南](docs/user-guide.zh-CN.md) |
+| 完成安装或排障 | [安装说明](docs/install.zh-CN.md) · [排障说明](docs/troubleshooting.zh-CN.md) |
+| 了解项目文件 | [项目格式](docs/project-format.zh-CN.md) |
+| 参与开发或发布 | [开发指南](docs/developer-guide.zh-CN.md) · [发布检查](docs/release-checklist.zh-CN.md) |
+| 查看实测证据 | [v0.1.1 UX 复核](docs/v0.1.1-ux-review.zh-CN.md) |
 
 ## 作者与许可
 

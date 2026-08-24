@@ -1,5 +1,33 @@
 # 开发与同步
 
+## 仓库结构
+
+| 路径 | 内容 |
+| --- | --- |
+| `src/` | 白板插件、录制面板、项目 I/O 与录后编辑器 |
+| `server/` | 本地服务、ASR 和最终渲染 |
+| `native/capture-agent/macos/` | macOS Capture Agent 源码 |
+| `schemas/` | Excalicord 项目 schema |
+| `scripts/` | 配置、部署、检查、打包与 smoke test |
+| `tests/` | 编辑器、存储、粗剪、镜头与渲染测试 |
+| `examples/` | 可直接载入的 Excalidraw 示例 |
+
+## 常用命令
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm run preflight` | 检查本地环境、运行目录、写权限和页面状态 |
+| `npm run configure:local -- --runtime-root <path>` | 配置本机 Excalidraw 目录 |
+| `npm run setup:local` | 配置默认目录并执行预检 |
+| `npm run setup:asr` | 安装本地 faster-whisper 并缓存 base 模型 |
+| `npm run check` | 运行语法、schema、单元测试和仓库检查 |
+| `npm run deploy:local` | 部署插件到本地 Excalidraw |
+| `npm run deploy:capture-agent` | 构建并安装 macOS Capture Agent |
+| `npm run verify:deploy` | 比较仓库源码与已部署文件 |
+| `npm run smoke:render` | 执行录后渲染 smoke test |
+| `npm run status` | 查看 Git 与部署状态 |
+| `npm run pack:release` | 生成 Release ZIP |
+
 ## 三方关系
 
     GitHub 远程仓库

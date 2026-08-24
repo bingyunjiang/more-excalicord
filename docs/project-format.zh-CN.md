@@ -2,6 +2,34 @@
 
 `project.excalicord.json` 是项目清单，不保存视频二进制。所有文件路径均相对于用户选择的项目文件夹，项目整体移动后仍可重新打开。
 
+## 典型目录结构
+
+```text
+project-root/
+├── project.excalicord.json       # 项目清单与编辑状态
+├── scene.excalidraw              # 当前白板
+├── attachments/                  # 白板附件
+├── recordings/
+│   └── <session-id>/
+│       ├── recording.mp4         # 原始录制
+│       ├── webcam-*.mp4          # 可选的独立摄像头素材
+│       ├── session.json          # 当次录制配置
+│       └── events.json           # Frame、指针与点击事件
+├── text/
+│   ├── script.md
+│   ├── transcript.raw.json
+│   ├── transcript.corrections.json
+│   ├── transcript.corrected.json
+│   ├── subtitles.srt
+│   └── subtitles.vtt
+└── exports/
+    └── final.mp4
+```
+
+常见原始资产路径包括 `recordings/<session-id>/recording.mp4`、`recordings/<session-id>/webcam-*.mp4`、`recordings/<session-id>/session.json`、`recordings/<session-id>/events.json`、`text/transcript.raw.json`、`text/transcript.corrected.json`、`text/transcript.corrections.json`、`text/subtitles.srt` 与 `text/subtitles.vtt`。
+
+`project.excalicord.json` 是项目真值，`localStorage` 只用于崩溃恢复。每次录制进入独立 session，剪辑和效果以非破坏方式保存。
+
 ## schema v2
 
 v2 将“原始录制”和“编辑决策”分开：
