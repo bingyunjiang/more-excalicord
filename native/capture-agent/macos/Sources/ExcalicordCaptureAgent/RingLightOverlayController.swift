@@ -126,16 +126,8 @@ private final class RingLightView: NSView {
     context.saveGState()
     context.setBlendMode(.screen)
 
-    // Keep the light close to the display edge. The first ring only softens the
-    // boundary by a few pixels; the second is the visible, continuous light band.
-    drawRoundedRing(
-      context,
-      bounds: bounds,
-      inset: 5,
-      width: band + 6,
-      radius: cornerRadius,
-      color: NSColor(calibratedRed: 1, green: 0.985, blue: 0.94, alpha: 0.18 * alpha)
-    )
+    // Keep one continuous light band close to the display edge. A single band
+    // avoids the double-ring appearance of Apple's native Edge Light.
     drawRoundedRing(
       context,
       bounds: bounds,

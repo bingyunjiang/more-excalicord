@@ -32,7 +32,7 @@
   </defs>
   <rect width="1280" height="440" fill="url(#bg)"/>
   <text x="640" y="58" class="t title" text-anchor="middle">默认设置，三步就能开录</text>
-  <text x="640" y="88" class="t sub" text-anchor="middle">先把讲解录下来；提词、摄像头、字幕和剪辑都可以之后再加</text>
+  <text x="640" y="88" class="t sub" text-anchor="middle">打开白板，想出镜就开启画中画，然后开始录制</text>
 
   <path class="line" d="M396 220h104"/>
   <path class="line" d="M780 220h104"/>
@@ -51,7 +51,7 @@
     <circle class="num" cx="54" cy="54" r="30"/>
     <text x="54" y="63" class="t numText" text-anchor="middle">2</text>
     <text x="102" y="56" class="t h">点击录制</text>
-    <text x="38" y="108" class="t p">默认白板全景 / 当前页即可开始</text>
+    <text x="38" y="108" class="t p">白板全景 / 当前页都能开启画中画</text>
     <text x="38" y="134" class="t p">暂停、继续、停止都在迷你工具条里</text>
   </g>
 
@@ -70,7 +70,7 @@
   </g>
   <g transform="translate(358 348)">
     <rect class="chip" width="132" height="36"/>
-    <text x="66" y="24" class="t chipText" text-anchor="middle">摄像头画中画</text>
+    <text x="66" y="24" class="t chipText" text-anchor="middle">一键画中画</text>
   </g>
   <g transform="translate(514 348)">
     <rect class="chip" width="118" height="36"/>
@@ -84,5 +84,5 @@
     <rect class="chip" width="132" height="36"/>
     <text x="66" y="24" class="t chipText" text-anchor="middle">智能粗剪</text>
   </g>
-  <text x="640" y="414" class="t sub" text-anchor="middle">这些都是可选增强项，不是开始录制的前置条件</text>
+  <text x="640" y="414" class="t sub" text-anchor="middle">画中画按需开启；提词、字幕和智能剪辑也可以稍后再加</text>
 </svg>

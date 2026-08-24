@@ -7,7 +7,14 @@ struct HealthResponse: Codable {
   let state: String
   let capabilities: [String]
   let permissions: [String: Bool]
+  let edgeLight: EdgeLightStatus
   let token: String
+}
+
+struct EdgeLightStatus: Codable {
+  let supported: Bool
+  let enabled: Bool
+  let active: Bool
 }
 
 struct CaptureSource: Codable {
@@ -34,6 +41,8 @@ struct ScreenLightResponse: Codable {
   let ok: Bool
   let enabled: Bool
   let intensity: Double
+  let provider: String
+  let edgeLightActive: Bool
 }
 
 struct CaptureStartRequest: Codable {

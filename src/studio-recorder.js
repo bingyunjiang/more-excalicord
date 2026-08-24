@@ -1458,7 +1458,7 @@
     '      <div class="ec-advanced-effects-body">',
     '    <section class="ec-effect-card ec-effect-card-camera" aria-labelledby="ec-effect-camera-title">',
     '      <div class="ec-effect-card-title" id="ec-effect-camera-title"><strong>人像与补光</strong><span>只影响讲解者画面和录制现场光线</span></div>',
-    '      <div class="ec-row"><label>AI 补光（屏幕补光）</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 屏幕补光灯（环形灯）</label></div>',
+    '      <div class="ec-row"><label>屏幕补光</label><label class="ec-toggle"><input type="checkbox" id="ec-screen-light-toggle"/> 屏幕补光灯</label></div>',
     '      <div class="ec-row" id="ec-screen-light-row" style="display:none"><label>亮度</label><input type="range" id="ec-screen-light-intensity" min="0" max="1" step="0.05" value="0.85"/><span class="ec-value" id="ec-screen-light-intensity-v">0.85</span></div>',
     '      <div class="ec-row"><label>镜头增亮</label><label class="ec-toggle"><input type="checkbox" id="ec-light-toggle"/> 增强摄像头画面</label></div>',
     '      <div class="ec-row" id="ec-light-row" style="display:none"><label>强度</label><input type="range" id="ec-light-intensity" min="0" max="1" step="0.05" value="0.35"/><span class="ec-value" id="ec-light-intensity-v">0.35</span></div>',
@@ -5068,7 +5068,7 @@
     updateScreenLight();
     saveScreenLightPreferences();
     syncNativeScreenLight(true);
-    toast(screenLightToggle.checked ? "AI 补光灯已开启" : "AI 补光灯已关闭");
+    toast(screenLightToggle.checked ? "屏幕补光已开启" : "屏幕补光已关闭");
   });
   screenLightIntensity.addEventListener("input", function () {
     updateScreenLight();

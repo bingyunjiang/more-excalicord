@@ -63,6 +63,9 @@ final class CaptureEngine: NSObject {
   private var lightIntensity = 0.0
   private var screenLightEnabled = false
   private var screenLightIntensity = 0.85
+  private var screenLightDisplayID: CGDirectDisplayID?
+  private var screenLightSourceFrame: CGRect?
+  private var edgeLightMonitor: DispatchSourceTimer?
 
   private var cameraWriter: AVAssetWriter?
   private var cameraVideoInput: AVAssetWriterInput?
@@ -101,7 +104,23 @@ final class CaptureEngine: NSObject {
         "camera": AVCaptureDevice.authorizationStatus(for: .video) == .authorized,
         "microphone": AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
       ],
+      edgeLight: currentEdgeLightStatus(),
       token: token
+    )
+  }
+
+  private func currentEdgeLightStatus() -> EdgeLightStatus {
+    guard #available(macOS 26.2, *) else {
+      return EdgeLightStatus(supported: false, enabled: false, active: false)
+    }
+
+    let supported = AVCaptureDevice.default(for: .video)?.formats.contains {
+      $0.isEdgeLightSupported
+    } ?? false
+    return EdgeLightStatus(
+      supported: supported,
+      enabled: AVCaptureDevice.isEdgeLightEnabled,
+      active: AVCaptureDevice.isEdgeLightActive
     )
   }
 
@@ -226,20 +245,53 @@ final class CaptureEngine: NSObject {
   func setScreenLight(_ request: ScreenLightRequest) -> ScreenLightResponse {
     screenLightEnabled = request.enabled
     screenLightIntensity = clamp(request.intensity ?? screenLightIntensity, 0, 1)
+    if screenLightEnabled {
+      startEdgeLightMonitor()
+    } else {
+      stopEdgeLightMonitor()
+    }
     applyScreenLightPreference()
+    let edgeLight = currentEdgeLightStatus()
     return ScreenLightResponse(
       ok: true,
       enabled: screenLightEnabled,
-      intensity: screenLightIntensity
+      intensity: screenLightIntensity,
+      provider: edgeLight.active ? "apple-edge-light" : "excalicord",
+      edgeLightActive: edgeLight.active
     )
   }
 
-  private func applyScreenLightPreference() {
-    if screenLightEnabled, screenLightIntensity > 0 {
-      ringLightOverlay.show(displayID: nil, sourceFrame: nil, intensity: screenLightIntensity)
+  private func applyScreenLightPreference(
+    displayID: CGDirectDisplayID? = nil,
+    sourceFrame: CGRect? = nil
+  ) {
+    if currentEdgeLightStatus().active {
+      ringLightOverlay.hide()
+    } else if screenLightEnabled, screenLightIntensity > 0 {
+      ringLightOverlay.show(
+        displayID: displayID ?? screenLightDisplayID,
+        sourceFrame: sourceFrame ?? screenLightSourceFrame,
+        intensity: screenLightIntensity
+      )
     } else {
       ringLightOverlay.hide()
     }
+  }
+
+  private func startEdgeLightMonitor() {
+    edgeLightMonitor?.cancel()
+    let monitor = DispatchSource.makeTimerSource(queue: screenQueue)
+    monitor.schedule(deadline: .now(), repeating: .milliseconds(500))
+    monitor.setEventHandler { [weak self] in
+      self?.applyScreenLightPreference()
+    }
+    edgeLightMonitor = monitor
+    monitor.resume()
+  }
+
+  private func stopEdgeLightMonitor() {
+    edgeLightMonitor?.cancel()
+    edgeLightMonitor = nil
   }
 
   private func recordingsFolderURL() -> URL {
@@ -453,15 +505,10 @@ final class CaptureEngine: NSObject {
       lightIntensity = clamp(request.lightIntensity ?? 0, 0, 1)
       screenLightEnabled = request.screenLightEnabled ?? screenLightEnabled
       screenLightIntensity = clamp(request.screenLightIntensity ?? screenLightIntensity, 0, 1)
-      if screenLightEnabled, screenLightIntensity > 0 {
-        ringLightOverlay.show(
-          displayID: ringLightDisplayID,
-          sourceFrame: ringLightSourceFrame,
-          intensity: screenLightIntensity
-        )
-      } else {
-        ringLightOverlay.hide()
-      }
+      screenLightDisplayID = ringLightDisplayID
+      screenLightSourceFrame = ringLightSourceFrame
+      applyScreenLightPreference(displayID: ringLightDisplayID, sourceFrame: ringLightSourceFrame)
+      if screenLightEnabled { startEdgeLightMonitor() }
 
       let url = try makeOutputURL(sessionId: request.sessionId)
       try configureWriter(url: url, width: outputWidth, height: outputHeight)
@@ -554,6 +601,7 @@ final class CaptureEngine: NSObject {
     }
 
     completeStop(url: url, webcamURL: cameraURL)
+    stopEdgeLightMonitor()
     applyScreenLightPreference()
     try desktopIcons.restoreIfNeeded()
     guard let url else { throw AgentError.noRecording }
@@ -1100,6 +1148,7 @@ final class CaptureEngine: NSObject {
     cameraSession?.stopRunning()
     cameraSession = nil
     stream = nil
+    stopEdgeLightMonitor()
     applyScreenLightPreference()
     do {
       try desktopIcons.restoreIfNeeded()
