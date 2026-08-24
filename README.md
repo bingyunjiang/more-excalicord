@@ -12,6 +12,7 @@
   <a href="#画中画让白板讲解更有人在场">画中画</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#核心体验">核心体验</a> ·
+  <a href="#more-系列从研究到表达">More 系列</a> ·
   <a href="#其他真实效果">真实截图</a> ·
   <a href="docs/user-guide.zh-CN.md">使用指南</a> ·
   <a href="CHANGELOG.md">更新日志</a> ·
@@ -51,6 +52,20 @@
 </p>
 
 适合用来制作技术方案讲解、课程与培训视频、论文与产品汇报，以及带桌面操作的软件教程。
+
+## More 系列：从研究到表达
+
+`more-*` 是 Dr. Jiang 发起的一组开源创作与研究工具，强调本地优先、过程透明、来源可追溯和结果可复核。你可以从当前任务直接选择合适的项目，也可以把各自已经验收的成果组合进自己的工作流。
+
+| 项目 | 帮你完成什么 |
+| --- | --- |
+| [more-news-briefing](https://github.com/bingyunjiang/more-news-briefing) | 收集、去重并核验新闻与行业信息，生成可追溯的专题简报 |
+| [more-paper-workflow](https://github.com/bingyunjiang/more-paper-workflow) | 从研究问题、文献检索和证据组织，到论文写作与引用审计 |
+| [more-sci-figure](https://github.com/bingyunjiang/more-sci-figure) | 提取科研图表数据、聚焦异常复核，并交付论文级可编辑图件 |
+| [more-chat-excalidraw](https://github.com/bingyunjiang/more-chat-excalidraw) | 用自然语言生成结构化、可继续编辑的 Excalidraw 白板 |
+| **[more-excalicord](https://github.com/bingyunjiang/more-excalicord)**（当前项目） | 把 Excalidraw 白板变成带画中画、讲解和录后编辑的视频 |
+
+这些项目彼此独立安装、独立运行、独立验收，不会自动调用其他项目或共享你的项目数据。[查看 Dr. Jiang 的全部公开项目](https://github.com/bingyunjiang?tab=repositories&q=more-)。
 
 ## 其他真实效果
 
