@@ -366,21 +366,31 @@
       var path = safeRelativePath(item.path, "");
       if (!path) return;
       var durationMs = Math.max(0, finite(item.duration, 0) * 1000);
+      var webcamPath = safeRelativePath(item.webcamPath, "");
+      var hasWebcam = Boolean(webcamPath);
+      var webcamCompositeBaked = item.webcamCompositeBaked === true;
       var recording = createRecording({
         id: "legacy-recording-" + String(index + 1),
         createdAt: item.recordedAt,
         scope: recordingState.scope,
         ratio: recordingState.ratio,
         durationMs: durationMs,
-        legacyComposite: true,
+        legacyComposite: !hasWebcam || webcamCompositeBaked,
         assets: {
           screen: {
             path: path,
-            kind: "composite",
+            kind: hasWebcam && !webcamCompositeBaked ? "screen" : "composite",
             type: item.type,
             durationMs: durationMs,
-            baked: true,
+            baked: !hasWebcam || webcamCompositeBaked,
           },
+          webcam: hasWebcam ? {
+            path: webcamPath,
+            kind: "webcam",
+            type: item.webcamType || "video/webm",
+            durationMs: Math.max(0, finite(item.webcamDuration, finite(item.duration, 0)) * 1000),
+            baked: false,
+          } : null,
         },
         embeddedSession: index === media.length - 1 ? raw.session : null,
         embeddedEvents: index === media.length - 1 ? raw.events : [],
@@ -633,13 +643,21 @@
         duration: recording ? recording.durationMs / 1000 : 0,
         media: project.recordings.map(function (item) {
           var asset = item.assets.screen;
+          var webcam = item.assets.webcam;
           if (!asset) return null;
-          return {
+          var media = {
             path: asset.path,
             type: asset.mimeType,
             recordedAt: item.createdAt,
             duration: item.durationMs / 1000,
           };
+          if (webcam && webcam.path) {
+            media.webcamPath = webcam.path;
+            media.webcamType = webcam.mimeType;
+            media.webcamDuration = (webcam.durationMs || item.durationMs) / 1000;
+            media.webcamCompositeBaked = item.legacyComposite === true;
+          }
+          return media;
         }).filter(Boolean),
       },
       session: recording ? clone(recording.embeddedSession) : null,
@@ -683,29 +701,58 @@
         return item.assets.screen && item.assets.screen.path === path;
       });
       var durationMs = Math.max(0, finite(media.duration, 0) * 1000);
+      var mediaScope = typeof media.scope === "string" ? media.scope : recordingState.scope;
+      var mediaRatio = typeof media.ratio === "string" ? media.ratio : recordingState.ratio;
       if (!existing) {
+        var webcamPath = safeRelativePath(media.webcamPath, "");
+        var hasWebcam = Boolean(webcamPath);
+        var webcamCompositeBaked = media.webcamCompositeBaked === true;
         existing = createRecording({
           id: "recording-" + String(project.recordings.length + index + 1),
           createdAt: media.recordedAt,
-          scope: recordingState.scope,
-          ratio: recordingState.ratio,
+          scope: mediaScope,
+          ratio: mediaRatio,
           durationMs: durationMs,
-          legacyComposite: true,
+          legacyComposite: !hasWebcam || webcamCompositeBaked,
           assets: {
             screen: {
               path: path,
-              kind: "composite",
+              kind: hasWebcam && !webcamCompositeBaked ? "screen" : "composite",
               type: media.type,
               durationMs: durationMs,
-              baked: true,
+              baked: !hasWebcam || webcamCompositeBaked,
             },
+            webcam: hasWebcam ? {
+              path: webcamPath,
+              kind: "webcam",
+              type: media.webcamType || "video/webm",
+              durationMs: Math.max(0, finite(media.webcamDuration, finite(media.duration, 0)) * 1000),
+              baked: false,
+            } : null,
           },
         });
         project.recordings.push(existing);
       } else {
-        existing.scope = typeof recordingState.scope === "string" ? recordingState.scope : existing.scope;
-        existing.ratio = typeof recordingState.ratio === "string" ? recordingState.ratio : existing.ratio;
+        existing.scope = typeof mediaScope === "string" ? mediaScope : existing.scope;
+        existing.ratio = typeof mediaRatio === "string" ? mediaRatio : existing.ratio;
         if (durationMs) existing.durationMs = durationMs;
+        var existingWebcamPath = safeRelativePath(media.webcamPath, "");
+        if (existingWebcamPath) {
+          existing.assets.webcam = {
+            path: existingWebcamPath,
+            kind: "webcam",
+            type: media.webcamType || "video/webm",
+            durationMs: Math.max(0, finite(media.webcamDuration, finite(media.duration, 0)) * 1000),
+            baked: false,
+          };
+          if (media.webcamCompositeBaked === true) {
+            existing.legacyComposite = true;
+            if (existing.assets.screen) {
+              existing.assets.screen.kind = "composite";
+              existing.assets.screen.baked = true;
+            }
+          }
+        }
       }
       lastLegacyRecording = existing;
     });

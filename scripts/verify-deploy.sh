@@ -85,4 +85,66 @@ for (const indexFile of indexFiles) {
 }
 NODE
 
+node - "$runtime_root/public" "$runtime_root/excalidraw-app/build" <<'NODE'
+const fs = require("fs");
+const path = require("path");
+const roots = process.argv.slice(2);
+const remoteFontPatterns = [
+  "https://excalidraw.nyc3.cdn.digitaloceanspaces.com/oss/fonts/",
+  "https://excalidraw.nyc3.cdn.digitaloceanspaces.com/oss/",
+  "https://www.excalidraw.com/fonts/",
+];
+
+function walk(dir, files = []) {
+  if (!fs.existsSync(dir)) {
+    return files;
+  }
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walk(full, files);
+    } else if (/\.(?:html|css|js)$/.test(entry.name)) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+const offenders = [];
+for (const root of roots) {
+  for (const file of walk(root)) {
+    const text = fs.readFileSync(file, "utf8");
+    if (remoteFontPatterns.some((pattern) => text.includes(pattern))) {
+      offenders.push(file);
+    }
+  }
+}
+if (offenders.length) {
+  throw new Error("remote Excalidraw font references remain: " + offenders.slice(0, 8).join(", "));
+}
+
+for (const root of roots) {
+  const requiredFiles = [
+    "fonts/Assistant/Assistant-Regular.woff2",
+    "fonts/Assistant/Assistant-Medium.woff2",
+    "fonts/Assistant/Assistant-SemiBold.woff2",
+    "fonts/Assistant/Assistant-Bold.woff2",
+    "fonts/MaShanZheng/MaShanZheng-Regular.woff2",
+    "fonts/LongCang/LongCang-Regular.woff2",
+  ];
+  for (const relative of requiredFiles) {
+    const candidate = path.join(root, relative);
+    if (!fs.existsSync(candidate)) {
+      throw new Error("missing local CJK font asset: " + candidate);
+    }
+  }
+  const lxgwDir = path.join(root, "fonts/LXGWWenKai");
+  const hasLxgwShard = fs.existsSync(lxgwDir)
+    && fs.readdirSync(lxgwDir).some((name) => /^LXGWWenKai-Regular-\d+\.woff2$/.test(name));
+  if (!hasLxgwShard) {
+    throw new Error("missing local CJK font shards: " + lxgwDir);
+  }
+}
+NODE
+
 echo "deploy verified"

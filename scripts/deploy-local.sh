@@ -45,9 +45,33 @@ cp "$repo_root/server/render_caption_overlays.py" "$caption_renderer_target"
 cp "$repo_root/server/transcribe_audio.py" "$transcribe_target"
 chmod +x "$caption_renderer_target" "$transcribe_target"
 
+build_fonts="$runtime_root/excalidraw-app/build/fonts"
+public_fonts="$runtime_root/public/fonts"
+if [ -d "$build_fonts" ]; then
+  assistant_fonts="$runtime_root/packages/excalidraw/fonts/Assistant"
+  if [ -d "$assistant_fonts" ]; then
+    mkdir -p "$build_fonts/Assistant"
+    cp -R "$assistant_fonts/." "$build_fonts/Assistant/"
+  fi
+  mkdir -p "$public_fonts"
+  cp -R "$build_fonts/." "$public_fonts/"
+fi
+
 for index_file in "$public_index" "$build_index"; do
   if [ -f "$index_file" ]; then
     perl -0pi -e "s#<link rel=\"stylesheet\" href=\"/recorder/(?:recorder|post-editor)\.css\?v=[^\"]+\"\s*/?>\s*##g; s#<script defer(?:=\"defer\")? src=\"/recorder/(?:editor-core|editor-store|editor-io|rough-cut-core|smart-camera-core|native-bridge|studio-recorder|post-editor)\.js\?v=[^\"]+\"></script>\s*##g; s#</body>#<link rel=\"stylesheet\" href=\"/recorder/recorder.css?v=$version\"/><link rel=\"stylesheet\" href=\"/recorder/post-editor.css?v=$version\"/><script defer=\"defer\" src=\"/recorder/editor-core.js?v=$version\"></script><script defer=\"defer\" src=\"/recorder/editor-store.js?v=$version\"></script><script defer=\"defer\" src=\"/recorder/editor-io.js?v=$version\"></script><script defer=\"defer\" src=\"/recorder/rough-cut-core.js?v=$version\"></script><script defer=\"defer\" src=\"/recorder/smart-camera-core.js?v=$version\"></script><script defer=\"defer\" src=\"/recorder/native-bridge.js?v=$version\"></script><script defer=\"defer\" src=\"/recorder/studio-recorder.js?v=$version\"></script><script defer=\"defer\" src=\"/recorder/post-editor.js?v=$version\"></script></body>#g" "$index_file"
+  fi
+done
+
+# The upstream Excalidraw build prefers its remote font CDN even when the
+# self-hosted build already contains the same font files under build/fonts/.
+# On restricted networks this shows up as noisy 403s for CJK font shards such
+# as LXGWWenKai, MaShanZheng, and LongCang. Rewrite deployed build assets to
+# the local /fonts/ path so self-hosted Excalidraw stays self-contained.
+for asset_root in "$runtime_root/public" "$runtime_root/excalidraw-app/build"; do
+  if [ -d "$asset_root" ]; then
+    find "$asset_root" -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' \) -print0 \
+      | xargs -0 perl -0pi -e 's#https://excalidraw\.nyc3\.cdn\.digitaloceanspaces\.com/oss/fonts/#/fonts/#g; s#https://www\.excalidraw\.com/fonts/#/fonts/#g; s#\"https://excalidraw\.nyc3\.cdn\.digitaloceanspaces\.com/oss/\"#\"/\"#g'
   fi
 done
 

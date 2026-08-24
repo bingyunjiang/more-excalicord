@@ -1169,7 +1169,7 @@
       var bridge = nativeBridge();
       if (!bridge || typeof bridge.openLastExport !== "function") return showToast("本地成片服务尚未连接", "warning");
       if (!nativeProjectFolderSelected()) return showToast("打开成片需要使用本地项目文件夹", "warning");
-      bridge.openLastExport().then(function () { showToast("已在 Finder 中显示成片"); })
+      bridge.openLastExport().then(function () { showToast("已用默认播放器打开成片"); })
         .catch(function (error) { showToast(error.message || error, "warning"); });
     } else if (action === "export") exportComposition();
     updateMarkState();

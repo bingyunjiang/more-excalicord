@@ -11,7 +11,8 @@ final class AgentController: NSObject, NSApplicationDelegate {
           ok: false,
           state: "error",
           message: "Capture agent is shutting down",
-          outputPath: nil
+          outputPath: nil,
+          webcamPath: nil
         ),
         status: 500
       )
@@ -52,7 +53,8 @@ final class AgentController: NSObject, NSApplicationDelegate {
           ok: false,
           state: "error",
           message: "Invalid local session token",
-          outputPath: nil
+          outputPath: nil,
+          webcamPath: nil
         ),
         status: 403
       )
@@ -126,7 +128,8 @@ final class AgentController: NSObject, NSApplicationDelegate {
             ok: true,
             state: "recording",
             message: "Desktop recording started",
-            outputPath: url.path
+            outputPath: url.path,
+            webcamPath: engine.status().webcamPath
           )
         )
       case ("POST", "/v1/pause"):
@@ -136,7 +139,8 @@ final class AgentController: NSObject, NSApplicationDelegate {
             ok: true,
             state: "paused",
             message: nil,
-            outputPath: engine.status().outputPath
+            outputPath: engine.status().outputPath,
+            webcamPath: engine.status().webcamPath
           )
         )
       case ("POST", "/v1/resume"):
@@ -146,7 +150,8 @@ final class AgentController: NSObject, NSApplicationDelegate {
             ok: true,
             state: "recording",
             message: nil,
-            outputPath: engine.status().outputPath
+            outputPath: engine.status().outputPath,
+            webcamPath: engine.status().webcamPath
           )
         )
       case ("POST", "/v1/stop"):
@@ -156,7 +161,8 @@ final class AgentController: NSObject, NSApplicationDelegate {
             ok: true,
             state: "idle",
             message: "Recording saved",
-            outputPath: url.path
+            outputPath: url.path,
+            webcamPath: engine.webcamRecordingURL()?.path
           )
         )
       case ("GET", "/v1/recording"):
@@ -177,7 +183,8 @@ final class AgentController: NSObject, NSApplicationDelegate {
             ok: true,
             state: engine.status().state,
             message: "Recording opened",
-            outputPath: url.path
+            outputPath: url.path,
+            webcamPath: engine.status().webcamPath
           )
         )
       default:
@@ -186,7 +193,8 @@ final class AgentController: NSObject, NSApplicationDelegate {
             ok: false,
             state: "error",
             message: "Endpoint not found",
-            outputPath: nil
+            outputPath: nil,
+            webcamPath: nil
           ),
           status: 404
         )
@@ -200,7 +208,8 @@ final class AgentController: NSObject, NSApplicationDelegate {
           ok: false,
           state: engine.status().state,
           message: error.localizedDescription,
-          outputPath: engine.status().outputPath
+          outputPath: engine.status().outputPath,
+          webcamPath: engine.status().webcamPath
         ),
         status: status
       )

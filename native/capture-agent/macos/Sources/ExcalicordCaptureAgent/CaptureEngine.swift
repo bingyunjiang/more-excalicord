@@ -47,9 +47,12 @@ final class CaptureEngine: NSObject {
   private var outputHeight = 1080
   private var outputURL: URL?
   private var lastRecordingURL: URL?
+  private var webcamOutputURL: URL?
+  private var lastWebcamRecordingURL: URL?
   private var screenCaptureOperational = false
 
   private var cameraEnabled = false
+  private var cameraSidecarEnabled = false
   private var microphoneEnabled = true
   private var cameraX = 0.84
   private var cameraY = 0.78
@@ -60,6 +63,13 @@ final class CaptureEngine: NSObject {
   private var lightIntensity = 0.0
   private var screenLightEnabled = false
   private var screenLightIntensity = 0.85
+
+  private var cameraWriter: AVAssetWriter?
+  private var cameraVideoInput: AVAssetWriterInput?
+  private var cameraPixelAdaptor: AVAssetWriterInputPixelBufferAdaptor?
+  private var cameraWriterSessionStarted = false
+  private var cameraWriterStartPTS: CMTime = .invalid
+  private var cameraWriterPrimed = false
 
   func health(token: String) -> HealthResponse {
     writerLock.lock()
@@ -73,6 +83,7 @@ final class CaptureEngine: NSObject {
         "display",
         "window",
         "camera-overlay",
+        "camera-sidecar",
         "microphone",
         "h264-mp4",
         "pause-resume",
@@ -422,10 +433,16 @@ final class CaptureEngine: NSObject {
         ringLightDisplayID = display.displayID
       }
 
-      let dimensions = scaledDimensions(width: sourceWidth, height: sourceHeight)
+      let dimensions = requestedDimensions(
+        requestWidth: request.outputWidth,
+        requestHeight: request.outputHeight,
+        fallbackWidth: sourceWidth,
+        fallbackHeight: sourceHeight
+      )
       outputWidth = dimensions.width
       outputHeight = dimensions.height
       cameraEnabled = request.cameraEnabled ?? false
+      cameraSidecarEnabled = (request.cameraSidecarEnabled ?? false) && cameraEnabled
       microphoneEnabled = request.microphoneEnabled ?? true
       cameraX = clamp(request.cameraX ?? 0.84, 0.05, 0.95)
       cameraY = clamp(request.cameraY ?? 0.78, 0.05, 0.95)
@@ -448,6 +465,10 @@ final class CaptureEngine: NSObject {
 
       let url = try makeOutputURL(sessionId: request.sessionId)
       try configureWriter(url: url, width: outputWidth, height: outputHeight)
+      if cameraSidecarEnabled {
+        let cameraURL = try makeSidecarOutputURL(sessionId: request.sessionId, name: "webcam")
+        try configureCameraSidecarWriter(url: cameraURL, width: 720, height: 720)
+      }
 
       if cameraEnabled || microphoneEnabled {
         try await configureCameraAndMicrophone()
@@ -505,6 +526,7 @@ final class CaptureEngine: NSObject {
     cameraSession = nil
 
     let (activeWriter, url) = prepareWriterForFinishing()
+    let (activeCameraWriter, cameraURL) = prepareCameraWriterForFinishing()
 
     if let activeWriter {
       await withCheckedContinuation { continuation in
@@ -518,8 +540,20 @@ final class CaptureEngine: NSObject {
         throw AgentError.capture(message)
       }
     }
+    if let activeCameraWriter {
+      await withCheckedContinuation { continuation in
+        activeCameraWriter.finishWriting {
+          continuation.resume()
+        }
+      }
+      if activeCameraWriter.status == .failed {
+        let message = activeCameraWriter.error?.localizedDescription ?? "Camera MP4 writer failed"
+        fail(AgentError.capture(message))
+        throw AgentError.capture(message)
+      }
+    }
 
-    completeStop(url: url)
+    completeStop(url: url, webcamURL: cameraURL)
     applyScreenLightPreference()
     try desktopIcons.restoreIfNeeded()
     guard let url else { throw AgentError.noRecording }
@@ -538,6 +572,7 @@ final class CaptureEngine: NSObject {
       state: state.rawValue,
       seconds: stateStartedAt.map { Date().timeIntervalSince($0) } ?? 0,
       outputPath: (outputURL ?? lastRecordingURL)?.path,
+      webcamPath: (webcamOutputURL ?? lastWebcamRecordingURL)?.path,
       error: lastError
     )
   }
@@ -552,6 +587,13 @@ final class CaptureEngine: NSObject {
     let url = lastRecordingURL
     writerLock.unlock()
     guard let url else { throw AgentError.noRecording }
+    return url
+  }
+
+  func webcamRecordingURL() -> URL? {
+    writerLock.lock()
+    let url = lastWebcamRecordingURL
+    writerLock.unlock()
     return url
   }
 
@@ -624,6 +666,22 @@ final class CaptureEngine: NSObject {
     return (outputWidth, outputHeight)
   }
 
+  private func requestedDimensions(
+    requestWidth: Int?,
+    requestHeight: Int?,
+    fallbackWidth: Int,
+    fallbackHeight: Int
+  ) -> (width: Int, height: Int) {
+    guard let requestWidth, let requestHeight, requestWidth > 0, requestHeight > 0 else {
+      return scaledDimensions(width: fallbackWidth, height: fallbackHeight)
+    }
+    func evenClamped(_ value: Int) -> Int {
+      let clamped = min(7680, max(320, value))
+      return max(2, clamped / 2 * 2)
+    }
+    return (evenClamped(requestWidth), evenClamped(requestHeight))
+  }
+
   private func makeOutputURL(sessionId: String?) throws -> URL {
     if let sessionId, !isSafeSessionId(sessionId) {
       throw AgentError.badRequest("Invalid recording session id")
@@ -637,6 +695,26 @@ final class CaptureEngine: NSObject {
     )
     let url = directory.appendingPathComponent(
       "excalicord-\(timestampString()).mp4"
+    )
+    if FileManager.default.fileExists(atPath: url.path) {
+      try FileManager.default.removeItem(at: url)
+    }
+    return url
+  }
+
+  private func makeSidecarOutputURL(sessionId: String?, name: String) throws -> URL {
+    if let sessionId, !isSafeSessionId(sessionId) {
+      throw AgentError.badRequest("Invalid recording session id")
+    }
+    let directory = sessionId.map {
+      recordingsFolderURL().appendingPathComponent($0, isDirectory: true)
+    } ?? recordingsFolderURL()
+    try FileManager.default.createDirectory(
+      at: directory,
+      withIntermediateDirectories: true
+    )
+    let url = directory.appendingPathComponent(
+      "\(name)-\(timestampString()).mp4"
     )
     if FileManager.default.fileExists(atPath: url.path) {
       try FileManager.default.removeItem(at: url)
@@ -717,6 +795,49 @@ final class CaptureEngine: NSObject {
     self.lastVideoPTS = .invalid
     self.timeOffset = .zero
     self.resumePending = false
+    writerLock.unlock()
+  }
+
+  private func configureCameraSidecarWriter(url: URL, width: Int, height: Int) throws {
+    let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+    let videoSettings: [String: Any] = [
+      AVVideoCodecKey: AVVideoCodecType.h264,
+      AVVideoWidthKey: width,
+      AVVideoHeightKey: height,
+      AVVideoCompressionPropertiesKey: [
+        AVVideoAverageBitRateKey: 3_000_000,
+        AVVideoExpectedSourceFrameRateKey: 30,
+        AVVideoMaxKeyFrameIntervalKey: 60,
+      ],
+    ]
+    let input = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+    input.expectsMediaDataInRealTime = true
+    guard writer.canAdd(input) else {
+      throw AgentError.capture("Cannot create camera H.264 writer")
+    }
+    writer.add(input)
+    let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+      assetWriterInput: input,
+      sourcePixelBufferAttributes: [
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+        kCVPixelBufferWidthKey as String: width,
+        kCVPixelBufferHeightKey as String: height,
+        kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+      ]
+    )
+    guard writer.startWriting() else {
+      throw AgentError.capture(
+        writer.error?.localizedDescription ?? "Cannot start camera MP4 writer"
+      )
+    }
+    writerLock.lock()
+    self.cameraWriter = writer
+    self.cameraVideoInput = input
+    self.cameraPixelAdaptor = adaptor
+    self.webcamOutputURL = url
+    self.cameraWriterSessionStarted = false
+    self.cameraWriterStartPTS = .invalid
+    self.cameraWriterPrimed = false
     writerLock.unlock()
   }
 
@@ -911,11 +1032,69 @@ final class CaptureEngine: NSObject {
     return blend.outputImage ?? background
   }
 
+  private func cameraSidecarPixelBuffer(from buffer: CVPixelBuffer) -> CVPixelBuffer? {
+    let side = 720
+    var output: CVPixelBuffer?
+    let attributes: [CFString: Any] = [
+      kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
+      kCVPixelBufferWidthKey: side,
+      kCVPixelBufferHeightKey: side,
+      kCVPixelBufferIOSurfacePropertiesKey: [:],
+    ]
+    let result = CVPixelBufferCreate(
+      kCFAllocatorDefault,
+      side,
+      side,
+      kCVPixelFormatType_32BGRA,
+      attributes as CFDictionary,
+      &output
+    )
+    guard result == kCVReturnSuccess, let output else { return nil }
+
+    var camera = CIImage(cvPixelBuffer: buffer)
+    let square = min(camera.extent.width, camera.extent.height)
+    let crop = CGRect(
+      x: camera.extent.midX - square / 2,
+      y: camera.extent.midY - square / 2,
+      width: square,
+      height: square
+    )
+    camera = camera.cropped(to: crop)
+    if cameraMirrored {
+      camera = camera.transformed(by: CGAffineTransform(
+        a: -1,
+        b: 0,
+        c: 0,
+        d: 1,
+        tx: camera.extent.width + camera.extent.minX * 2,
+        ty: 0
+      ))
+    }
+    let scale = CGFloat(side) / square
+    camera = camera.transformed(by: CGAffineTransform(
+      a: scale,
+      b: 0,
+      c: 0,
+      d: scale,
+      tx: -crop.minX * scale,
+      ty: -crop.minY * scale
+    ))
+    let outputRect = CGRect(x: 0, y: 0, width: side, height: side)
+    ciContext.render(
+      camera.cropped(to: outputRect),
+      to: output,
+      bounds: outputRect,
+      colorSpace: CGColorSpaceCreateDeviceRGB()
+    )
+    return output
+  }
+
   private func fail(_ error: Error) {
     writerLock.lock()
     lastError = error.localizedDescription
     state = .failed
     writer?.cancelWriting()
+    cameraWriter?.cancelWriting()
     resetWriterState()
     writerLock.unlock()
     cameraSession?.stopRunning()
@@ -960,10 +1139,18 @@ final class CaptureEngine: NSObject {
     return (writer, outputURL)
   }
 
-  private func completeStop(url: URL?) {
+  private func prepareCameraWriterForFinishing() -> (AVAssetWriter?, URL?) {
+    writerLock.lock()
+    defer { writerLock.unlock() }
+    cameraVideoInput?.markAsFinished()
+    return (cameraWriter, webcamOutputURL)
+  }
+
+  private func completeStop(url: URL?, webcamURL: URL?) {
     writerLock.lock()
     defer { writerLock.unlock() }
     lastRecordingURL = url
+    lastWebcamRecordingURL = webcamURL
     resetWriterState()
     state = .idle
     stateStartedAt = nil
@@ -975,10 +1162,18 @@ final class CaptureEngine: NSObject {
     audioInput = nil
     pixelAdaptor = nil
     outputURL = nil
+    webcamOutputURL = nil
     writerSessionStarted = false
     lastVideoPTS = .invalid
     timeOffset = .zero
     resumePending = false
+    cameraSidecarEnabled = false
+    cameraWriter = nil
+    cameraVideoInput = nil
+    cameraPixelAdaptor = nil
+    cameraWriterSessionStarted = false
+    cameraWriterStartPTS = .invalid
+    cameraWriterPrimed = false
   }
 
   private func clamp(_ value: Double, _ minimum: Double, _ maximum: Double) -> Double {
@@ -1027,6 +1222,15 @@ extension CaptureEngine: SCStreamDelegate, SCStreamOutput {
     if !writerSessionStarted {
       writer.startSession(atSourceTime: adjustedPTS)
       writerSessionStarted = true
+      if cameraSidecarEnabled,
+         let cameraWriter,
+         cameraWriter.status == .writing,
+         !cameraWriterSessionStarted {
+        cameraWriter.startSession(atSourceTime: adjustedPTS)
+        cameraWriterSessionStarted = true
+        cameraWriterStartPTS = adjustedPTS
+        cameraWriterPrimed = false
+      }
     }
     lastVideoPTS = sourcePTS
     writerLock.unlock()
@@ -1054,6 +1258,33 @@ extension CaptureEngine:
       cameraLock.lock()
       latestCameraBuffer = buffer
       cameraLock.unlock()
+      writerLock.lock()
+      guard state == .recording,
+            cameraSidecarEnabled,
+            cameraWriterSessionStarted,
+            let input = cameraVideoInput,
+            input.isReadyForMoreMediaData,
+            let adaptor = cameraPixelAdaptor
+      else {
+        writerLock.unlock()
+        return
+      }
+      let adjustedPTS = CMTimeSubtract(sampleBuffer.presentationTimeStamp, timeOffset)
+      let output = cameraSidecarPixelBuffer(from: buffer)
+      writerLock.unlock()
+      guard let output else { return }
+      writerLock.lock()
+      if state == .recording,
+         cameraSidecarEnabled,
+         cameraWriterSessionStarted,
+         input.isReadyForMoreMediaData {
+        if !cameraWriterPrimed, cameraWriterStartPTS.isValid, adjustedPTS > cameraWriterStartPTS {
+          _ = adaptor.append(output, withPresentationTime: cameraWriterStartPTS)
+        }
+        _ = adaptor.append(output, withPresentationTime: adjustedPTS)
+        cameraWriterPrimed = true
+      }
+      writerLock.unlock()
       return
     }
 

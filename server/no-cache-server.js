@@ -389,7 +389,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (req.method === 'POST' && urlPath === '/api/render/open') {
-    currentExportPath().then((outputPath) => runProcess('/usr/bin/open', ['-R', outputPath]).then(() => outputPath))
+    currentExportPath().then((outputPath) => runProcess('/usr/bin/open', [outputPath]).then(() => outputPath))
       .then((outputPath) => {
         lastRenderOutput = outputPath;
         jsonResponse(res, 200, { ok: true, outputPath });

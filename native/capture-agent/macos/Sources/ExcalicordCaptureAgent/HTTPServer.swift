@@ -99,7 +99,8 @@ final class HTTPServer {
               ok: false,
               state: "error",
               message: "Invalid HTTP request",
-              outputPath: nil
+              outputPath: nil,
+              webcamPath: nil
             ),
             status: 400
           ),

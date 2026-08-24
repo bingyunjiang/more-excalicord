@@ -96,6 +96,35 @@ assert.strictEqual(mergedRoundTrip.schemaVersion, 2);
 assert.strictEqual(mergedRoundTrip.recordings.length, 1);
 assert.strictEqual(mergedRoundTrip.edits.length, 1);
 
+var migratedWithWebcam = core.normalizeProject({
+  schemaVersion: 1,
+  projectId: "webcam-project",
+  recording: {
+    scope: "frame",
+    ratio: "16:9",
+    media: [{
+      path: "recordings/session-a/recording.webm",
+      type: "video/webm",
+      duration: 6,
+      webcamPath: "recordings/session-a/webcam.webm",
+      webcamType: "video/webm",
+      webcamDuration: 6,
+    }],
+  },
+  text: {},
+  edits: { webcam: { visible: true, position: "top-left" } },
+});
+assert.strictEqual(migratedWithWebcam.recordings[0].legacyComposite, false,
+  "recordings with independent webcam asset must not be treated as legacy composite");
+assert.strictEqual(migratedWithWebcam.recordings[0].assets.webcam.path, "recordings/session-a/webcam.webm");
+assert.strictEqual(migratedWithWebcam.recordings[0].assets.screen.kind, "screen");
+var webcamLegacyRoundTrip = core.projectV2ToLegacyRuntime(migratedWithWebcam);
+assert.strictEqual(webcamLegacyRoundTrip.recording.media[0].webcamPath, "recordings/session-a/webcam.webm",
+  "v2 to legacy cache must preserve independent webcam asset");
+var mergedWithWebcam = core.mergeLegacyRuntimeIntoProjectV2(migratedWithWebcam, webcamLegacyRoundTrip);
+assert.strictEqual(mergedWithWebcam.recordings[0].assets.webcam.path, "recordings/session-a/webcam.webm");
+assert.strictEqual(mergedWithWebcam.recordings[0].legacyComposite, false);
+
 var emptyLegacyProject = core.normalizeProject({
   schemaVersion: 1,
   projectId: "empty-project",
@@ -129,19 +158,50 @@ var completed = core.mergeLegacyRuntimeIntoProjectV2(metadataOnly, {
       path: "recordings/session-new/screen.mp4",
       type: "video/mp4",
       duration: 8,
+      scope: "frame",
+      ratio: "9:16",
+      sessionId: "session-new",
     }],
   },
-  session: { id: "session-new", durationMs: 8000 },
+  session: { id: "session-new", durationMs: 8000, scope: "frame", ratio: "9:16" },
   events: [{ type: "session-stop", timeMs: 8000 }],
   text: {},
   edits: {},
 });
 assert.strictEqual(completed.recordings.length, 1, "finished media replaces its metadata-only placeholder");
 assert.strictEqual(completed.recordings[0].assets.screen.path, "recordings/session-new/screen.mp4");
+assert.strictEqual(completed.recordings[0].scope, "frame");
+assert.strictEqual(completed.recordings[0].ratio, "9:16");
 assert.strictEqual(completed.activeRecordingId, completed.recordings[0].id);
 assert.strictEqual(completed.edits.length, 1);
 assert.strictEqual(completed.edits[0].recordingId, completed.activeRecordingId);
 assert.strictEqual(completed.activeEditId, completed.edits[0].id);
+
+var completedAfterUiChanged = core.mergeLegacyRuntimeIntoProjectV2(completed, {
+  schemaVersion: 1,
+  projectId: "recording-in-progress",
+  recording: {
+    scope: "screen",
+    ratio: "custom:1280x720",
+    duration: 8,
+    media: [{
+      path: "recordings/session-new/screen.mp4",
+      type: "video/mp4",
+      duration: 8,
+      scope: "frame",
+      ratio: "9:16",
+      sessionId: "session-new",
+    }],
+  },
+  session: { id: "session-later", durationMs: 8000, scope: "screen", ratio: "custom:1280x720" },
+  events: [],
+  text: {},
+  edits: {},
+});
+assert.strictEqual(completedAfterUiChanged.recordings[0].scope, "frame",
+  "recording scope must remain the immutable per-media snapshot");
+assert.strictEqual(completedAfterUiChanged.recordings[0].ratio, "9:16",
+  "recording ratio must remain the immutable per-media snapshot");
 
 var timeline = core.normalizeTimeline({
   durationMs: 10000,

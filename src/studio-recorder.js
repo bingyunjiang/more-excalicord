@@ -70,6 +70,15 @@
       recorder: null,
       chunks: [],
       lastBlob: null,
+      webcamSidecarRecorder: null,
+      webcamSidecarStream: null,
+      webcamSidecarChunks: [],
+      webcamSidecarPromise: null,
+      webcamSidecarActive: false,
+      webcamBlob: null,
+      webcamExt: "",
+      webcamMime: "",
+      webcamSavedPath: "",
       lastExt: "webm",
       lastMime: "video/webm",
       lastFileName: "",
@@ -129,6 +138,7 @@
       customHeight: 720,
       hideBubbleWhileRecording: false,
       hideDesktopIcons: false,
+      retainPostAssets: false,
     },
     mic: {
       deviceId: "",
@@ -281,7 +291,7 @@
         },
         annotations: [],
         audio: { microphoneDeviceId: "" },
-        appearance: { background: "#f4f1ea", backgroundStyle: "warm-gradient", hideDesktopIcons: false },
+        appearance: { background: "#f4f1ea", backgroundStyle: "warm-gradient", hideDesktopIcons: false, retainPostAssets: false },
       },
     };
   }
@@ -316,12 +326,20 @@
           return isPlainObject(item) && typeof item.path === "string"
             && /^recordings\/(?:[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/)?[^/]+$/.test(item.path);
         }).slice(-100).map(function (item) {
-          return {
+          var media = {
             path: item.path,
             type: typeof item.type === "string" ? item.type : "video/mp4",
             recordedAt: typeof item.recordedAt === "string" ? item.recordedAt : "",
             duration: Number(item.duration || 0),
           };
+          if (typeof item.webcamPath === "string"
+            && /^recordings\/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/[^/]+$/.test(item.webcamPath)) {
+            media.webcamPath = item.webcamPath;
+            media.webcamType = typeof item.webcamType === "string" ? item.webcamType : "video/webm";
+            media.webcamDuration = Number(item.webcamDuration || item.duration || 0);
+            media.webcamCompositeBaked = item.webcamCompositeBaked === true;
+          }
+          return media;
         })
         : [];
     }
@@ -379,7 +397,19 @@
         return item && typeof item.path === "string"
           && /^recordings\/(?:[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/)?[^/]+$/.test(item.path);
       }).map(function (item) {
-        return { path: item.path, type: item.type || "video/mp4", recordedAt: item.recordedAt || "", duration: Number(item.duration || 0) };
+        var media = {
+          path: item.path,
+          type: item.type || "video/mp4",
+          recordedAt: item.recordedAt || "",
+          duration: Number(item.duration || 0),
+        };
+        if (item.webcamPath) {
+          media.webcamPath = item.webcamPath;
+          media.webcamType = item.webcamType || "video/webm";
+          media.webcamDuration = Number(item.webcamDuration || item.duration || 0);
+          media.webcamCompositeBaked = item.webcamCompositeBaked === true;
+        }
+        return media;
       })
       : [];
     state.v011.recordingScope = project.recording && project.recording.scope || "screen";
@@ -440,6 +470,7 @@
       ? project.edits.appearance.backgroundStyle
       : state.settings.backgroundStyle;
     state.settings.hideDesktopIcons = !!(project.edits && project.edits.appearance && project.edits.appearance.hideDesktopIcons);
+    state.settings.retainPostAssets = !!(project.edits && project.edits.appearance && project.edits.appearance.retainPostAssets);
     state.mic.deviceId = project.edits && project.edits.audio && typeof project.edits.audio.microphoneDeviceId === "string"
       ? project.edits.audio.microphoneDeviceId
       : "";
@@ -572,8 +603,14 @@
     existing.events = state.v011.session ? state.v011.session.events.slice() : (existing.events || []);
     existing.text = state.v011.text;
     existing.text.script.sourceText = state.tele.text || existing.text.script.sourceText || "";
-    existing.recording.scope = typeof scopeSel !== "undefined" && scopeSel ? scopeSel.value : existing.recording.scope;
-    existing.recording.ratio = typeof recordingRatioValue === "function" ? recordingRatioValue() : (typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : existing.recording.ratio);
+    var sessionScope = state.v011.session && typeof state.v011.session.scope === "string"
+      ? state.v011.session.scope
+      : "";
+    var sessionRatio = state.v011.session && typeof state.v011.session.ratio === "string"
+      ? state.v011.session.ratio
+      : "";
+    existing.recording.scope = sessionScope || (typeof scopeSel !== "undefined" && scopeSel ? scopeSel.value : existing.recording.scope);
+    existing.recording.ratio = sessionRatio || (typeof recordingRatioValue === "function" ? recordingRatioValue() : (typeof ratioSel !== "undefined" && ratioSel ? ratioSel.value : existing.recording.ratio));
     existing.recording.duration = state.v011.session ? state.v011.session.duration || 0 : existing.recording.duration || 0;
     existing.recording.media = state.v011.media.slice();
     existing.edits.camera = {
@@ -614,6 +651,7 @@
       background: bgInput && bgInput.value ? bgInput.value : state.settings.background,
       backgroundStyle: bgStyleSel && bgStyleSel.value ? bgStyleSel.value : state.settings.backgroundStyle,
       hideDesktopIcons: !!state.settings.hideDesktopIcons,
+      retainPostAssets: !!state.settings.retainPostAssets,
     });
     existing.edits.audio = Object.assign({}, existing.edits.audio, {
       microphoneDeviceId: state.mic.deviceId || "",
@@ -633,12 +671,30 @@
       legacy.edits = priorLegacy.edits;
     }
     var project = core.mergeLegacyRuntimeIntoProjectV2(base, legacy);
+    var legacyMediaByPath = {};
+    (legacy.recording && Array.isArray(legacy.recording.media) ? legacy.recording.media : []).forEach(function (media) {
+      if (media && media.path) legacyMediaByPath[String(media.path).replace(/\\/g, "/")] = media;
+    });
     project.recordings = (project.recordings || []).map(function (recording) {
       if (!recording || !recording.assets) return recording;
       var screen = recording.assets.screen;
-      /* The current recorder emits one mixed/composite asset only. Do not
-       * claim that camera, microphone, or system audio were split out. */
-      recording.assets.webcam = null;
+      var media = screen && screen.path ? legacyMediaByPath[String(screen.path).replace(/\\/g, "/")] : null;
+      var webcamPath = media && typeof media.webcamPath === "string"
+        ? media.webcamPath.replace(/\\/g, "/")
+        : "";
+      var hasIndependentWebcam = /^recordings\/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/[^/]+$/.test(webcamPath);
+      if (hasIndependentWebcam) {
+        recording.assets.webcam = {
+          path: webcamPath,
+          kind: "webcam",
+          mimeType: media.webcamType || "video/webm",
+          durationMs: Math.max(0, Number(media.webcamDuration || media.duration || 0) * 1000),
+          bytes: 0,
+          baked: false,
+        };
+      } else {
+        recording.assets.webcam = null;
+      }
       recording.assets.microphone = null;
       recording.assets.systemAudio = null;
       if (screen && screen.path) {
@@ -650,10 +706,23 @@
             eventsPath: "recordings/" + pathParts[1] + "/events.json",
           });
         }
-        recording.legacyComposite = true;
-        recording.limitations = [
-          "当前原始录制为混合媒体；摄像头、麦克风和系统音频没有独立资产",
-        ];
+        if (hasIndependentWebcam && media.webcamCompositeBaked !== true) {
+          recording.legacyComposite = false;
+          recording.limitations = [
+            "摄像头已保存为独立素材；麦克风和系统音频仍随主视频混音保存",
+          ];
+          if (recording.assets.screen) {
+            recording.assets.screen.kind = "screen";
+            recording.assets.screen.baked = false;
+          }
+        } else {
+          recording.legacyComposite = true;
+          recording.limitations = [
+            hasIndependentWebcam
+              ? "Native 主视频仍包含已烧入摄像头；已另存 webcam 素材，但当前主画面不能去除原人像"
+              : "当前原始录制为混合媒体；摄像头、麦克风和系统音频没有独立资产",
+          ];
+        }
       }
       return recording;
     });
@@ -679,7 +748,7 @@
     }
   }
 
-  function v011RecordSavedMedia(fileName, mimeType, duration) {
+  function v011RecordSavedMedia(fileName, mimeType, duration, extras) {
     var rawPath = String(fileName || "").replace(/\\/g, "/");
     var name = rawPath.split("/").pop();
     if (!name || !/^[^./][^/]*$/.test(name)) return;
@@ -689,12 +758,23 @@
     if (!/^recordings\/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/(?:[^/]+)$/.test(path)
       && path !== "recordings/recording.mp4") return;
     var media = state.v011.media.filter(function (item) { return item && item.path !== path; });
-    media.push({
+    var session = state.v011.session || {};
+    var item = {
       path: path,
       type: mimeType || "video/mp4",
       recordedAt: new Date().toISOString(),
       duration: Number(duration || state.rec.seconds || 0),
-    });
+      scope: typeof session.scope === "string" ? session.scope : (state.v011.recordingScope || "screen"),
+      ratio: typeof session.ratio === "string" ? session.ratio : (state.v011.recordingRatio || "16:9"),
+      sessionId: typeof session.id === "string" ? session.id : (state.rec.sessionId || ""),
+    };
+    if (extras && extras.webcam && extras.webcam.path) {
+      item.webcamPath = extras.webcam.path;
+      item.webcamType = extras.webcam.mimeType || "video/webm";
+      item.webcamDuration = Number(extras.webcam.duration || item.duration || 0);
+      item.webcamCompositeBaked = extras.webcamCompositeBaked === true;
+    }
+    media.push(item);
     state.v011.media = media.slice(-100);
     state.v011.sessionDirty = true;
     var project = v011SaveProject("recording-saved");
@@ -1369,6 +1449,8 @@
     '    <div class="ec-row"><label>背景</label><select id="ec-bg-style"><option value="warm-gradient">暖色渐变</option><option value="paper">纸张纹理</option><option value="dark">深色舞台</option><option value="solid">纯色</option></select><input type="color" id="ec-bg" value="#f4f1ea" title="纯色或渐变主色"/></div>',
     '    <div class="ec-row"><label>桌面</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-desktop-icons"/> 隐藏桌面图标</label></div>',
     '    <p class="ec-sub" id="ec-hide-desktop-note" style="margin:2px 0 0;display:none">录制整个屏幕时隐藏；停止录制、启动失败或录制组件重启后自动恢复。</p>',
+    '    <div class="ec-row"><label>后期</label><label class="ec-toggle"><input type="checkbox" id="ec-retain-post-assets"/> 保留后期素材</label></div>',
+    '    <p class="ec-sub" id="ec-retain-post-assets-note" style="margin:2px 0 0">默认关闭以减少磁盘占用；开启后会保留独立摄像头素材，便于后期重排或导入剪辑软件。</p>',
     "  </div>",
     '  <div class="ec-section ec-advanced-section">',
     '    <details class="ec-advanced-effects">',
@@ -5029,6 +5111,7 @@
   var hideBubbleChk = shadow.getElementById("ec-hide-bubble");
   var hideDesktopIconsChk = shadow.getElementById("ec-hide-desktop-icons");
   var hideDesktopNote = shadow.getElementById("ec-hide-desktop-note");
+  var retainPostAssetsChk = shadow.getElementById("ec-retain-post-assets");
   var cursorHighlightChk = shadow.getElementById("ec-cursor-highlight");
   var cursorOptions = shadow.getElementById("ec-cursor-options");
   var cursorSizeInput = shadow.getElementById("ec-cursor-size");
@@ -5217,6 +5300,20 @@
   }
   updateHideDesktopIconsUI();
 
+  function updateRetainPostAssetsUI() {
+    if (retainPostAssetsChk) retainPostAssetsChk.checked = !!state.settings.retainPostAssets;
+  }
+  if (retainPostAssetsChk) {
+    retainPostAssetsChk.addEventListener("change", function () {
+      state.settings.retainPostAssets = retainPostAssetsChk.checked;
+      if (state.settings.retainPostAssets) {
+        toast("将保留独立摄像头等后期素材，会占用更多磁盘空间");
+      }
+      v011ScheduleSave("retain-post-assets");
+    });
+  }
+  updateRetainPostAssetsUI();
+
   function updateSmartCameraUI() {
     var isFrameScope = scopeSel.value === "frame";
     var isCanvasScope = scopeSel.value === "canvas";
@@ -5396,6 +5493,18 @@
   function resetCompletedRecordingState() {
     state.rec.chunks = [];
     state.rec.lastBlob = null;
+    state.rec.webcamSidecarChunks = [];
+    state.rec.webcamSidecarRecorder = null;
+    if (state.rec.webcamSidecarStream) {
+      state.rec.webcamSidecarStream.getTracks().forEach(function (track) { try { track.stop(); } catch (err) {} });
+    }
+    state.rec.webcamSidecarStream = null;
+    state.rec.webcamSidecarPromise = null;
+    state.rec.webcamSidecarActive = false;
+    state.rec.webcamBlob = null;
+    state.rec.webcamExt = "";
+    state.rec.webcamMime = "";
+    state.rec.webcamSavedPath = "";
     state.rec.lastFileName = "";
     state.rec.seconds = 0;
     state.rec.paused = false;
@@ -5411,6 +5520,102 @@
     updateRecordingTimers();
     resetSavedOutputMarkers();
     updateOutputActions();
+  }
+
+  function webcamSidecarFileName() {
+    return "webcam." + (state.rec.webcamExt || "webm");
+  }
+
+  function shouldRecordWebcamSidecar() {
+    if (!composeChk || !composeChk.checked) return false;
+    if (!state.camera.enabled || !state.camera.stream) return false;
+    return state.camera.stream.getVideoTracks().some(function (track) {
+      return track && track.readyState !== "ended";
+    });
+  }
+
+  function webcamSidecarSourceStream() {
+    var processed = bubble.querySelector("canvas");
+    if (processed && processed.captureStream && processed.width && processed.height) {
+      return processed.captureStream(30);
+    }
+    var track = state.camera.stream && state.camera.stream.getVideoTracks().find(function (item) {
+      return item && item.readyState !== "ended";
+    });
+    if (!track) return null;
+    return new MediaStream([track.clone ? track.clone() : track]);
+  }
+
+  function startWebcamSidecarRecording() {
+    state.rec.webcamSidecarChunks = [];
+    state.rec.webcamBlob = null;
+    state.rec.webcamExt = "";
+    state.rec.webcamMime = "";
+    state.rec.webcamSavedPath = "";
+    state.rec.webcamSidecarActive = false;
+    state.rec.webcamSidecarPromise = null;
+    if (!shouldRecordWebcamSidecar()) return false;
+    var stream = webcamSidecarSourceStream();
+    if (!stream || !stream.getVideoTracks().length) return false;
+    var mime = pickMimeType(false);
+    var options = { mimeType: mime, videoBitsPerSecond: 2200000 };
+    var recorder;
+    try {
+      recorder = new MediaRecorder(stream, options);
+    } catch (error) {
+      try {
+        recorder = new MediaRecorder(stream);
+        mime = recorder.mimeType || mime;
+      } catch (fallbackError) {
+        stream.getTracks().forEach(function (track) { try { track.stop(); } catch (err) {} });
+        return false;
+      }
+    }
+    state.rec.webcamExt = mime.indexOf("mp4") !== -1 ? "mp4" : "webm";
+    state.rec.webcamMime = mime.split(";")[0] || (state.rec.webcamExt === "mp4" ? "video/mp4" : "video/webm");
+    state.rec.webcamSidecarStream = stream;
+    state.rec.webcamSidecarRecorder = recorder;
+    state.rec.webcamSidecarPromise = new Promise(function (resolve) {
+      recorder.ondataavailable = function (ev) {
+        if (ev.data && ev.data.size > 0) state.rec.webcamSidecarChunks.push(ev.data);
+      };
+      recorder.onstop = function () {
+        var blob = state.rec.webcamSidecarChunks.length
+          ? new Blob(state.rec.webcamSidecarChunks, { type: state.rec.webcamMime })
+          : null;
+        state.rec.webcamBlob = blob && blob.size ? blob : null;
+        state.rec.webcamSidecarChunks = [];
+        state.rec.webcamSidecarActive = false;
+        if (state.rec.webcamSidecarStream) {
+          state.rec.webcamSidecarStream.getTracks().forEach(function (track) { try { track.stop(); } catch (err) {} });
+        }
+        state.rec.webcamSidecarStream = null;
+        resolve(state.rec.webcamBlob);
+      };
+    });
+    recorder.start(1000);
+    state.rec.webcamSidecarActive = true;
+    return true;
+  }
+
+  function stopWebcamSidecarRecording() {
+    var recorder = state.rec.webcamSidecarRecorder;
+    if (recorder && recorder.state !== "inactive") {
+      try { recorder.stop(); } catch (error) {}
+    } else if (state.rec.webcamSidecarStream) {
+      state.rec.webcamSidecarStream.getTracks().forEach(function (track) { try { track.stop(); } catch (err) {} });
+      state.rec.webcamSidecarStream = null;
+    }
+    return state.rec.webcamSidecarPromise || Promise.resolve(state.rec.webcamBlob || null);
+  }
+
+  function webcamSidecarAsset(relativePath) {
+    if (!relativePath || !state.rec.webcamBlob) return null;
+    return {
+      path: relativePath,
+      mimeType: state.rec.webcamMime || (state.rec.webcamExt === "mp4" ? "video/mp4" : "video/webm"),
+      duration: Number(state.rec.seconds || 0),
+    };
   }
 
   function shortPath(path) {
@@ -5718,14 +5923,63 @@
     return Promise.resolve({ ok: true, localOnly: true });
   }
 
-  function finalizeSavedRecording(filePath, fileName, mimeType, duration) {
+  function finalizeSavedRecording(filePath, fileName, mimeType, duration, extras) {
     var relativePath = recordingRelativePath(filePath, fileName);
-    v011RecordSavedMedia(relativePath, mimeType, duration);
+    v011RecordSavedMedia(relativePath, mimeType, duration, extras);
     state.rec.verifiedMediaPaths[relativePath] = true;
     return writeRecordingMetadata(relativePath).then(function (result) {
       dispatchRecordingReady(relativePath, duration);
       return result;
     });
+  }
+
+  function savedWebcamAssetFromPath(relativePath) {
+    state.rec.webcamSavedPath = relativePath || "";
+    return webcamSidecarAsset(relativePath);
+  }
+
+  function nativeWebcamAssetFromPath(filePath) {
+    if (!filePath) return null;
+    var relativePath = recordingRelativePath(filePath, String(filePath).split(/[\\/]/).pop());
+    if (!/^recordings\/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/[^/]+$/.test(relativePath)) return null;
+    return savedWebcamAssetFromPath(relativePath);
+  }
+
+  function saveWebcamBlobViaNative() {
+    var bridge = nativeBridge();
+    if (!state.rec.webcamBlob || !bridge || !state.rec.nativeAvailable || !bridge.saveBrowserRecording) {
+      return Promise.resolve(null);
+    }
+    var fileName = webcamSidecarFileName();
+    var agentFileName = (state.rec.sessionId || "legacy") + "/" + fileName;
+    return bridge.saveBrowserRecording(state.rec.webcamBlob, agentFileName)
+      .then(function (saved) {
+        var relativePath = recordingRelativePath(
+          saved && (saved.path || saved.fileName) || agentFileName,
+          fileName,
+        );
+        return savedWebcamAssetFromPath(relativePath);
+      })
+      .catch(function (error) {
+        toast("独立摄像头素材未保存，主视频会继续保存：" + (error.message || error));
+        return null;
+      });
+  }
+
+  function saveWebcamBlobToBrowserSession(sessionHandle) {
+    if (!state.rec.webcamBlob || !sessionHandle) return Promise.resolve(null);
+    var fileName = webcamSidecarFileName();
+    var relativePath = "recordings/" + (state.rec.sessionId || "legacy") + "/" + fileName;
+    return sessionHandle.getFileHandle(fileName, { create: true })
+      .then(function (fileHandle) { return fileHandle.createWritable(); })
+      .then(function (writable) {
+        return writable.write(state.rec.webcamBlob).then(function () { return writable.close(); });
+      })
+      .then(function () { return savedWebcamAssetFromPath(relativePath); })
+      .catch(function (error) {
+        toast("独立摄像头素材未保存，主视频会继续保存：" + (error.message || error));
+        return null;
+      });
   }
 
   function saveBlobToBrowserFolder(blob, fileName) {
@@ -5761,16 +6015,19 @@
             return sessionHandle.getFileHandle(fileName, { create: true });
           });
       })
-      .then(function (fileHandle) { return fileHandle.createWritable(); })
-      .then(function (writable) {
-        return writable.write(blob).then(function () { return writable.close(); });
+      .then(function (fileHandle) {
+        return saveWebcamBlobToBrowserSession(sessionHandle).then(function (webcamAsset) {
+          return fileHandle.createWritable().then(function (writable) {
+            return writable.write(blob).then(function () { return writable.close(); });
+          }).then(function () { return webcamAsset; });
+        });
       })
-      .then(function () {
+      .then(function (webcamAsset) {
         state.rec.lastSavedFileName = fileName;
         state.rec.lastSavedPath = projectFolderLabel() + "/" + relativePath;
         state.rec.lastSavedViaNative = false;
         state.rec.lastSavedToBrowserFolder = true;
-        return finalizeSavedRecording(relativePath, fileName, (blob && blob.type) || state.rec.lastMime, state.rec.seconds)
+        return finalizeSavedRecording(relativePath, fileName, (blob && blob.type) || state.rec.lastMime, state.rec.seconds, { webcam: webcamAsset })
           .then(function () { return { ok: true, fileName: fileName, path: relativePath, overwritten: overwritten }; });
       });
   }
@@ -5781,7 +6038,8 @@
       return Promise.resolve(null);
     }
     var agentFileName = (state.rec.sessionId || "legacy") + "/" + fileName;
-    return bridge.saveBrowserRecording(blob, agentFileName)
+    return saveWebcamBlobViaNative().then(function (webcamAsset) {
+      return bridge.saveBrowserRecording(blob, agentFileName)
       .then(function (saved) {
         state.rec.lastSavedPath = saved && saved.path ? saved.path : state.rec.lastSavedPath;
         state.rec.lastSavedFileName = saved && saved.fileName ? saved.fileName.split("/").pop() : fileName;
@@ -5792,8 +6050,10 @@
           state.rec.lastSavedFileName || fileName,
           (blob && blob.type) || state.rec.lastMime,
           state.rec.seconds,
+          { webcam: webcamAsset },
         ).then(function () { return saved; });
       });
+    });
   }
 
   function populateNativeSources(payload) {
@@ -6255,9 +6515,15 @@
   updateProjectFolderStatus();
   refreshNativeEngine(false);
 
-  function pickMimeType() {
+  function pickMimeType(wantAudio) {
     var want = formatSel.value;
-    var mp4Candidates = [
+    var mp4WithAudioCandidates = [
+      "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+      "video/mp4;codecs=avc1.4d002a,mp4a.40.2",
+      "video/mp4;codecs=avc1.640028,mp4a.40.2",
+      "video/mp4",
+    ];
+    var mp4Candidates = wantAudio ? mp4WithAudioCandidates : [
       "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
       "video/mp4;codecs=avc1.42E01E",
       "video/mp4;codecs=avc1.4d002a",
@@ -6358,6 +6624,9 @@
       state.cursor.soundContext = ac;
       state.cursor.soundDestination = destination;
       state.cursor.soundNodes = nodes;
+      if (ac.state === "suspended" && typeof ac.resume === "function") {
+        ac.resume().catch(function () {});
+      }
       return destination.stream.getAudioTracks();
     } catch (e) {
       stopCursorSoundMix();
@@ -6772,7 +7041,7 @@
       drawDisplaySource(ctx, video, W, H);
     }
     var cam = state.camera;
-    if (composeChk.checked && cam.enabled && cam.stream) {
+    if (composeChk.checked && cam.enabled && cam.stream && !state.rec.webcamSidecarActive) {
       var camSrc = cameraRenderSource();
       if (!camSrc) {
         state.rec.composeRaf = requestAnimationFrame(composeDrawLoop);
@@ -6982,6 +7251,7 @@
     var compositeCenter = cameraCompositeCenter();
     var cameraRequested = camEnable.checked || state.camera.enabled;
     var nativeCameraComposite = cameraRequested && composeChk.checked;
+    var nativeSize = recordingSize();
 
     resetCompletedRecordingState();
     state.rec.restoreCameraAfterNative = cameraRequested;
@@ -6999,12 +7269,15 @@
       sourceType: sourceType,
       sourceId: sourceId,
       sessionId: state.rec.sessionId,
+      outputWidth: nativeSize[0],
+      outputHeight: nativeSize[1],
       cameraEnabled: nativeCameraComposite,
       microphoneEnabled: true,
       cameraX: compositeCenter.x,
       cameraY: compositeCenter.y,
       cameraSize: cameraDiameterRatio(),
       cameraMirrored: state.camera.mirrored,
+      cameraSidecarEnabled: nativeCameraComposite && !!state.settings.retainPostAssets,
       smoothing: beautyToggle.checked ? state.camera.smoothing : 0,
       whitening: beautyToggle.checked ? state.camera.whitening : 0,
       lightIntensity: state.camera.lightEnabled ? state.camera.lightIntensity : 0,
@@ -7025,7 +7298,9 @@
         setRecUI(true, false);
         nativeStatusEl.textContent = "桌面录制中 · 浏览器可最小化";
         toast(nativeCameraComposite
-          ? "桌面录制已开始，摄像头会合成进 MP4"
+          ? state.settings.retainPostAssets
+            ? "桌面录制已开始，摄像头会合成进 MP4，并保留独立摄像头素材"
+            : "桌面录制已开始，摄像头会合成进 MP4"
           : "桌面录制已开始，摄像头只作为屏幕气泡显示");
       })
       .catch(function (error) {
@@ -7124,14 +7399,17 @@
       var tracks = [vTrack].concat(mixedBrowserAudioTracks(inputAudioTracks));
       var outputStream = new MediaStream(tracks);
 
+      var hasIndependentWebcam = startWebcamSidecarRecording();
       state.rec.composeRaf = requestAnimationFrame(composeDrawLoop);
       if (hideBubbleChk.checked && state.camera.enabled) {
         bubble.style.visibility = "hidden";
       }
       if (state.tele.hideWhileRecording && state.tele.open) setTelePanelOpen(false);
 
-      var mime = pickMimeType();
+      var hasAudioTracks = outputStream.getAudioTracks().length > 0;
+      var mime = pickMimeType(hasAudioTracks);
       var options = { mimeType: mime, videoBitsPerSecond: 8000000 };
+      if (hasAudioTracks) options.audioBitsPerSecond = 128000;
       if (mime.indexOf("mp4") === -1) {
         if (formatSel.value === "video/mp4") {
           toast("当前浏览器不支持 MP4 录制，已降级为 WebM");
@@ -7147,19 +7425,23 @@
         var ext = mime.indexOf("mp4") !== -1 ? "mp4" : "webm";
         state.rec.lastBlob = new Blob(state.rec.chunks, { type: mime.split(";")[0] });
         markBrowserRecordingComplete(ext, mime.split(";")[0]);
-        v011EndSession();
-        state.rec.chunks = [];
-        if (state.rec.timer) clearInterval(state.rec.timer);
-        state.rec.timer = null;
-        state.rec.active = false;
-        stopComposeLoop();
-        setRecUI(false, false);
-        updateRecordingTimers();
-        bubble.style.visibility = "visible";
-        tele.style.visibility = "visible";
-        updateV011ProjectStatus("原始录制已就绪；可保存录制或播放原始录制。");
-        updateOutputActions();
-        toast("原始录制已就绪（" + ext.toUpperCase() + "），可保存录制或播放");
+        stopWebcamSidecarRecording().then(function () {
+          v011EndSession();
+          state.rec.chunks = [];
+          if (state.rec.timer) clearInterval(state.rec.timer);
+          state.rec.timer = null;
+          state.rec.active = false;
+          stopComposeLoop();
+          setRecUI(false, false);
+          updateRecordingTimers();
+          bubble.style.visibility = "visible";
+          tele.style.visibility = "visible";
+          updateV011ProjectStatus(hasIndependentWebcam && state.rec.webcamBlob
+            ? "原始录制和独立摄像头素材已就绪；可保存录制或播放原始录制。"
+            : "原始录制已就绪；可保存录制或播放原始录制。");
+          updateOutputActions();
+          toast("原始录制已就绪（" + ext.toUpperCase() + "）" + (hasIndependentWebcam && state.rec.webcamBlob ? "，已保留独立摄像头素材" : "") + "，可保存录制或播放");
+        });
       };
       recorder.start(1000);
       state.rec.recorder = recorder;
@@ -7267,10 +7549,12 @@
         }
         if (state.tele.hideWhileRecording && state.tele.open) setTelePanelOpen(false);
 
-        var mime = pickMimeType();
+        var hasIndependentWebcam = startWebcamSidecarRecording();
+        var hasAudioTracks = outputStream.getAudioTracks().length > 0;
+        var mime = pickMimeType(hasAudioTracks);
         var options = { mimeType: mime, videoBitsPerSecond: 8000000 };
+        if (hasAudioTracks) options.audioBitsPerSecond = 128000;
         if (mime.indexOf("mp4") === -1) {
-          options.audioBitsPerSecond = 128000;
           if (formatSel.value === "video/mp4") {
             toast("当前浏览器不支持 MP4 录制，已降级为 WebM");
           }
@@ -7292,18 +7576,22 @@
             type: mime.split(";")[0],
           });
           markBrowserRecordingComplete(ext, mime.split(";")[0]);
-          v011EndSession();
-          if (state.rec.timer) clearInterval(state.rec.timer);
-          state.rec.timer = null;
-          state.rec.active = false;
-          setRecUI(false, false);
-          updateRecordingTimers();
-          stopComposeLoop();
-          bubble.style.visibility = "visible";
-          tele.style.visibility = "visible";
-          updateV011ProjectStatus("原始录制已就绪；可保存录制或播放原始录制。");
-          updateOutputActions();
-          toast("原始录制已就绪（" + ext.toUpperCase() + "），可保存录制或播放");
+          stopWebcamSidecarRecording().then(function () {
+            v011EndSession();
+            if (state.rec.timer) clearInterval(state.rec.timer);
+            state.rec.timer = null;
+            state.rec.active = false;
+            setRecUI(false, false);
+            updateRecordingTimers();
+            stopComposeLoop();
+            bubble.style.visibility = "visible";
+            tele.style.visibility = "visible";
+            updateV011ProjectStatus(hasIndependentWebcam && state.rec.webcamBlob
+              ? "原始录制和独立摄像头素材已就绪；可保存录制或播放原始录制。"
+              : "原始录制已就绪；可保存录制或播放原始录制。");
+            updateOutputActions();
+            toast("原始录制已就绪（" + ext.toUpperCase() + "）" + (hasIndependentWebcam && state.rec.webcamBlob ? "，已保留独立摄像头素材" : "") + "，可保存录制或播放");
+          });
         };
         recorder.start(1000);
         state.rec.recorder = recorder;
@@ -7342,9 +7630,15 @@
     if (!state.rec.recorder) return;
     if (state.rec.paused) {
       state.rec.recorder.resume();
+      if (state.rec.webcamSidecarRecorder && state.rec.webcamSidecarRecorder.state === "paused") {
+        state.rec.webcamSidecarRecorder.resume();
+      }
       state.rec.paused = false;
     } else {
       state.rec.recorder.pause();
+      if (state.rec.webcamSidecarRecorder && state.rec.webcamSidecarRecorder.state === "recording") {
+        state.rec.webcamSidecarRecorder.pause();
+      }
       state.rec.paused = true;
     }
     v011PauseSession(state.rec.paused);
@@ -7383,7 +7677,10 @@
         state.rec.nativeRecordingReady = !!(status && status.outputPath);
         state.rec.nativeOutputPath = (status && status.outputPath) || state.rec.nativeOutputPath || "";
         if (state.rec.nativeRecordingReady) {
-          finalizeSavedRecording(state.rec.nativeOutputPath, state.rec.nativeOutputPath.split("/").pop(), "video/mp4", state.rec.seconds)
+          finalizeSavedRecording(state.rec.nativeOutputPath, state.rec.nativeOutputPath.split("/").pop(), "video/mp4", state.rec.seconds, {
+            webcam: nativeWebcamAssetFromPath(status && status.webcamPath),
+            webcamCompositeBaked: true,
+          })
             .catch(function (metadataError) { toast("会话元数据未保存：" + (metadataError.message || metadataError)); });
         }
         setRecUI(false, false);
@@ -7422,16 +7719,23 @@
           state.rec.nativeOutputPath = response && response.outputPath || state.rec.nativeOutputPath || "";
           state.rec.nativeRecordingReady = !!state.rec.nativeOutputPath;
           if (state.rec.nativeRecordingReady) {
-            finalizeSavedRecording(state.rec.nativeOutputPath, state.rec.nativeOutputPath.split("/").pop(), "video/mp4", state.rec.seconds)
+            finalizeSavedRecording(state.rec.nativeOutputPath, state.rec.nativeOutputPath.split("/").pop(), "video/mp4", state.rec.seconds, {
+              webcam: nativeWebcamAssetFromPath(response && response.webcamPath),
+              webcamCompositeBaked: true,
+            })
               .catch(function (metadataError) { toast("会话元数据未保存：" + (metadataError.message || metadataError)); });
           }
           setRecUI(false, false);
           tele.style.visibility = "visible";
           nativeStatusEl.textContent = state.rec.nativeRecordingReady
-            ? "原始录制已就绪 · 已保存 MP4"
+            ? response && response.webcamPath
+              ? "原始录制已就绪 · 已保存 MP4 和独立摄像头素材"
+              : "原始录制已就绪 · 已保存 MP4"
             : "原始录制未就绪 · 未找到输出文件";
           toast(state.rec.nativeRecordingReady
-            ? "原始录制已保存到项目文件夹的 recordings 文件夹"
+            ? response && response.webcamPath
+              ? "原始录制和独立摄像头素材已保存到项目文件夹"
+              : "原始录制已保存到项目文件夹的 recordings 文件夹"
             : "录制已停止，但输出文件尚未就绪");
           refreshProjectFolderStatus();
           if (state.rec.restoreCameraAfterNative && camEnable.checked) {
@@ -7444,6 +7748,7 @@
       return;
     }
     if (state.rec.recorder && state.rec.recorder.state !== "inactive") {
+      stopWebcamSidecarRecording();
       state.rec.recorder.stop();
     }
     state.rec.active = false;
@@ -8694,6 +8999,9 @@
         seconds: state.rec.seconds,
         recorderState: state.rec.recorder ? state.rec.recorder.state : "none",
         lastBlobSize: state.rec.lastBlob ? state.rec.lastBlob.size : 0,
+        webcamBlobSize: state.rec.webcamBlob ? state.rec.webcamBlob.size : 0,
+        webcamExt: state.rec.webcamExt || "",
+        webcamSidecarActive: !!state.rec.webcamSidecarActive,
         lastExt: state.rec.lastExt,
         selectedDisplaySurface: state.rec.selectedDisplaySurface,
         usingDirectDisplay: state.rec.usingDirectDisplay,
@@ -8713,6 +9021,7 @@
     getProjectV2: getProjectV2ForEditor,
     saveEditorProject: saveEditorProject,
     getLastRecordingBlob: function () { return state.rec.lastBlob || null; },
+    getLastWebcamBlob: function () { return state.rec.webcamBlob || null; },
     saveProjectTextAsset: saveProjectTextAsset,
     getAsrContextTerms: getAsrContextTerms,
     getProjectFolderState: function () {

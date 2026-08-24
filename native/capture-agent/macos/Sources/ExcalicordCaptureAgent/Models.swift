@@ -40,12 +40,15 @@ struct CaptureStartRequest: Codable {
   let sourceType: String
   let sourceId: String
   let sessionId: String?
+  let outputWidth: Int?
+  let outputHeight: Int?
   let cameraEnabled: Bool?
   let microphoneEnabled: Bool?
   let cameraX: Double?
   let cameraY: Double?
   let cameraSize: Double?
   let cameraMirrored: Bool?
+  let cameraSidecarEnabled: Bool?
   let smoothing: Double?
   let whitening: Double?
   let lightIntensity: Double?
@@ -65,6 +68,7 @@ struct CommandResponse: Codable {
   let state: String
   let message: String?
   let outputPath: String?
+  let webcamPath: String?
 }
 
 struct StatusResponse: Codable {
@@ -72,6 +76,7 @@ struct StatusResponse: Codable {
   let state: String
   let seconds: Double
   let outputPath: String?
+  let webcamPath: String?
   let error: String?
 }
 
