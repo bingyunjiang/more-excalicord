@@ -10,12 +10,12 @@
 
 <p align="center">
   <a href="#画中画让白板讲解更有人在场">画中画</a> ·
+  <a href="#核心优势">核心优势</a> ·
+  <a href="#功能全景">功能全景</a> ·
   <a href="#快速开始">快速开始</a> ·
-  <a href="#核心体验">核心体验</a> ·
-  <a href="#more-系列从研究到表达">More 系列</a> ·
-  <a href="#其他真实效果">真实截图</a> ·
   <a href="docs/user-guide.zh-CN.md">使用指南</a> ·
   <a href="CHANGELOG.md">更新日志</a> ·
+  <a href="#more-系列从研究到表达">More 系列</a> ·
   <a href="LICENSE">MIT License</a>
 </p>
 
@@ -53,50 +53,78 @@
 
 适合用来制作技术方案讲解、课程与培训视频、论文与产品汇报，以及带桌面操作的软件教程。
 
-## More 系列：从研究到表达
+## 核心优势
 
-`more-*` 是 Dr. Jiang 发起的一组开源创作与研究工具，强调本地优先、过程透明、来源可追溯和结果可复核。你可以从当前任务直接选择合适的项目，也可以把各自已经验收的成果组合进自己的工作流。
-
-| 项目 | 帮你完成什么 |
+| 优势 | 对用户意味着什么 |
 | --- | --- |
-| [more-news-briefing](https://github.com/bingyunjiang/more-news-briefing) | 收集、去重并核验新闻与行业信息，生成可追溯的专题简报 |
-| [more-paper-workflow](https://github.com/bingyunjiang/more-paper-workflow) | 从研究问题、文献检索和证据组织，到论文写作与引用审计 |
-| [more-sci-figure](https://github.com/bingyunjiang/more-sci-figure) | 提取科研图表数据、聚焦异常复核，并交付论文级可编辑图件 |
-| [more-chat-excalidraw](https://github.com/bingyunjiang/more-chat-excalidraw) | 用自然语言生成结构化、可继续编辑的 Excalidraw 白板 |
-| **[more-excalicord](https://github.com/bingyunjiang/more-excalicord)**（当前项目） | 把 Excalidraw 白板变成带画中画、讲解和录后编辑的视频 |
+| 默认即可开始 | 载入白板、选择范围、点击录制；Frame、提词器和后期功能都不是前置条件 |
+| 创作与讲解不分家 | 不必把白板搬进 PPT 或切换到另一套录屏软件，始终留在熟悉的 Excalidraw 中 |
+| 白板与人同时在场 | 画中画、麦克风、提词器和屏幕补光集中设置，既保留内容，也保留讲解者的交流感 |
+| 录制范围更准确 | 可录白板全景、当前幻灯片、整个屏幕或指定窗口，并在桌面录制前确认真实来源 |
+| 原片始终安全 | 剪辑、字幕、镜头和画面包装采用非破坏式编辑，调整方案不会覆盖原始录制 |
+| 项目完整带走 | 白板、原片、事件、逐字稿、字幕和成片集中在用户选择的本机项目目录中 |
 
-这些项目彼此独立安装、独立运行、独立验收，不会自动调用其他项目或共享你的项目数据。[查看 Dr. Jiang 的全部公开项目](https://github.com/bingyunjiang?tab=repositories&q=more-)。
+## 功能全景
 
-## 其他真实效果
+以下均为真实本地运行画面，不是产品设计稿。
 
-以下画面来自真实本地运行，不是产品设计稿。
+### 1. 一张无限白板，也能像幻灯片一样讲
 
-### 一张白板，也能像幻灯片一样讲
+Frame 会成为可搜索、可重命名、可排序的讲解页。你既可以逐页聚焦演示，也能一键回到整张白板的鸟瞰视图；新增、删除和排序会与白板内容一起保存。
 
 <p align="center">
-  <img src="docs/assets/readme/25-external-display-slide-overview-20260824.png" alt="more-excalicord 幻灯片总览" width="100%">
+  <img src="docs/assets/readme/25-external-display-slide-overview-20260824.png" alt="more-excalicord 幻灯片总览、搜索、排序和聚焦" width="100%">
 </p>
 
-Frame 会成为可搜索、可重命名、可排序的讲解幻灯页。你可以在总览中定位内容，也可以一键回到整张白板的鸟瞰视图。
-
-### 一键录完，也可继续编辑
+白板控制还提供全景/聚焦切换、缩放、前进后退、网格和智能吸附，让讲解节奏与日常绘图操作保持一致。
 
 <p align="center">
-  <img src="docs/assets/readme/35-external-display-post-editor-20260824.png" alt="more-excalicord 录后编辑工作台" width="100%">
+  <img src="docs/assets/readme/26-external-display-whiteboard-controls-20260824.png" alt="more-excalicord 白板视图、缩放、历史和演示控制" width="100%">
 </p>
 
-剪辑、逐字稿、字幕、镜头、光标、摄像头、画面和音频设置都写入项目时间线；原始录制始终保留。
+### 2. 一个项目目录，收好从白板到成片的全部内容
 
-## 核心体验
+选择一次项目文件夹后，白板、录制会话、媒体、事件、文字资产和最终导出都有清晰归属。项目可以整体备份、迁移或继续编辑，不需要反复指定多个保存位置。
 
-| 体验 | 你可以做什么 |
-| --- | --- |
-| 画中画讲解 | 让讲解者与白板同框，调整四角位置、大小、形状和镜像，并按需合成进视频 |
-| 白板即幻灯片 | 用 Frame 组织、搜索、排序和聚焦讲解页，也能随时回到全局鸟瞰 |
-| 默认即可录制 | 直接录制白板全景或当前页；需要时再选择桌面窗口和麦克风 |
-| 口播更从容 | 使用提词器、柔光补光和可拖动的录制工具条 |
-| 录后继续精修 | 非破坏剪辑、逐字稿、字幕、智能镜头与画面包装都不会覆盖原片 |
-| 本地项目交付 | 白板、原片、事件、字幕和成片保存在同一项目目录，便于备份与迁移 |
+<p align="center">
+  <img src="docs/assets/readme/21-v011-rich-sketch-project.png" alt="more-excalicord 项目目录与白板保存状态" width="100%">
+</p>
+
+### 3. 既能录白板，也能录屏幕和指定窗口
+
+白板全景和当前幻灯片适合课程与方案讲解；屏幕或窗口录制适合软件演示。桌面录制前会显示来源类型和真实预览，确认后才开始，减少录错屏幕或窗口的风险。
+
+<p align="center">
+  <img src="docs/assets/readme/33-external-display-source-picker-20260824.png" alt="more-excalicord 屏幕与窗口录制来源确认" width="100%">
+</p>
+
+画幅支持常用横屏、竖屏和自定义尺寸；需要时还可隐藏桌面图标，并使用 2D 缩放、3D 运镜、鼠标点击和打字位置生成更自然的智能镜头。
+
+### 4. 讲解辅助始终在手边
+
+录制开始后，主面板会收起为轻量工具条，只保留计时、提词器、暂停和停止。工具条可拖动，也支持快捷键；提词器、麦克风状态、摄像头画中画、镜头增亮和屏幕补光都可以按需启用。
+
+<p align="center">
+  <img src="docs/assets/readme/22-v011-recording-toolbar.png" alt="more-excalicord 录制计时、提词器、暂停和停止工具条" width="100%">
+</p>
+
+### 5. 停止录制不是结束，原片也不会被覆盖
+
+录后工作台把剪辑、逐字稿、智能粗剪、字幕、镜头、光标、摄像头、画面和音频集中到同一时间线。所有调整都保存为编辑方案，随时可以撤销、恢复或重新导出。
+
+<p align="center">
+  <img src="docs/assets/readme/35-external-display-post-editor-20260824.png" alt="more-excalicord 非破坏录后编辑工作台" width="100%">
+</p>
+
+逐字稿来自实际录音；提词稿只辅助讲解，不会冒充录音内容。智能粗剪只提出建议，接受后才会写入剪辑轨；包含点击、指针或幻灯片切换的静音段会保留复核提示。
+
+### 6. 字幕、画面包装与 MP4 一次交付
+
+校对后的逐字稿可以生成并编辑字幕，导出时可加入智能镜头、动态光标、摄像头、背景、圆角、留白、阴影和音频淡入淡出，最终写入 `exports/final.mp4`。
+
+<p align="center">
+  <img src="docs/assets/readme/37-final-export-burned-subtitle-20260824.png" alt="more-excalicord 带中文字幕的最终 MP4 成片" width="100%">
+</p>
 
 ## 默认设置，直接开录
 
@@ -136,6 +164,20 @@ npm run deploy:local
 | 参与开发或发布 | [开发指南](docs/developer-guide.zh-CN.md) · [发布检查](docs/release-checklist.zh-CN.md) |
 | 查看历史实测证据 | [v0.1.1 UX 复核](docs/v0.1.1-ux-review.zh-CN.md) |
 | 查看版本变化 | [更新日志](CHANGELOG.md) |
+
+## More 系列：从研究到表达
+
+`more-*` 是 Dr. Jiang 发起的一组开源创作与研究工具，强调本地优先、过程透明、来源可追溯和结果可复核。你可以从当前任务直接选择合适的项目，也可以把各自已经验收的成果组合进自己的工作流。
+
+| 项目 | 帮你完成什么 |
+| --- | --- |
+| [more-news-briefing](https://github.com/bingyunjiang/more-news-briefing) | 收集、去重并核验新闻与行业信息，生成可追溯的专题简报 |
+| [more-paper-workflow](https://github.com/bingyunjiang/more-paper-workflow) | 从研究问题、文献检索和证据组织，到论文写作与引用审计 |
+| [more-sci-figure](https://github.com/bingyunjiang/more-sci-figure) | 提取科研图表数据、聚焦异常复核，并交付论文级可编辑图件 |
+| [more-chat-excalidraw](https://github.com/bingyunjiang/more-chat-excalidraw) | 用自然语言生成结构化、可继续编辑的 Excalidraw 白板 |
+| **[more-excalicord](https://github.com/bingyunjiang/more-excalicord)**（当前项目） | 把 Excalidraw 白板变成带画中画、讲解和录后编辑的视频 |
+
+这些项目彼此独立安装、独立运行、独立验收，不会自动调用其他项目或共享你的项目数据。[查看 Dr. Jiang 的全部公开项目](https://github.com/bingyunjiang?tab=repositories&q=more-)。
 
 ## 作者与许可
 
