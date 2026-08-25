@@ -2,7 +2,17 @@
 
 ## 适用范围
 
-当前脚本默认适配 macOS 上的本地 Excalidraw 目录：
+当前正式安装路径仅适用于 **macOS**。仓库中的 Capture Agent 使用 Swift、ScreenCaptureKit/AppKit 和 LaunchAgent，安装、权限与真实录制流程也只在 macOS 上验收。
+
+| 平台 | 当前状态 | 安装结论 |
+| --- | --- | --- |
+| macOS | 当前开发与验收平台 | 可按本文继续安装 |
+| Windows | 尚未实现、尚未端到端验收 | 不能直接安装完整功能；需先完成 Windows 适配 |
+| Linux | 未纳入当前范围 | 不提供安装承诺 |
+
+Windows 用户请先阅读 [Windows 适配开发计划](windows-porting-plan.zh-CN.md)。当前 `npm run deploy:capture-agent` 在非 macOS 系统会跳过原生采集端；这只表示脚本安全退出，不表示 Windows 已兼容。网页插件即使能够加载，也不能据此认定屏幕/窗口录制、原生项目目录、MP4 编码、后台启动或录后导出可用。
+
+以下步骤均为 macOS 安装说明。默认本地 Excalidraw 目录为：
 
     ~/.local/share/excalidraw
 
@@ -49,6 +59,8 @@
 
 ## 推荐安装步骤
 
+> 本节仅适用于 macOS。Windows 不应直接照搬这些命令作为完整安装方案。
+
 1. 下载仓库。
 2. 进入仓库目录。
 3. 配置运行目录：默认目录运行 npm run setup:local；自定义目录运行 npm run configure:local -- --runtime-root /path/to/excalidraw。
@@ -59,7 +71,7 @@
 8. 如需自动逐字稿，执行 npm run setup:asr。
 9. 打开 http://localhost:5001/ 验收。
 
-## 用 Codex 等大模型辅助部署
+## 用 Codex 等大模型辅助部署（macOS）
 
 如果用户不熟悉终端，可以让 Codex、Claude Code、Cursor 或 ChatGPT Desktop 这类本地大模型助手代为部署。建议给大模型明确边界：先检查前置条件，再配置路径，再部署，最后让用户做浏览器和视频回放验收。
 
@@ -67,7 +79,7 @@
 
     请帮我部署 more-excalicord。当前目录就是仓库根目录。先运行 npm run preflight，检查 Node.js/npm、自托管 Excalidraw 运行目录、写入权限和 http://localhost:5001/ 状态。如果运行目录不是 ~/.local/share/excalidraw，先问我真实路径，再运行 npm run configure:local -- --runtime-root <真实路径>。然后依次运行 npm run check、npm run deploy:local、npm run verify:deploy。不要提交 .env.local、个人白板、录屏、密钥或缓存文件。部署后提示我打开 http://localhost:5001/，检查 more-excalicord 工具栏、录制面板、屏幕/窗口录制、白板全景录制、当前幻灯片聚焦录制、摄像头画中画和摄像头合成进视频。
 
-如果大模型提示缺少 Node.js 或本地 Excalidraw，它应该先指导用户安装或配置这些前置条件，而不是继续执行部署。
+如果大模型提示缺少 Node.js 或本地 Excalidraw，它应该先指导用户安装或配置这些前置条件，而不是继续执行部署。若检测到 Windows，应停止套用上述提示词，改为先阅读 Windows 适配计划；不得声称仅安装 Node.js 或运行 Bash 脚本就已获得完整 Windows 支持。
 
 ## 部署过程中的配置文件
 

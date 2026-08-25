@@ -19,7 +19,7 @@
   <a href="LICENSE">MIT License</a>
 </p>
 
-> 当前版本：`v0.1.2` · 面向自托管 Excalidraw
+> 当前版本：`v0.1.2` · 面向自托管 Excalidraw · 当前仅在 macOS 开发和验收
 
 ## 画中画，让白板讲解更有“人”在场
 
@@ -140,7 +140,9 @@ Frame 会成为可搜索、可重命名、可排序的讲解页。你既可以�
 
 ## 快速开始
 
-准备好 Node.js、npm 和一个可运行的自托管 Excalidraw，然后执行：
+### macOS（当前支持）
+
+当前安装脚本和原生 Capture Agent 仅按 macOS 开发、测试和发布。准备好 Node.js、npm 和一个可运行的自托管 Excalidraw，然后执行：
 
 ```bash
 git clone https://github.com/bingyunjiang/more-excalicord.git
@@ -154,6 +156,12 @@ npm run deploy:local
 
 自定义 Excalidraw 目录、macOS Capture Agent、本地 ASR 和权限配置见[完整安装说明](docs/install.zh-CN.md)。
 
+### Windows（尚未适配）
+
+当前版本**没有可直接安装的 Windows Capture Agent，也未在 Windows 上完成端到端验收**。请勿把 macOS 的 Bash、Swift、LaunchAgent 或权限步骤直接照搬到 Windows。网页插件中的一部分通用能力可能可以运行，但屏幕/窗口录制、项目目录原生访问、MP4 编码、后台启动和完整录后导出不能视为已支持。
+
+本项目暂不安排官方 Windows 实现；希望自行适配的用户可从 [Windows 适配开发计划](docs/windows-porting-plan.zh-CN.md) 开始。该文档给出了推荐目录、现有本地协议、分阶段任务、Windows 技术映射、安全要求和验收矩阵。适配完成前，Windows 用户应自行构建、测试和维护分支。
+
 ## 文档与开发
 
 | 我想…… | 从这里开始 |
@@ -161,7 +169,7 @@ npm run deploy:local
 | 尽快用起来 | [快速开始](docs/quickstart.zh-CN.md) · [使用指南](docs/user-guide.zh-CN.md) |
 | 完成安装或排障 | [安装说明](docs/install.zh-CN.md) · [排障说明](docs/troubleshooting.zh-CN.md) |
 | 了解项目文件 | [项目格式](docs/project-format.zh-CN.md) |
-| 参与开发或发布 | [开发指南](docs/developer-guide.zh-CN.md) · [发布检查](docs/release-checklist.zh-CN.md) |
+| 参与开发或发布 | [开发指南](docs/developer-guide.zh-CN.md) · [Windows 适配计划](docs/windows-porting-plan.zh-CN.md) · [发布检查](docs/release-checklist.zh-CN.md) |
 | 查看历史实测证据 | [v0.1.1 UX 复核](docs/v0.1.1-ux-review.zh-CN.md) |
 | 查看版本变化 | [更新日志](CHANGELOG.md) |
 

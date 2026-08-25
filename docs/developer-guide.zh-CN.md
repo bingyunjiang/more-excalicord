@@ -12,6 +12,8 @@
 | `tests/` | 编辑器、存储、粗剪、镜头与渲染测试 |
 | `examples/` | 可直接载入的 Excalidraw 示例 |
 
+当前仓库没有 `native/capture-agent/windows/` 实现。Windows 贡献者应先阅读 [Windows 适配开发计划](windows-porting-plan.zh-CN.md)，保持现有网页桥接协议和项目格式兼容，并将平台实现放在独立目录中，不要在 macOS Swift 源码中堆叠 Windows 条件分支。
+
 ## 常用命令
 
 | 命令 | 用途 |
