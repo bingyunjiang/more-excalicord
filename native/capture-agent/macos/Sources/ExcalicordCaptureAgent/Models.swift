@@ -56,6 +56,7 @@ struct CaptureStartRequest: Codable {
   let cameraX: Double?
   let cameraY: Double?
   let cameraSize: Double?
+  let cameraShape: String?
   let cameraMirrored: Bool?
   let cameraSidecarEnabled: Bool?
   let smoothing: Double?

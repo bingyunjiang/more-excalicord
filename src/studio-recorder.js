@@ -86,6 +86,9 @@
       lastSavedFileName: "",
       lastSavedViaNative: false,
       lastSavedToBrowserFolder: false,
+      compositionReady: false,
+      compositionOutputPath: "",
+      compositionRelativePath: "",
       lastPreviewUrl: "",
       composeCanvas: null,
       composeCtx: null,
@@ -448,6 +451,15 @@
     state.cursor.pointerShape = typeof projectCursor.pointerShape === "string" ? projectCursor.pointerShape : "system";
     state.cursor.sound = typeof projectCursor.sound === "string" ? projectCursor.sound : "off";
     var projectWebcam = project.edits && project.edits.webcam || {};
+    state.camera.shape = normalizeCameraShape(projectWebcam.shape || state.camera.shape);
+    state.camera.compositePosition = ["top-left", "top-right", "bottom-left", "bottom-right"].indexOf(projectWebcam.position) >= 0
+      ? projectWebcam.position
+      : state.camera.compositePosition;
+    if (Number.isFinite(Number(projectWebcam.scale))) {
+      var shortEdge = Math.max(1, Math.min(window.innerWidth || 1, window.innerHeight || 1));
+      state.camera.size = Math.round(clamp(Number(projectWebcam.scale), 0.08, 0.50) * shortEdge);
+    }
+    state.camera.mirrored = projectWebcam.mirror !== false;
     state.camera.portraitLightEnabled = projectWebcam.portraitLightEnabled === true
       || (!Object.prototype.hasOwnProperty.call(projectWebcam, "portraitLightEnabled") && projectWebcam.screenLightEnabled === true);
     state.camera.portraitLightMode = ["auto", "screen", "camera"].indexOf(projectWebcam.portraitLightMode) >= 0
@@ -635,6 +647,11 @@
       sound: state.cursor.sound || "off",
     };
     existing.edits.webcam = Object.assign({}, existing.edits.webcam, {
+      visible: (typeof camEnable !== "undefined" && camEnable) ? !!camEnable.checked : !!state.camera.enabled,
+      position: state.camera.compositePosition || "bottom-right",
+      scale: typeof cameraDiameterRatio === "function" ? cameraDiameterRatio() : 0.2,
+      shape: normalizeCameraShape(state.camera.shape),
+      mirror: state.camera.mirrored !== false,
       portraitLightEnabled: !!state.camera.portraitLightEnabled,
       portraitLightMode: state.camera.portraitLightMode || "auto",
       portraitLightStrength: Number.isFinite(Number(state.camera.portraitLightStrength))
@@ -1295,13 +1312,17 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260825d-v012-release";
+  var EC_BUILD_VERSION = "20260906b-camera-shapes";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
   }
   function buttonWithShortcut(label, shortcut) {
     return '<span class="ec-btn-label">' + label + '</span><kbd class="ec-shortcut">' + shortcut + '</kbd>';
+  }
+
+  function normalizeCameraShape(value) {
+    return value === "circle" || value === "pill" || value === "rounded" ? value : "rounded";
   }
 
   shadow.innerHTML = [
@@ -1428,9 +1449,9 @@
     "  </div>",
     '  <div class="ec-section ec-camera-section">',
     '    <div class="ec-section-title"><span class="ec-title-label"><span class="ec-section-icon ec-section-icon-camera" aria-hidden="true">◉</span><span>摄像头与麦克风</span></span></div>',
-    '    <div class="ec-row"><label>启用</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-enable"/> 摄像头画中画</label></div>',
+    '    <div class="ec-row"><label>启用</label><label class="ec-toggle"><input type="checkbox" id="ec-cam-enable" checked/> 摄像头画中画</label></div>',
     '    <div class="ec-row ec-mic-row" id="ec-mic-row"><label>麦克风</label><select id="ec-mic-device"><option value="">默认麦克风</option></select><div class="ec-mic-meter" id="ec-mic-meter" role="meter" aria-label="麦克风实时音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="ec-mic-bar" id="ec-mic-bar"></div><div class="ec-mic-wave" id="ec-mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><span class="ec-value ec-mic-status ec-mic-status-idle" id="ec-mic-status" role="status" aria-label="打开面板后会实时检测麦克风" title="打开面板后会实时检测麦克风"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.25" y="3.25" width="7.5" height="11.5" rx="3.75"></rect><path d="M5.75 11.5v.75a6.25 6.25 0 0 0 12.5 0v-.75M12 18.5v2.25M9.25 20.75h5.5"></path></svg></span></div>',
-    '    <div class="ec-row"><label>合成</label><label class="ec-toggle"><input type="checkbox" id="ec-compose" title="录制时把摄像头圆框直接合成进视频文件，不依赖屏幕里的气泡位置"/> 摄像头合成进视频</label></div>',
+    '    <div class="ec-row"><label>合成</label><label class="ec-toggle"><input type="checkbox" id="ec-compose" checked title="录制时把摄像头圆框直接合成进视频文件，不依赖屏幕里的气泡位置"/> 摄像头合成进视频</label></div>',
     '    <div class="ec-row" id="ec-composite-position-row"><label>显示位置</label><select id="ec-composite-position"><option value="top-left">左上</option><option value="top-right">右上</option><option value="bottom-left">左下</option><option value="bottom-right" selected>右下</option></select></div>',
     '    <div class="ec-row"><label>录制时</label><label class="ec-toggle"><input type="checkbox" id="ec-hide-bubble"/> 隐藏屏幕气泡（与合成进视频无关）</label></div>',
     '    <div class="ec-camera-details" id="ec-camera-details" aria-hidden="true" hidden>',
@@ -1519,7 +1540,7 @@
     '      <button class="ec-btn ec-btn-ghost" id="ec-rec-pause" title="暂停或继续录制（快捷键：' + shortcutLabel("P") + '）" aria-label="暂停或继续录制，快捷键 ' + shortcutLabel("P") + '" disabled>' + buttonWithShortcut("暂停", shortcutLabel("P")) + '</button>',
     '      <button class="ec-btn ec-btn-danger" id="ec-rec-stop" title="停止录制（快捷键：' + shortcutLabel("S") + '）" aria-label="停止录制，快捷键 ' + shortcutLabel("S") + '" disabled>' + buttonWithShortcut("停止", shortcutLabel("S")) + '</button>',
     "    </div>",
-    '    <div class="ec-row ec-export-row" style="margin-top:4px"><label style="flex:0 0 auto">原始录制</label><button class="ec-btn ec-btn-ghost" id="ec-export" style="flex:1">保存录制</button><button class="ec-btn ec-btn-ghost" id="ec-export-open">播放原始录制</button></div>',
+    '    <div class="ec-row ec-export-row" style="margin-top:4px"><label style="flex:0 0 auto">视频文件</label><button class="ec-btn ec-btn-ghost" id="ec-export" style="flex:1">保存录制</button><button class="ec-btn ec-btn-ghost" id="ec-export-open">编辑原始录制</button></div>',
     "  </div>",
     "</div>",
     '<div class="ec-mini-recorder" id="ec-mini-recorder" role="toolbar" aria-label="录制控制" aria-hidden="true">',
@@ -4966,7 +4987,9 @@
   }
 
   function applyBubbleStyle() {
-    var shape = state.camera.shape;
+    var shape = normalizeCameraShape(state.camera.shape);
+    state.camera.shape = shape;
+    if (camShape && camShape.value !== shape) camShape.value = shape;
     if (shape === "circle") {
       bubble.style.borderRadius = "50%";
     } else if (shape === "pill") {
@@ -5007,16 +5030,19 @@
     }
   });
   camShape.addEventListener("change", function () {
-    state.camera.shape = camShape.value;
+    state.camera.shape = normalizeCameraShape(camShape.value);
     applyBubbleStyle();
+    v011ScheduleSave("webcam-shape");
   });
   camSize.addEventListener("input", function () {
     state.camera.size = parseInt(camSize.value, 10);
     camSizeV.textContent = state.camera.size;
     applyBubbleStyle();
+    v011ScheduleSave("webcam-size");
   });
   camMirror.addEventListener("change", function () {
     state.camera.mirrored = camMirror.checked;
+    v011ScheduleSave("webcam-mirror");
   });
   beautyToggle.addEventListener("change", function () {
     beautySmoothRow.style.display = beautyToggle.checked ? "flex" : "none";
@@ -5174,6 +5200,7 @@
 
   compositePositionSel.addEventListener("change", function () {
     state.camera.compositePosition = compositePositionSel.value || "bottom-right";
+    v011ScheduleSave("webcam-position");
   });
   if (micDeviceSel) {
     micDeviceSel.addEventListener("change", function () {
@@ -5402,6 +5429,8 @@
 
   function cameraCompositeCenter() {
     var diameter = cameraDiameterRatio();
+    var shape = normalizeCameraShape(state.camera.shape);
+    var height = shape === "circle" ? diameter : diameter * 0.72;
     var margin = 0.04;
     var position = state.camera.compositePosition || "bottom-right";
     return {
@@ -5409,20 +5438,49 @@
         ? 1 - margin - diameter / 2
         : margin + diameter / 2,
       y: position.indexOf("bottom") >= 0
-        ? 1 - margin - diameter / 2
-        : margin + diameter / 2,
+        ? 1 - margin - height / 2
+        : margin + height / 2,
     };
   }
 
+  function roundedRectPath(ctx, x, y, width, height, radius) {
+    var r = Math.max(0, Math.min(radius, width / 2, height / 2));
+    if (typeof ctx.roundRect === "function") {
+      ctx.roundRect(x, y, width, height, r);
+      return;
+    }
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+  }
+
   function cameraCompositePlacement(W, H) {
-    var radius = Math.min(W, H) * cameraDiameterRatio() / 2;
+    var diameter = Math.min(W, H) * cameraDiameterRatio();
+    var shape = normalizeCameraShape(state.camera.shape);
+    var width = diameter;
+    var height = shape === "circle" ? diameter : diameter * 0.72;
+    var radius = shape === "circle"
+      ? Math.min(width, height) / 2
+      : (shape === "pill" ? height / 2 : Math.min(width, height) * 0.16);
     var marginX = Math.max(24, W * 0.04);
     var marginY = Math.max(24, H * 0.04);
     var position = state.camera.compositePosition || "bottom-right";
+    var x = position.indexOf("right") >= 0 ? W - width - marginX : marginX;
+    var y = position.indexOf("bottom") >= 0 ? H - height - marginY : marginY;
     return {
       radius: radius,
-      x: position.indexOf("right") >= 0 ? W - radius - marginX : radius + marginX,
-      y: position.indexOf("bottom") >= 0 ? H - radius - marginY : radius + marginY,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      centerX: x + width / 2,
+      centerY: y + height / 2,
     };
   }
 
@@ -5464,6 +5522,9 @@
     state.rec.lastSavedFileName = "";
     state.rec.lastSavedViaNative = false;
     state.rec.lastSavedToBrowserFolder = false;
+    state.rec.compositionReady = false;
+    state.rec.compositionOutputPath = "";
+    state.rec.compositionRelativePath = "";
     if (state.rec.lastPreviewUrl) {
       URL.revokeObjectURL(state.rec.lastPreviewUrl);
       state.rec.lastPreviewUrl = "";
@@ -5741,29 +5802,34 @@
     var active = !!state.rec.active;
     if (!hasMovie) {
       recExport.textContent = "保存录制";
-      recExport.title = "将原始录制保存到项目文件夹的 recordings 子文件夹";
-      recOpen.textContent = "播放原始录制";
-      recOpen.title = "录制完成后播放原始录制";
+      recExport.title = "录制完成后保存合成视频；如需文件夹，请在项目区打开保存位置";
+      recOpen.textContent = "编辑原始录制";
+      recOpen.title = "录制完成后在新页面编辑原始录制";
+    } else if (state.rec.compositionReady) {
+      recExport.textContent = "打开合成视频";
+      recExport.title = "打开刚导出的带画中画合成视频";
+      recOpen.textContent = "编辑原始录制";
+      recOpen.title = "在新页面编辑最后生成的原始录制";
     } else if (state.rec.nativeRecordingReady) {
-      recExport.textContent = "打开保存位置";
-      recExport.title = "原始录制已自动保存，点击打开保存位置";
-      recOpen.textContent = "播放原始录制";
-      recOpen.title = "用系统默认播放器播放最后生成的原始录制";
+      recExport.textContent = "保存合成视频";
+      recExport.title = "导出带画中画的最终 MP4 到项目 exports 文件夹";
+      recOpen.textContent = "编辑原始录制";
+      recOpen.title = "在新页面编辑最后生成的原始录制";
     } else if (state.rec.nativeAvailable) {
-      recExport.textContent = "保存录制";
-      recExport.title = "保存到项目文件夹的 recordings 子文件夹；同一段重复保存会覆盖";
-      recOpen.textContent = "播放原始录制";
-      recOpen.title = "先保存原始录制，再用系统默认播放器播放";
+      recExport.textContent = "保存合成视频";
+      recExport.title = "先保存原始素材，再导出带画中画的最终 MP4";
+      recOpen.textContent = "编辑原始录制";
+      recOpen.title = "先保存原始录制，再新开编辑页面";
     } else if (state.rec.projectFolder.handle) {
-      recExport.textContent = "保存录制";
-      recExport.title = "保存到项目文件夹的 recordings 子文件夹";
-      recOpen.textContent = "播放原始录制";
-      recOpen.title = "后台不可用时只能在新标签页播放原始录制";
+      recExport.textContent = "保存合成视频";
+      recExport.title = "先保存原始素材；如本地成片服务不可用，会提示处理方式";
+      recOpen.textContent = "编辑原始录制";
+      recOpen.title = "本地服务连接后可在新页面编辑原始录制";
     } else {
       recExport.textContent = "保存录制";
       recExport.title = "请先在项目区选择项目文件夹";
-      recOpen.textContent = "播放原始录制";
-      recOpen.title = "后台不可用时只能在新标签页播放原始录制";
+      recOpen.textContent = "编辑原始录制";
+      recOpen.title = "录制完成并保存到项目文件夹后可编辑";
     }
     recExport.disabled = active;
     recOpen.disabled = active || !hasMovie;
@@ -6602,6 +6668,18 @@
     updateScreenLight();
   }
 
+  function revealPanelAfterRecordingStops() {
+    if (!hasCompletedRecording()) return;
+    setPanelOpen(true);
+    requestAnimationFrame(function () {
+      var resultSection = shadow.querySelector(".ec-recording-result");
+      if (!resultSection || !panel) return;
+      var top = Math.max(0, resultSection.offsetTop - 12);
+      if (typeof panel.scrollTo === "function") panel.scrollTo({ top: top, behavior: "smooth" });
+      else panel.scrollTop = top;
+    });
+  }
+
   function stopCursorSoundMix() {
     if (state.cursor.soundContext && typeof state.cursor.soundContext.close === "function") {
       state.cursor.soundContext.close().catch(function () {});
@@ -7053,52 +7131,55 @@
       }
       var placement = cameraCompositePlacement(W, H);
       var radius = placement.radius;
-      var cx = placement.x;
-      var cy = placement.y;
+      var boxX = placement.x;
+      var boxY = placement.y;
+      var boxW = placement.width;
+      var boxH = placement.height;
       ctx.save();
       ctx.shadowColor = "rgba(0,0,0,0.35)";
       ctx.shadowBlur = 18;
       ctx.fillStyle = "#fff";
       ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      roundedRectPath(ctx, boxX, boxY, boxW, boxH, radius);
       ctx.fill();
       ctx.restore();
       ctx.save();
       ctx.beginPath();
-      ctx.arc(cx, cy, radius - 3, 0, Math.PI * 2);
+      roundedRectPath(ctx, boxX + 3, boxY + 3, boxW - 6, boxH - 6, Math.max(0, radius - 3));
       ctx.clip();
       var src = camSrc.source;
       var sw = camSrc.width;
       var sh = camSrc.height;
-      var inner = radius - 3;
-      var ss = Math.max((inner * 2) / sw, (inner * 2) / sh);
-      var sx = (sw - (inner * 2) / ss) / 2;
-      var sy = (sh - (inner * 2) / ss) / 2;
+      var innerW = Math.max(2, boxW - 6);
+      var innerH = Math.max(2, boxH - 6);
+      var ss = Math.max(innerW / sw, innerH / sh);
+      var sx = (sw - innerW / ss) / 2;
+      var sy = (sh - innerH / ss) / 2;
       if (camSrc.mirrored) {
-        ctx.translate(cx, cy);
+        ctx.translate(boxX + boxW / 2, boxY + boxH / 2);
         ctx.scale(-1, 1);
         ctx.drawImage(
           src,
           sx,
           sy,
-          (inner * 2) / ss,
-          (inner * 2) / ss,
-          -inner,
-          -inner,
-          inner * 2,
-          inner * 2,
+          innerW / ss,
+          innerH / ss,
+          -innerW / 2,
+          -innerH / 2,
+          innerW,
+          innerH,
         );
       } else {
         ctx.drawImage(
           src,
           sx,
           sy,
-          (inner * 2) / ss,
-          (inner * 2) / ss,
-          cx - inner,
-          cy - inner,
-          inner * 2,
-          inner * 2,
+          innerW / ss,
+          innerH / ss,
+          boxX + 3,
+          boxY + 3,
+          innerW,
+          innerH,
         );
       }
       ctx.restore();
@@ -7375,6 +7456,7 @@
       cameraX: compositeCenter.x,
       cameraY: compositeCenter.y,
       cameraSize: cameraDiameterRatio(),
+      cameraShape: normalizeCameraShape(state.camera.shape),
       cameraMirrored: state.camera.mirrored,
       cameraSidecarEnabled: nativeCameraComposite && !!state.settings.retainPostAssets,
       smoothing: beautyToggle.checked ? state.camera.smoothing : 0,
@@ -7536,10 +7618,11 @@
           bubble.style.visibility = "visible";
           tele.style.visibility = "visible";
           updateV011ProjectStatus(hasIndependentWebcam && state.rec.webcamBlob
-            ? "原始录制和独立摄像头素材已就绪；可保存录制或播放原始录制。"
-            : "原始录制已就绪；可保存录制或播放原始录制。");
+            ? "原始录制和独立摄像头素材已就绪；可保存合成视频或编辑原始录制。"
+            : "原始录制已就绪；可保存合成视频或编辑原始录制。");
           updateOutputActions();
-          toast("原始录制已就绪（" + ext.toUpperCase() + "）" + (hasIndependentWebcam && state.rec.webcamBlob ? "，已保留独立摄像头素材" : "") + "，可保存录制或播放");
+          toast("原始录制已就绪（" + ext.toUpperCase() + "）" + (hasIndependentWebcam && state.rec.webcamBlob ? "，已保留独立摄像头素材" : "") + "，可保存合成视频或编辑");
+          revealPanelAfterRecordingStops();
         });
       };
       recorder.start(1000);
@@ -7686,10 +7769,11 @@
             bubble.style.visibility = "visible";
             tele.style.visibility = "visible";
             updateV011ProjectStatus(hasIndependentWebcam && state.rec.webcamBlob
-              ? "原始录制和独立摄像头素材已就绪；可保存录制或播放原始录制。"
-              : "原始录制已就绪；可保存录制或播放原始录制。");
+              ? "原始录制和独立摄像头素材已就绪；可保存合成视频或编辑原始录制。"
+              : "原始录制已就绪；可保存合成视频或编辑原始录制。");
             updateOutputActions();
-            toast("原始录制已就绪（" + ext.toUpperCase() + "）" + (hasIndependentWebcam && state.rec.webcamBlob ? "，已保留独立摄像头素材" : "") + "，可保存录制或播放");
+            toast("原始录制已就绪（" + ext.toUpperCase() + "）" + (hasIndependentWebcam && state.rec.webcamBlob ? "，已保留独立摄像头素材" : "") + "，可保存合成视频或编辑");
+            revealPanelAfterRecordingStops();
           });
         };
         recorder.start(1000);
@@ -7793,6 +7877,7 @@
         if (state.rec.restoreCameraAfterNative && camEnable.checked) {
           startCamera({ silentSuccess: true, silentError: true });
         }
+        revealPanelAfterRecordingStops();
       })
       .catch(function (statusError) {
         recStop.disabled = false;
@@ -7840,6 +7925,7 @@
           if (state.rec.restoreCameraAfterNative && camEnable.checked) {
             startCamera({ silentSuccess: true, silentError: true });
           }
+          revealPanelAfterRecordingStops();
         })
         .catch(function (error) {
           recoverNativeStopFailure(error);
@@ -7853,76 +7939,177 @@
     state.rec.active = false;
   }
 
-  function exportRecording() {
-    if (state.rec.nativeRecordingReady) {
-      var bridge = nativeBridge();
-      if (!bridge) {
-        toast("桌面录制服务未连接；原始录制仍保存在项目文件夹的 recordings 文件夹");
-        return;
-      }
-      recExport.disabled = true;
-      var openFolder = bridge.openProjectFolder || bridge.openSaveFolder;
-      var openFolderRequest = openFolder
-        ? openFolder()
-        : Promise.reject(new Error("桌面录制服务不支持打开保存位置"));
-      openFolderRequest
-        .then(function (folder) {
-          setNativeProjectFolder(folder);
-          updateProjectFolderStatus();
-          recExport.disabled = false;
-          toast("原始录制已保存，已打开保存位置");
-        })
-        .catch(function (error) {
-          recExport.disabled = false;
-          toast("打开保存位置失败：" + (error.message || error));
-        });
-      return;
+  function ensureRecordingSavedForComposition() {
+    if (state.rec.projectFolder.mode !== "native") {
+      return Promise.reject(new Error("导出合成视频需要使用本机项目文件夹；请先选择项目文件夹并保持本地服务连接"));
     }
+    if (state.rec.nativeRecordingReady) return Promise.resolve(true);
     if (!state.rec.lastBlob) {
-      toast("还没有可保存的原始录制，先录制一段");
-      return;
+      return Promise.reject(new Error("还没有可保存的录制，先录制一段"));
     }
     var fileName = outputFileName(state.rec.lastExt);
+    if (state.rec.lastSavedViaNative && state.rec.lastSavedPath) return Promise.resolve(true);
+    if (state.rec.lastSavedToBrowserFolder && state.rec.lastSavedPath) return Promise.resolve(true);
     if (state.rec.nativeAvailable) {
-      recExport.disabled = true;
-      saveBlobViaNative(state.rec.lastBlob, fileName)
+      return saveBlobViaNative(state.rec.lastBlob, fileName)
         .then(function (saved) {
-          recExport.disabled = false;
           if (saved) {
             refreshProjectFolderStatus();
-            toast((saved.overwritten ? "已有保存，已覆盖：" : "原始录制已保存：") + shortPath(saved.path || saved.fileName || fileName));
-            return;
+            return true;
           }
-          toast("桌面录制服务暂不可用，改用浏览器保存");
-          if (state.rec.projectFolder.handle) return saveBlobToBrowserFolder(state.rec.lastBlob, fileName);
           throw new Error("未选择项目文件夹");
         })
         .then(function (saved) {
-          if (!saved || saved.path) return;
-          toast((saved.overwritten ? "已有保存，已覆盖：" : "原始录制已保存到：") + projectFolderLabel());
-        })
-        .catch(function (error) {
-          recExport.disabled = false;
-      toast("原始录制未保存：" + (error.message || error));
+          return !!saved || state.rec.lastSavedViaNative || state.rec.lastSavedToBrowserFolder;
         });
-      return;
     }
-    if (state.rec.projectFolder.handle) {
+    return Promise.reject(new Error("请先设置项目文件夹，再保存合成视频"));
+  }
+
+  function saveCompositionVideo() {
+    var bridge = nativeBridge();
+    if (!bridge || typeof bridge.renderComposition !== "function") {
+      return Promise.reject(new Error("本地成片服务未连接，无法导出带画中画的合成视频"));
+    }
+    var core = requireEditorCore();
+    var manifest = core.createCompositionManifest(projectFileSnapshot());
+    return bridge.renderComposition(manifest).then(function (result) {
+      state.rec.compositionReady = true;
+      state.rec.compositionOutputPath = result && result.outputPath || "";
+      state.rec.compositionRelativePath = result && result.relativePath || "exports/final.mp4";
+      updateOutputActions();
+      updateV011ProjectStatus("合成视频已保存到项目 exports 文件夹，可在同一按钮打开。");
+      toast("合成视频已保存：" + (state.rec.compositionRelativePath || "exports/final.mp4"));
+      return result;
+    });
+  }
+
+  function openCompositionVideo() {
+    var bridge = nativeBridge();
+    if (!bridge || typeof bridge.openLastExport !== "function") {
+      return Promise.reject(new Error("本地成片服务未连接，无法打开合成视频"));
+    }
+    return bridge.openLastExport().then(function (result) {
+      toast("已打开合成视频");
+      return result;
+    });
+  }
+
+  function exportRecording() {
+    if (state.rec.compositionReady) {
       recExport.disabled = true;
-      saveBlobToBrowserFolder(state.rec.lastBlob, fileName)
-        .then(function (saved) {
-          recExport.disabled = false;
-          if (saved) {
-            toast((saved.overwritten ? "已有保存，已覆盖：" : "原始录制已保存到：") + projectFolderLabel());
-          }
-        })
+      openCompositionVideo()
         .catch(function (error) {
+          toast("打开合成视频失败：" + (error.message || error));
+        })
+        .then(function () {
           recExport.disabled = false;
-          toast("原始录制未保存：" + (error.message || error));
+          updateOutputActions();
         });
       return;
     }
-    toast("请先设置项目文件夹，再保存录制");
+    recExport.disabled = true;
+    recExport.textContent = "正在保存…";
+    ensureRecordingSavedForComposition()
+      .then(function () {
+        recExport.textContent = "正在合成…";
+        return saveCompositionVideo();
+      })
+      .catch(function (error) {
+        toast("合成视频未保存：" + (error.message || error));
+      })
+      .then(function () {
+        recExport.disabled = false;
+        updateOutputActions();
+      });
+  }
+
+  function detachedEditorUrl() {
+    var url = new URL(window.location.href);
+    url.searchParams.set("excalicordEditor", "detached");
+    url.searchParams.delete("excalicordPanel");
+    url.hash = "excalicord-editor";
+    return url.toString();
+  }
+
+  function writeDetachedEditorPlaceholder(target, message) {
+    if (!target || target.closed) return;
+    try {
+      target.document.open();
+      target.document.write([
+        "<!doctype html>",
+        '<meta charset="utf-8">',
+        '<title>编辑原始录制 - more-excalicord</title>',
+        '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f7f6ff;color:#1f2937;font:16px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.card{max-width:440px;padding:28px 32px;border-radius:24px;background:rgba(255,255,255,.86);box-shadow:0 24px 70px rgba(79,70,229,.18);border:1px solid rgba(129,140,248,.22)}h1{margin:0 0 12px;font-size:22px}.hint{color:#64748b;line-height:1.65}</style>',
+        '<main class="card"><h1>编辑原始录制</h1><div class="hint">',
+        String(message || "正在准备原始录制素材…"),
+        "</div></main>",
+      ].join(""));
+      target.document.close();
+    } catch (error) {}
+  }
+
+  function saveProjectForDetachedEditor(reason) {
+    var project = v011SaveProject(reason || "open-detached-editor");
+    if (!project) return Promise.reject(new Error("项目缓存保存失败，请稍后重试"));
+    return saveProjectAssets(project).then(function () { return true; });
+  }
+
+  function ensureEditableRecordingPersisted() {
+    if (state.rec.active) return Promise.reject(new Error("请先停止录制，再进入编辑"));
+    if (!hasCompletedRecording()) return Promise.reject(new Error("还没有可编辑的原始录制，先录制一段"));
+    if (state.rec.projectFolder.mode !== "native") {
+      return Promise.reject(new Error("编辑原始录制需要本机项目文件夹；请先在项目区选择项目文件夹"));
+    }
+    var bridge = nativeBridge();
+    if (!bridge || !state.rec.nativeAvailable || typeof bridge.writeProjectFile !== "function") {
+      return Promise.reject(new Error("本地项目服务未连接，无法打开独立编辑页"));
+    }
+    if (state.rec.nativeRecordingReady) {
+      return saveProjectForDetachedEditor("open-detached-editor");
+    }
+    if (!state.rec.lastBlob) {
+      return Promise.reject(new Error("原始录制尚未保存到项目文件夹"));
+    }
+    if (state.rec.lastSavedViaNative && state.rec.lastSavedPath) {
+      return saveProjectForDetachedEditor("open-detached-editor");
+    }
+    if (typeof bridge.saveBrowserRecording !== "function") {
+      return Promise.reject(new Error("本地项目服务不支持保存原始录制"));
+    }
+    var fileName = outputFileName(state.rec.lastExt);
+    return saveBlobViaNative(state.rec.lastBlob, fileName)
+      .then(function (saved) {
+        if (!saved) throw new Error("原始录制未能保存到项目文件夹");
+        return saveProjectForDetachedEditor("open-detached-editor");
+      });
+  }
+
+  function editOriginalRecording() {
+    var target = window.open("about:blank", "_blank");
+    if (!target) {
+      toast("浏览器阻止了新编辑页面，请允许弹窗后重试");
+      return;
+    }
+    writeDetachedEditorPlaceholder(target, "正在保存原始素材并打开独立编辑页；当前白板页会保持不变。");
+    recOpen.disabled = true;
+    ensureEditableRecordingPersisted()
+      .then(function () {
+        if (target.closed) {
+          toast("编辑页窗口已关闭，请重新点击「编辑原始录制」");
+          return;
+        }
+        target.location.href = detachedEditorUrl();
+        toast("已打开编辑原始录制页面");
+      })
+      .catch(function (error) {
+        var message = error && error.message ? error.message : String(error);
+        writeDetachedEditorPlaceholder(target, "暂时无法打开编辑页：" + message);
+        toast("编辑原始录制失败：" + message);
+      })
+      .then(function () {
+        updateOutputActions();
+      });
   }
 
   function openRecording() {
@@ -7996,7 +8183,7 @@
   if (miniPause) miniPause.addEventListener("click", pauseRecording);
   if (miniStop) miniStop.addEventListener("click", stopRecording);
   recExport.addEventListener("click", exportRecording);
-  recOpen.addEventListener("click", openRecording);
+  recOpen.addEventListener("click", editOriginalRecording);
 
   /* ============ Teleprompter ============ */
   var teleToggle = shadow.getElementById("ec-tele-toggle");
@@ -8098,6 +8285,12 @@
     if (bgStyleSel) bgStyleSel.value = state.settings.backgroundStyle || "warm-gradient";
     updateHideDesktopIconsUI();
     if (micDeviceSel) micDeviceSel.value = state.mic.deviceId || "";
+    if (camShape) camShape.value = normalizeCameraShape(state.camera.shape);
+    if (camSize) camSize.value = String(state.camera.size || 150);
+    if (camSizeV) camSizeV.textContent = String(state.camera.size || 150);
+    if (camMirror) camMirror.checked = state.camera.mirrored !== false;
+    if (compositePositionSel) compositePositionSel.value = state.camera.compositePosition || "bottom-right";
+    applyBubbleStyle();
     if (lightToggle) lightToggle.checked = !!state.camera.lightEnabled;
     if (lightRow) lightRow.style.display = state.camera.lightEnabled ? "flex" : "none";
     if (lightIntensity) lightIntensity.value = String(Number.isFinite(Number(state.camera.lightIntensity)) ? state.camera.lightIntensity : 0.35);

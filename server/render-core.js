@@ -11,6 +11,10 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function normalizeWebcamShape(value) {
+  return ["circle", "rounded", "pill"].includes(value) ? value : "rounded";
+}
+
 function safeRelativePath(value) {
   const text = typeof value === "string" ? value.trim().replace(/\\/g, "/") : "";
   if (!text || text.startsWith("/") || /^[A-Za-z]:\//.test(text) || text.includes("\0")) return "";
@@ -239,8 +243,23 @@ function normalizeWebcamTrack(webcam, recording) {
     position,
     scale: clamp(finite(settings.scale, 0.2), 0.08, 0.45),
     mirror: settings.mirror !== false,
-    shape: typeof settings.shape === "string" ? settings.shape : "rounded",
+    shape: normalizeWebcamShape(settings.shape),
   };
+}
+
+function webcamShapeGeometry(outputWidth, webcam) {
+  const shape = normalizeWebcamShape(webcam && webcam.shape);
+  const width = even(outputWidth * clamp(finite(webcam && webcam.scale, 0.2), 0.08, 0.45));
+  const height = shape === "circle" ? width : even(width * 0.72);
+  const radius = shape === "circle"
+    ? Math.floor(Math.min(width, height) / 2)
+    : (shape === "pill" ? Math.floor(height / 2) : Math.max(2, Math.round(Math.min(width, height) * 0.16)));
+  return { shape, width, height, radius };
+}
+
+function roundedAlphaExpression(radius) {
+  const r = Math.max(1, Math.round(radius));
+  return "if(gt(lte(abs(X-W/2),W/2-" + r + ")+lte(abs(Y-H/2),H/2-" + r + "),0),255,if(lte(hypot(abs(X-W/2)-(W/2-" + r + "),abs(Y-H/2)-(H/2-" + r + "))," + r + "),255,0))";
 }
 
 function piecewiseExpression(frames, field, timeVariable) {
@@ -449,8 +468,9 @@ function buildFilterGraph(plan, inputOptions) {
     });
     if (webcamSegments.length === 1) filters.push(`[w0]null[wcat]`);
     else filters.push(`${webcamSegments.join("")}concat=n=${webcamSegments.length}:v=1:a=0[wcat]`);
-    const webcamWidth = even(width * plan.webcam.scale);
-    filters.push(`[wcat]scale=${webcamWidth}:-2${plan.webcam.mirror ? ",hflip" : ""}[wready]`);
+    const webcamShape = webcamShapeGeometry(width, plan.webcam);
+    filters.push(`[wcat]scale=${webcamShape.width}:${webcamShape.height}:force_original_aspect_ratio=increase,crop=${webcamShape.width}:${webcamShape.height},setsar=1${plan.webcam.mirror ? ",hflip" : ""}[wbox]`);
+    filters.push(`[wbox]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='${roundedAlphaExpression(webcamShape.radius)}'[wready]`);
     const margin = Math.max(18, Math.round(width * 0.018));
     const webcamX = plan.webcam.position.endsWith("right") ? `main_w-overlay_w-${margin}` : String(margin);
     const webcamY = plan.webcam.position.startsWith("bottom") ? `main_h-overlay_h-${margin}` : String(margin);
@@ -579,6 +599,8 @@ module.exports = {
   mapCameraTrack,
   mapCursorTrack,
   normalizeWebcamTrack,
+  normalizeWebcamShape,
+  webcamShapeGeometry,
   piecewiseExpression,
   atempoFilters,
   createRenderPlan,

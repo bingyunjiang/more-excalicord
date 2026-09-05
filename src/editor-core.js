@@ -28,6 +28,10 @@
     return Math.max(min, Math.min(max, value));
   }
 
+  function normalizeWebcamShape(value) {
+    return value === "circle" || value === "pill" || value === "rounded" ? value : "rounded";
+  }
+
   /* Keep a focused 16:9 slide inside the editor controls while making it fill
      the same safe area on every window size. The ratios match the visible
      canvas area in the desktop layout: menu/tool controls on the left/top and
@@ -340,7 +344,7 @@
         x: clamp(finite(webcam.x, 0.82), 0, 1),
         y: clamp(finite(webcam.y, 0.82), 0, 1),
         scale: clamp(finite(webcam.scale, 0.2), 0.05, 1),
-        shape: typeof webcam.shape === "string" ? webcam.shape : "rounded",
+        shape: normalizeWebcamShape(webcam.shape),
         mirror: webcam.mirror !== false,
         screenLightEnabled: webcam.screenLightEnabled === true,
         screenLightIntensity: clamp(finite(webcam.screenLightIntensity, 0.85), 0, 1),

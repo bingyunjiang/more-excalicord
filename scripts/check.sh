@@ -202,7 +202,7 @@ for user_contract in \
   '保存到项目' \
   '保存录制' \
   '打开保存位置' \
-  '播放原始录制' \
+  '编辑原始录制' \
   '原始录制已就绪'; do
   if ! grep -q "$user_contract" "$repo_root/src/studio-recorder.js"; then
     echo "user-facing M0 contract missing: $user_contract"

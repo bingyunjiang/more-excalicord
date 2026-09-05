@@ -57,6 +57,7 @@ final class CaptureEngine: NSObject {
   private var cameraX = 0.84
   private var cameraY = 0.78
   private var cameraSize = 0.26
+  private var cameraShape = "circle"
   private var cameraMirrored = true
   private var smoothing = 0.0
   private var whitening = 0.0
@@ -499,6 +500,7 @@ final class CaptureEngine: NSObject {
       cameraX = clamp(request.cameraX ?? 0.84, 0.05, 0.95)
       cameraY = clamp(request.cameraY ?? 0.78, 0.05, 0.95)
       cameraSize = clamp(request.cameraSize ?? 0.26, 0.08, 0.50)
+      cameraShape = normalizedCameraShape(request.cameraShape)
       cameraMirrored = request.cameraMirrored ?? true
       smoothing = clamp(request.smoothing ?? 0, 0, 1)
       whitening = clamp(request.whitening ?? 0, 0, 1)
@@ -1007,12 +1009,26 @@ final class CaptureEngine: NSObject {
     outputRect: CGRect
   ) -> CIImage {
     var camera = CIImage(cvPixelBuffer: buffer)
-    let square = min(camera.extent.width, camera.extent.height)
+    let shape = normalizedCameraShape(cameraShape)
+    let diameter = CGFloat(cameraSize) * min(outputRect.width, outputRect.height)
+    let targetWidth = diameter
+    let targetHeight = shape == "circle" ? diameter : diameter * 0.72
+    let targetAspect = max(0.01, targetWidth / max(1, targetHeight))
+    let sourceAspect = max(0.01, camera.extent.width / max(1, camera.extent.height))
+    let cropWidth: CGFloat
+    let cropHeight: CGFloat
+    if sourceAspect > targetAspect {
+      cropHeight = camera.extent.height
+      cropWidth = cropHeight * targetAspect
+    } else {
+      cropWidth = camera.extent.width
+      cropHeight = cropWidth / targetAspect
+    }
     let crop = CGRect(
-      x: camera.extent.midX - square / 2,
-      y: camera.extent.midY - square / 2,
-      width: square,
-      height: square
+      x: camera.extent.midX - cropWidth / 2,
+      y: camera.extent.midY - cropHeight / 2,
+      width: cropWidth,
+      height: cropHeight
     )
     camera = camera.cropped(to: crop)
     if smoothing > 0,
@@ -1029,27 +1045,26 @@ final class CaptureEngine: NSObject {
       controls.setValue(1 + lightIntensity * 0.08, forKey: kCIInputContrastKey)
       camera = controls.outputImage ?? camera
     }
-
-    let diameter = CGFloat(cameraSize) * min(outputRect.width, outputRect.height)
     let centerX = CGFloat(cameraX) * outputRect.width
     let centerY = (1 - CGFloat(cameraY)) * outputRect.height
     let target = CGRect(
-      x: centerX - diameter / 2,
-      y: centerY - diameter / 2,
-      width: diameter,
-      height: diameter
+      x: centerX - targetWidth / 2,
+      y: centerY - targetHeight / 2,
+      width: targetWidth,
+      height: targetHeight
     )
-    let scale = diameter / square
+    let scaleX = target.width / crop.width
+    let scaleY = target.height / crop.height
     // Use explicit coefficients so the crop-origin translation is scaled as
     // well. Chaining translatedBy/scaledBy leaves the translation in source
-    // coordinates and can move the camera pixels outside the circular mask.
+    // coordinates and can move the camera pixels outside the shape mask.
     camera = camera.transformed(by: CGAffineTransform(
-      a: scale,
+      a: scaleX,
       b: 0,
       c: 0,
-      d: scale,
-      tx: -crop.minX * scale,
-      ty: -crop.minY * scale
+      d: scaleY,
+      tx: -crop.minX * scaleX,
+      ty: -crop.minY * scaleY
     ))
     if cameraMirrored {
       camera = camera.transformed(by: CGAffineTransform(
@@ -1057,7 +1072,7 @@ final class CaptureEngine: NSObject {
         b: 0,
         c: 0,
         d: 1,
-        tx: diameter,
+        tx: target.width,
         ty: 0
       ))
     }
@@ -1069,7 +1084,15 @@ final class CaptureEngine: NSObject {
       return camera.composited(over: background)
     }
     maskFilter.setValue(CIVector(cgRect: target), forKey: "inputExtent")
-    maskFilter.setValue(diameter / 2, forKey: "inputRadius")
+    let maskRadius: CGFloat
+    if shape == "circle" {
+      maskRadius = min(target.width, target.height) / 2
+    } else if shape == "pill" {
+      maskRadius = target.height / 2
+    } else {
+      maskRadius = min(target.width, target.height) * 0.16
+    }
+    maskFilter.setValue(maskRadius, forKey: "inputRadius")
     maskFilter.setValue(CIColor.white, forKey: "inputColor")
     guard let mask = maskFilter.outputImage,
           let blend = CIFilter(name: "CIBlendWithMask")
@@ -1227,6 +1250,16 @@ final class CaptureEngine: NSObject {
 
   private func clamp(_ value: Double, _ minimum: Double, _ maximum: Double) -> Double {
     min(maximum, max(minimum, value))
+  }
+
+  private func normalizedCameraShape(_ value: String?) -> String {
+    guard let value else { return "rounded" }
+    switch value {
+    case "circle", "rounded", "pill":
+      return value
+    default:
+      return "rounded"
+    }
   }
 }
 

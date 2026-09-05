@@ -11,6 +11,8 @@
   var smartCamera = window.ExcalicordSmartCameraCore;
   var session = null;
   var launcherTimer = null;
+  var detachedAttempt = 0;
+  var detachedTimer = null;
 
   function dependenciesReady() {
     return !!(core && storeApi && io && roughCut && smartCamera);
@@ -22,6 +24,14 @@
 
   function nativeBridge() {
     return window.ExcalicordNativeBridge || null;
+  }
+
+  function detachedEditorRequested() {
+    try {
+      return new URLSearchParams(window.location.search).get("excalicordEditor") === "detached";
+    } catch (error) {
+      return false;
+    }
   }
 
   function nativeProjectFolderSelected() {
@@ -105,26 +115,35 @@
     var existing = shadow.getElementById("ec-open-post-editor");
     var available = canOpenEditor();
     if (existing) {
+      existing.textContent = "✎";
+      existing.title = "录后编辑";
+      existing.setAttribute("aria-label", "进入录后编辑");
+      existing.className = "ec-post-editor-icon";
+      existing.removeAttribute("style");
       existing.hidden = !available;
       existing.disabled = !available;
+      var existingRow = shadow.getElementById("ec-post-editor-launch-row");
+      var title = shadow.querySelector(".ec-recording-result .ec-section-title");
+      if (title && existing.parentNode !== title) {
+        if (existing.parentNode) existing.parentNode.removeChild(existing);
+        title.appendChild(existing);
+        if (existingRow && !existingRow.children.length) existingRow.remove();
+      }
       return;
     }
-    var anchor = shadow.querySelector(".ec-export-row");
-    if (!anchor) return;
-    var row = document.createElement("div");
-    row.id = "ec-post-editor-launch-row";
-    row.style.cssText = "display:flex;margin-top:8px";
+    var title = shadow.querySelector(".ec-recording-result .ec-section-title");
+    if (!title) return;
     var button = document.createElement("button");
     button.type = "button";
     button.id = "ec-open-post-editor";
-    button.className = "ec-btn ec-btn-primary";
-    button.style.cssText = "width:100%;min-height:38px";
-    button.textContent = "进入录后编辑";
+    button.className = "ec-post-editor-icon";
+    button.textContent = "✎";
+    button.title = "录后编辑";
+    button.setAttribute("aria-label", "进入录后编辑");
     button.hidden = !available;
     button.disabled = !available;
     button.addEventListener("click", openEditor);
-    row.appendChild(button);
-    anchor.parentNode.insertBefore(row, anchor.nextSibling);
+    title.appendChild(button);
   }
 
   function editorMarkup() {
@@ -1302,6 +1321,10 @@
       toastTimer: null,
     };
     document.documentElement.classList.add("ec-editor-open");
+    if (detachedEditorRequested()) {
+      document.documentElement.classList.add("ec-editor-detached");
+      document.title = "编辑原始录制 - more-excalicord";
+    }
     bindEditorEvents();
     renderTimeline();
     renderInspector();
@@ -1325,6 +1348,7 @@
       closing.host.remove();
       window.removeEventListener("keydown", editorKeydown, true);
       document.documentElement.classList.remove("ec-editor-open");
+      document.documentElement.classList.remove("ec-editor-detached");
       if (session === closing) session = null;
       ensureLauncher();
     };
@@ -1345,8 +1369,48 @@
   window.addEventListener("excalicord:recording-ready", ensureLauncher);
   window.addEventListener("excalicord:project-context-changed", ensureLauncher);
   launcherTimer = window.setInterval(ensureLauncher, 1200);
+
+  function scheduleDetachedEditorOpen(delay) {
+    if (!detachedEditorRequested() || session || detachedTimer) return;
+    detachedTimer = window.setTimeout(openDetachedEditorWhenReady, delay || 0);
+  }
+
+  function openDetachedEditorWhenReady() {
+    detachedTimer = null;
+    if (!detachedEditorRequested() || session) return;
+    if (canOpenEditor()) {
+      openEditor();
+      return;
+    }
+    var debug = studioDebug();
+    if (debug && typeof debug.openProjectWhiteboardFromFolder === "function" && detachedAttempt % 2 === 0) {
+      Promise.resolve(debug.openProjectWhiteboardFromFolder()).catch(function () {
+        return false;
+      }).then(function () {
+        detachedAttempt += 1;
+        if (detachedAttempt <= 40) {
+          scheduleDetachedEditorOpen(500);
+          return;
+        }
+        window.alert("暂时没有找到可编辑的原始录制。请回到白板页确认录制已停止并保存到项目文件夹。");
+      });
+      return;
+    }
+    detachedAttempt += 1;
+    if (detachedAttempt <= 40) {
+      scheduleDetachedEditorOpen(500);
+      return;
+    }
+    window.alert("暂时没有找到可编辑的原始录制。请回到白板页确认录制已停止并保存到项目文件夹。");
+  }
+
+  window.addEventListener("excalicord:project-saved", function () { scheduleDetachedEditorOpen(100); });
+  window.addEventListener("excalicord:recording-ready", function () { scheduleDetachedEditorOpen(100); });
+  window.addEventListener("excalicord:project-context-changed", function () { scheduleDetachedEditorOpen(100); });
   window.addEventListener("beforeunload", function () {
     if (launcherTimer) clearInterval(launcherTimer);
+    if (detachedTimer) clearTimeout(detachedTimer);
   });
   ensureLauncher();
+  scheduleDetachedEditorOpen(0);
 })();

@@ -42,7 +42,7 @@ const manifest = {
       { timeMs: 0, x: 0.5, y: 0.5, scale: 1 },
       { timeMs: 6000, x: 0.7, y: 0.6, scale: 1.4, transitionMs: 400 },
     ] },
-    cursor: { visible: true, color: "#f97316", clickEffect: true }, webcam: { visible: true, position: "bottom-right" }, audio: { volume: 0.8 },
+    cursor: { visible: true, color: "#f97316", clickEffect: true }, webcam: { visible: true, position: "bottom-right", shape: "pill" }, audio: { volume: 0.8 },
   },
   appearance: { background: "#17191d", padding: 20 },
 };
@@ -57,6 +57,10 @@ assert.strictEqual(plan.cursor.events.length, 2);
 assert.strictEqual(plan.cursor.color, "#f97316");
 assert.strictEqual(plan.cursor.events[1].timeMs, 3000, "cursor time must follow non-destructive time map");
 assert.strictEqual(plan.webcam.visible, true);
+assert.strictEqual(plan.webcam.shape, "pill");
+assert.strictEqual(render.normalizeWebcamShape("not-a-shape"), "rounded");
+const pillGeometry = render.webcamShapeGeometry(1920, plan.webcam);
+assert.ok(Math.abs(pillGeometry.height - pillGeometry.width * 0.72) <= 2);
 assert.deepStrictEqual(render.atempoFilters(4), ["atempo=2", "atempo=2"]);
 assert.deepStrictEqual(render.atempoFilters(0.25), ["atempo=0.5", "atempo=0.5"]);
 const graph = render.buildFilterGraph(plan, 1);
@@ -77,7 +81,8 @@ const layeredArgs = render.buildFfmpegArgs(plan, "/tmp/source.mp4", ["/tmp/sub-1
   webcamPath: "/tmp/webcam.mp4",
 });
 const layeredGraph = layeredArgs[layeredArgs.indexOf("-filter_complex") + 1];
-assert.ok(layeredGraph.includes("[wcat]scale="));
+assert.ok(layeredGraph.includes("force_original_aspect_ratio=increase"));
+assert.ok(layeredGraph.includes("format=rgba,geq="));
 assert.ok(layeredGraph.includes("[cursorasset]overlay="));
 assert.ok(layeredGraph.includes("[click0]overlay="));
 
