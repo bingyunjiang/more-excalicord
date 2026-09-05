@@ -92,6 +92,7 @@
       autoSavePromise: null,
       autoSaveError: "",
       compositionReady: false,
+      existingCompositionReady: false,
       compositionOutputPath: "",
       compositionRelativePath: "",
       lastPreviewUrl: "",
@@ -1318,7 +1319,7 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260906e-camera-ready-pip";
+  var EC_BUILD_VERSION = "20260906g-existing-export-cursor-safe";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
@@ -1546,6 +1547,7 @@
     '      <button class="ec-btn ec-btn-ghost" id="ec-rec-pause" title="暂停或继续录制（快捷键：' + shortcutLabel("P") + '）" aria-label="暂停或继续录制，快捷键 ' + shortcutLabel("P") + '" disabled>' + buttonWithShortcut("暂停", shortcutLabel("P")) + '</button>',
     '      <button class="ec-btn ec-btn-danger" id="ec-rec-stop" title="停止录制（快捷键：' + shortcutLabel("S") + '）" aria-label="停止录制，快捷键 ' + shortcutLabel("S") + '" disabled>' + buttonWithShortcut("停止", shortcutLabel("S")) + '</button>',
     "    </div>",
+    '    <p class="ec-output-hint" id="ec-output-hint" role="status" hidden></p>',
     '    <div class="ec-row ec-export-row" style="margin-top:4px"><label style="flex:0 0 auto">视频文件</label><button class="ec-btn ec-btn-ghost" id="ec-export" style="flex:1">保存录制</button><button class="ec-btn ec-btn-ghost" id="ec-export-open">编辑原始录制</button></div>',
     "  </div>",
     "</div>",
@@ -5161,6 +5163,7 @@
   var recStop = shadow.getElementById("ec-rec-stop");
   var recExport = shadow.getElementById("ec-export");
   var recOpen = shadow.getElementById("ec-export-open");
+  var recOutputHint = shadow.getElementById("ec-output-hint");
   var timerEl = shadow.getElementById("ec-timer");
   var indicator = shadow.getElementById("ec-indicator");
   var miniRecorder = shadow.getElementById("ec-mini-recorder");
@@ -5755,6 +5758,7 @@
       state.rec.projectSceneFiles = {};
       state.rec.projectFolder.loadGeneration += 1;
       state.rec.verifiedMediaPaths = {};
+      state.rec.existingCompositionReady = false;
     }
     state.rec.projectFolder.mode = path ? "native" : "none";
     state.rec.projectFolder.path = path;
@@ -5777,6 +5781,7 @@
       state.rec.projectSceneFiles = {};
       state.rec.projectFolder.loadGeneration += 1;
       state.rec.verifiedMediaPaths = {};
+      state.rec.existingCompositionReady = false;
     }
     state.rec.projectFolder.mode = handle ? "browser" : "none";
     state.rec.projectFolder.path = "";
@@ -5839,7 +5844,9 @@
   function updateProjectFolderStatus() {
     updateOutputActions();
     renderProjectFolderPath();
-    if (state.rec.projectFolder.mode !== "none") {
+    if (state.rec.existingCompositionReady && !hasCompletedRecording()) {
+      updateV011ProjectStatus("已找到上一次合成视频。要生成带当前设置的新视频，请重新录制；也可直接打开已有合成视频。");
+    } else if (state.rec.projectFolder.mode !== "none") {
       updateV011ProjectStatus("项目已就绪；白板、录制、字幕和成片将统一保存在此目录。");
     } else {
       updateV011ProjectStatus("选择项目文件夹后，白板、录制、字幕和成片将统一保存在其中。");
@@ -5850,30 +5857,49 @@
     return !!state.rec.nativeRecordingReady || !!state.rec.lastBlob;
   }
 
+  function setOutputHint(message, tone) {
+    if (!recOutputHint) return;
+    var text = String(message || "").trim();
+    recOutputHint.hidden = !text;
+    recOutputHint.textContent = text;
+    recOutputHint.className = "ec-output-hint ec-output-hint-" + (tone || "info");
+  }
+
   function updateOutputActions() {
     var hasMovie = hasCompletedRecording();
     var active = !!state.rec.active;
     var savingOriginal = !!state.rec.autoSavePromise;
-    if (!hasMovie) {
-      recExport.textContent = "保存录制";
-      recExport.title = "录制完成后保存合成视频；如需文件夹，请在项目区打开保存位置";
+    var canOpenExisting = !hasMovie && !!state.rec.existingCompositionReady;
+    if (canOpenExisting) {
+      recExport.textContent = "打开已有合成视频";
+      recExport.title = "打开项目 exports 文件夹中上一次成功生成的合成视频";
+      recOpen.textContent = "编辑原始录制";
+      recOpen.title = "重新录制后可编辑新的原始录制";
+      setOutputHint("已有合成视频可打开。要生成带当前设置的新视频，请先重新录制。", "warning");
+    } else if (!hasMovie) {
+      recExport.textContent = "请先录制";
+      recExport.title = "完成一段新录制后才能保存新的合成视频";
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "录制完成后在新页面编辑原始录制";
+      setOutputHint("还没有新的录制。请先开始录制，停止后再保存合成视频。", "info");
     } else if (savingOriginal) {
       recExport.textContent = "正在自动保存…";
       recExport.title = "停止录制后正在自动保存原始素材";
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "原始素材保存完成后可在新页面编辑";
+      setOutputHint("正在自动保存本次原始素材，完成后即可生成新的合成视频。", "info");
     } else if (state.rec.compositionReady) {
       recExport.textContent = "打开合成视频";
       recExport.title = "打开刚导出的带画中画合成视频";
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "在新页面编辑最后生成的原始录制";
+      setOutputHint("本次合成已经完成，可直接打开查看。", "success");
     } else if (state.rec.nativeRecordingReady) {
       recExport.textContent = "保存合成视频";
       recExport.title = "导出带画中画的最终 MP4 到项目 exports 文件夹";
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "在新页面编辑最后生成的原始录制";
+      setOutputHint("本次录制尚未生成成片；点击“保存合成视频”开始合成。", "info");
     } else if (state.rec.nativeAvailable) {
       recExport.textContent = "保存合成视频";
       recExport.title = state.rec.autoSaveError
@@ -5881,20 +5907,40 @@
         : "原始素材已自动保存；点击导出带画中画的最终 MP4";
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "在新页面编辑已自动保存的原始录制";
+      setOutputHint("本次原始素材已保存，点击“保存合成视频”生成新成片。", "info");
     } else if (state.rec.projectFolder.handle) {
       recExport.textContent = "保存合成视频";
       recExport.title = "原始素材已自动保存；连接本地成片服务后可导出合成视频";
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "本地服务连接后可在新页面编辑原始录制";
+      setOutputHint("原始素材已保存；连接本地成片服务后可生成合成视频。", "warning");
     } else {
       recExport.textContent = "保存录制";
-      recExport.title = "请先在项目区选择项目文件夹";
+      recExport.title = "请先在项目区选择项目文件夹；随后可打开保存位置";
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "录制完成并保存到项目文件夹后可编辑";
+      setOutputHint("请先选择项目文件夹。", "warning");
     }
-    recExport.disabled = active || savingOriginal;
+    recExport.disabled = active || savingOriginal || (!hasMovie && !canOpenExisting);
     recOpen.disabled = active || savingOriginal || !hasMovie;
     if (!active) recStart.disabled = savingOriginal;
+  }
+
+  function refreshExistingCompositionStatus() {
+    var bridge = nativeBridge();
+    if (!bridge || !state.rec.nativeAvailable || typeof bridge.hasLastExport !== "function" || state.rec.projectFolder.mode !== "native") {
+      state.rec.existingCompositionReady = false;
+      updateOutputActions();
+      return Promise.resolve(false);
+    }
+    return bridge.hasLastExport().then(function (exists) {
+      state.rec.existingCompositionReady = !!exists;
+      updateOutputActions();
+      if (exists && !hasCompletedRecording()) {
+        updateV011ProjectStatus("已找到上一次合成视频。要生成带当前设置的新视频，请重新录制；也可直接打开已有合成视频。");
+      }
+      return !!exists;
+    });
   }
 
   function refreshProjectFolderStatus() {
@@ -5908,8 +5954,10 @@
       .then(function (folder) {
         setNativeProjectFolder(folder);
         updateProjectFolderStatus();
-        if (!state.rec.projectFolder.fingerprint || state.rec.projectFolder.loadedOnce) return true;
-        return activateSelectedProjectFolder({ silent: true, source: "startup" });
+        var activation = !state.rec.projectFolder.fingerprint || state.rec.projectFolder.loadedOnce
+          ? Promise.resolve(true)
+          : activateSelectedProjectFolder({ silent: true, source: "startup" });
+        return activation.then(function () { return refreshExistingCompositionStatus(); });
       })
       .catch(function () {
         updateProjectFolderStatus();
@@ -5954,7 +6002,7 @@
         setNativeProjectFolder(folder);
         updateProjectFolderStatus();
         toast("已设置项目文件夹：" + projectFolderLabel());
-        return true;
+        return refreshExistingCompositionStatus().then(function () { return true; });
       })
       .catch(function (error) {
         var message = error && error.message ? error.message : String(error || "");
@@ -6086,8 +6134,11 @@
     var agentFileName = (state.rec.sessionId || "legacy") + "/" + fileName;
     return bridge.saveBrowserRecording(state.rec.webcamBlob, agentFileName)
       .then(function (saved) {
+        if (!saved || !(saved.path || saved.fileName)) {
+          throw new Error("本地保存服务未返回有效的摄像头素材路径");
+        }
         var relativePath = recordingRelativePath(
-          saved && (saved.path || saved.fileName) || agentFileName,
+          saved.path || saved.fileName,
           fileName,
         );
         return savedWebcamAssetFromPath(relativePath);
@@ -6173,25 +6224,28 @@
       return Promise.resolve(null);
     }
     var agentFileName = (state.rec.sessionId || "legacy") + "/" + fileName;
-    return saveWebcamBlobViaNative().then(function (webcamAsset) {
-      return bridge.saveBrowserRecording(blob, agentFileName)
+    return bridge.saveBrowserRecording(blob, agentFileName)
       .then(function (saved) {
+        if (!saved || !(saved.path || saved.fileName)) {
+          throw new Error("本地保存服务未返回有效的录制文件路径");
+        }
         state.rec.lastSavedPath = saved && saved.path ? saved.path : state.rec.lastSavedPath;
         state.rec.lastSavedFileName = saved && saved.fileName ? saved.fileName.split("/").pop() : fileName;
         state.rec.lastSavedViaNative = true;
         state.rec.lastSavedToBrowserFolder = false;
-        return finalizeSavedRecording(
-          saved && (saved.path || saved.fileName) || state.rec.lastSavedPath,
-          state.rec.lastSavedFileName || fileName,
-          (blob && blob.type) || state.rec.lastMime,
-          state.rec.seconds,
-          {
-            webcam: webcamAsset,
-            webcamCompositeBaked: !!state.rec.webcamCompositeBaked,
-          },
-        ).then(function () { return saved; });
+        return saveWebcamBlobViaNative().then(function (webcamAsset) {
+          return finalizeSavedRecording(
+            saved.path || saved.fileName,
+            state.rec.lastSavedFileName || fileName,
+            (blob && blob.type) || state.rec.lastMime,
+            state.rec.seconds,
+            {
+              webcam: webcamAsset,
+              webcamCompositeBaked: !!state.rec.webcamCompositeBaked,
+            },
+          ).then(function () { return saved; });
+        });
       });
-    });
   }
 
   function autoSaveBrowserRecording() {
@@ -8120,6 +8174,7 @@
     var manifest = core.createCompositionManifest(projectFileSnapshot());
     return bridge.renderComposition(manifest).then(function (result) {
       state.rec.compositionReady = true;
+      state.rec.existingCompositionReady = true;
       state.rec.compositionOutputPath = result && result.outputPath || "";
       state.rec.compositionRelativePath = result && result.relativePath || "exports/final.mp4";
       updateOutputActions();
@@ -8141,7 +8196,8 @@
   }
 
   function exportRecording() {
-    if (state.rec.compositionReady) {
+    var openingExisting = !hasCompletedRecording() && state.rec.existingCompositionReady;
+    if (state.rec.compositionReady || openingExisting) {
       recExport.disabled = true;
       openCompositionVideo()
         .catch(function (error) {
@@ -9459,6 +9515,10 @@
         nativeAvailable: state.rec.nativeAvailable,
         nativeRecordingReady: state.rec.nativeRecordingReady,
         nativeOutputPath: state.rec.nativeOutputPath,
+        compositionReady: state.rec.compositionReady,
+        existingCompositionReady: state.rec.existingCompositionReady,
+        exportButtonText: recExport ? recExport.textContent : "",
+        outputHint: recOutputHint ? recOutputHint.textContent : "",
       };
     },
     startRecordingNow: _startRecordingInner,

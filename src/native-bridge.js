@@ -201,6 +201,13 @@
     renderStatus: function () {
       return renderRequest("/api/render/status", "GET", null, 3000);
     },
+    hasLastExport: function () {
+      return renderRequest("/api/render/export-status", "GET", null, 3000).then(function (result) {
+        return !!(result && result.exists);
+      }).catch(function () {
+        return false;
+      });
+    },
     openLastExport: function () {
       return renderRequest("/api/render/open", "POST", {}, 5000);
     },

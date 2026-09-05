@@ -263,6 +263,10 @@ function roundedAlphaExpression(radius) {
 }
 
 function piecewiseExpression(frames, field, timeVariable) {
+  if (frames.length > 36) {
+    const step = (frames.length - 1) / 35;
+    frames = Array.from({ length: 36 }, (_, index) => frames[Math.round(index * step)]);
+  }
   if (!frames.length) return field === "scale" ? "1" : "0.5";
   if (frames.length === 1) return String(finite(frames[0][field], field === "scale" ? 1 : 0.5));
   const t = timeVariable || "on/30";

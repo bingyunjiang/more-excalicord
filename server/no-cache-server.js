@@ -206,6 +206,15 @@ async function currentExportPath() {
   return ensureInsideProject(projectRoot, expected);
 }
 
+function friendlyRenderError(error) {
+  const message = String(error && error.message || error || '合成视频失败');
+  if (/Parsed_overlay|Missing \)|Error reinitializing filters|Invalid argument/i.test(message)) {
+    return '视频图层处理失败。原始素材和已有成片不受影响，请刷新页面后重试。';
+  }
+  const readable = message.split(/\r?\n/).find((line) => line && !/^\[[^\]]+\]/.test(line)) || message;
+  return readable.length > 180 ? readable.slice(0, 177) + '…' : readable;
+}
+
 async function renderCaptions(plan, jobDir) {
   if (!plan.subtitles.length) return [];
   if (!fs.existsSync(CAPTION_RENDERER)) throw new Error('字幕渲染组件缺失');
@@ -316,8 +325,9 @@ async function renderComposition(manifest) {
     activeRender = Object.assign({}, result, { progress: 1 });
     return result;
   } catch (error) {
-    activeRender = { id: jobId, state: 'error', progress: 0, message: error.message || String(error) };
-    throw error;
+    const message = friendlyRenderError(error);
+    activeRender = { id: jobId, state: 'error', progress: 0, message };
+    throw new Error(message);
   } finally {
     if (jobDir) fs.promises.rm(jobDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -386,6 +396,12 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === 'GET' && urlPath === '/api/render/status') {
     jsonResponse(res, 200, { ok: true, render: activeRender, outputPath: lastRenderOutput || null });
+    return;
+  }
+  if (req.method === 'GET' && urlPath === '/api/render/export-status') {
+    currentExportPath()
+      .then((outputPath) => jsonResponse(res, 200, { ok: true, exists: true, outputPath }))
+      .catch(() => jsonResponse(res, 200, { ok: true, exists: false, outputPath: null }));
     return;
   }
   if (req.method === 'POST' && urlPath === '/api/render/open') {

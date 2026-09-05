@@ -55,12 +55,13 @@ const manifest = {
       screen: { path: "recordings/smoke/source.mp4" },
       webcam: { path: "recordings/smoke/webcam.mp4" },
     },
-    embeddedEvents: [
-      { type: "pointer", timeMs: 200, x: 0.18, y: 0.22, insideCanvas: true },
-      { type: "pointer", timeMs: 900, x: 0.42, y: 0.38, insideCanvas: true },
-      { type: "click", timeMs: 1900, x: 0.66, y: 0.55, insideCanvas: true },
-      { type: "pointer", timeMs: 3300, x: 0.82, y: 0.68, insideCanvas: true },
-    ],
+    embeddedEvents: Array.from({ length: 80 }, (_, index) => ({
+      type: "pointer",
+      timeMs: 120 + index * 46,
+      x: 0.5 + Math.sin(index / 8) * 0.32,
+      y: 0.5 + Math.cos(index / 9) * 0.24,
+      insideCanvas: true,
+    })).concat([{ type: "click", timeMs: 1900, x: 0.66, y: 0.55, insideCanvas: true }]),
   },
   timeMap: {
     sourceDurationMs: 4000,

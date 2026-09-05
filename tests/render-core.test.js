@@ -66,6 +66,13 @@ assert.strictEqual(
   "a webcam already baked into the source must not be overlaid a second time",
 );
 assert.strictEqual(render.normalizeWebcamShape("not-a-shape"), "rounded");
+const denseCursorExpression = render.piecewiseExpression(Array.from({ length: 140 }, (_, index) => ({
+  timeMs: index * 80,
+  transitionMs: 44,
+  x: (index % 100) / 100,
+})), "x", "t");
+assert.ok(denseCursorExpression.length < 10000, "dense cursor tracks must stay within FFmpeg expression limits");
+assert.ok((denseCursorExpression.match(/if\(lt\(/g) || []).length <= 70, "dense cursor expressions must have bounded nesting");
 const pillGeometry = render.webcamShapeGeometry(1920, plan.webcam);
 assert.ok(Math.abs(pillGeometry.height - pillGeometry.width * 0.72) <= 2);
 assert.deepStrictEqual(render.atempoFilters(4), ["atempo=2", "atempo=2"]);

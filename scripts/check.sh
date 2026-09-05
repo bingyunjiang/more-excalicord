@@ -246,6 +246,22 @@ if grep -q '先保存原始素材，再导出' "$repo_root/src/studio-recorder.j
   echo "composition tooltip must not imply a separate manual original-save step"
   exit 1
 fi
+if ! grep -q '本地保存服务未返回有效的录制文件路径' "$repo_root/src/studio-recorder.js" || \
+   ! grep -q '本地保存服务未返回有效的摄像头素材路径' "$repo_root/src/studio-recorder.js"; then
+  echo "native recording save-result validation contract missing"
+  exit 1
+fi
+if ! grep -q '打开已有合成视频' "$repo_root/src/studio-recorder.js" || \
+   ! grep -q '要生成带当前设置的新视频，请先重新录制' "$repo_root/src/studio-recorder.js" || \
+   ! grep -q 'hasLastExport' "$repo_root/src/native-bridge.js"; then
+  echo "existing composition action and re-recording hint contract missing"
+  exit 1
+fi
+if ! grep -q 'frames.length > 36' "$repo_root/server/render-core.js" || \
+   ! grep -q 'friendlyRenderError' "$repo_root/server/no-cache-server.js"; then
+  echo "bounded render expression or friendly render error contract missing"
+  exit 1
+fi
 if ! grep -q 'white-space: nowrap' "$repo_root/src/recorder.css" || \
    ! grep -q '.ec-mini-tele-label' "$repo_root/src/recorder.css"; then
   echo "mini teleprompter button layout contract missing"
