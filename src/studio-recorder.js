@@ -1312,7 +1312,7 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260906b-camera-shapes";
+  var EC_BUILD_VERSION = "20260906c-frame-pip-mini-tele";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
@@ -7123,7 +7123,7 @@
       drawDisplaySource(ctx, video, W, H);
     }
     var cam = state.camera;
-    if (composeChk.checked && cam.enabled && cam.stream && !state.rec.webcamSidecarActive) {
+    if (composeChk.checked && cam.enabled && cam.stream) {
       var camSrc = cameraRenderSource();
       if (!camSrc) {
         state.rec.composeRaf = requestAnimationFrame(composeDrawLoop);

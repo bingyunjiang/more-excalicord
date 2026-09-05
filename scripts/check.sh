@@ -221,6 +221,15 @@ for script_contract in \
     exit 1
   fi
 done
+if grep -q 'composeChk\.checked && cam\.enabled && cam\.stream && !state\.rec\.webcamSidecarActive' "$repo_root/src/studio-recorder.js"; then
+  echo "canvas/frame picture-in-picture must not be disabled by webcam sidecar recording"
+  exit 1
+fi
+if ! grep -q 'white-space: nowrap' "$repo_root/src/recorder.css" || \
+   ! grep -q '.ec-mini-tele-label' "$repo_root/src/recorder.css"; then
+  echo "mini teleprompter button layout contract missing"
+  exit 1
+fi
 if grep -q 'id="ec-script-import"' "$repo_root/src/studio-recorder.js"; then
   echo "duplicate script import button remains in recording panel"
   exit 1
