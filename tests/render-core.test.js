@@ -58,6 +58,13 @@ assert.strictEqual(plan.cursor.color, "#f97316");
 assert.strictEqual(plan.cursor.events[1].timeMs, 3000, "cursor time must follow non-destructive time map");
 assert.strictEqual(plan.webcam.visible, true);
 assert.strictEqual(plan.webcam.shape, "pill");
+const bakedManifest = JSON.parse(JSON.stringify(manifest));
+bakedManifest.source.legacyComposite = true;
+assert.strictEqual(
+  render.createRenderPlan(bakedManifest, { width: 1920, height: 1080, fps: 30, hasAudio: true, durationMs: 10000 }).webcam.visible,
+  false,
+  "a webcam already baked into the source must not be overlaid a second time",
+);
 assert.strictEqual(render.normalizeWebcamShape("not-a-shape"), "rounded");
 const pillGeometry = render.webcamShapeGeometry(1920, plan.webcam);
 assert.ok(Math.abs(pillGeometry.height - pillGeometry.width * 0.72) <= 2);

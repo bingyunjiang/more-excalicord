@@ -60,6 +60,8 @@
       screenLightIntensity: 0.85,
       compositePosition: "bottom-right",
       raf: null,
+      startPromise: null,
+      requestGeneration: 0,
     },
     rec: {
       active: false,
@@ -79,6 +81,7 @@
       webcamExt: "",
       webcamMime: "",
       webcamSavedPath: "",
+      webcamCompositeBaked: false,
       lastExt: "webm",
       lastMime: "video/webm",
       lastFileName: "",
@@ -86,6 +89,8 @@
       lastSavedFileName: "",
       lastSavedViaNative: false,
       lastSavedToBrowserFolder: false,
+      autoSavePromise: null,
+      autoSaveError: "",
       compositionReady: false,
       compositionOutputPath: "",
       compositionRelativePath: "",
@@ -101,6 +106,7 @@
       nativeOutputPath: "",
       nativeRecordingReady: false,
       nativeStarting: false,
+      browserStarting: false,
       sessionId: "",
       recordingReadyDispatched: false,
       restoreCameraAfterNative: false,
@@ -1312,7 +1318,7 @@
     '<span class="ec-panel-brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.4 6.4h5.9c1 0 1.9.6 2.3 1.5l.4.9h.8a2.7 2.7 0 0 1 2.7 2.7v4.4a2.7 2.7 0 0 1-2.7 2.7H7a2.7 2.7 0 0 1-2.7-2.7v-4.4A2.7 2.7 0 0 1 7 8.8h.5l.6-1.2c.3-.8 1-1.2 1.9-1.2Z"/><circle cx="12" cy="13.8" r="3.2"/><path d="M17.2 10.8h.1"/></svg></span>';
   var sectionIconSlide =
     '<span class="ec-title-label"><span class="ec-section-icon ec-section-icon-slide" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="9.4" rx="1.8"/><path d="M6 17h8"/><path d="M10 13.6V17"/></svg></span></span>';
-  var EC_BUILD_VERSION = "20260906c-frame-pip-mini-tele";
+  var EC_BUILD_VERSION = "20260906e-camera-ready-pip";
   var shortcutPrefix = /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌥⇧" : "Alt+Shift+";
   function shortcutLabel(key) {
     return shortcutPrefix + key;
@@ -4661,6 +4667,8 @@
   }
 
   function stopCamera() {
+    state.camera.requestGeneration += 1;
+    state.camera.startPromise = null;
     if (state.camera.raf) {
       cancelAnimationFrame(state.camera.raf);
       state.camera.raf = null;
@@ -4934,7 +4942,20 @@
 
   function startCamera(options) {
     options = options || {};
-    if (state.camera.stream) return;
+    if (state.camera.stream) {
+      var existingTrack = state.camera.stream.getVideoTracks().find(function (track) {
+        return track && track.readyState !== "ended";
+      });
+      if (existingTrack) return Promise.resolve(state.camera.stream);
+      stopCamera();
+    }
+    if (state.camera.startPromise) return state.camera.startPromise;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (!options.silentError) toast("当前浏览器不支持摄像头访问");
+      return Promise.resolve(null);
+    }
+    var requestGeneration = state.camera.requestGeneration + 1;
+    state.camera.requestGeneration = requestGeneration;
     var constraints = {
       video: {
         width: { ideal: 1280 },
@@ -4946,9 +4967,13 @@
     if (state.camera.deviceId) {
       constraints.video.deviceId = { exact: state.camera.deviceId };
     }
-    navigator.mediaDevices
+    var startTask = navigator.mediaDevices
       .getUserMedia(constraints)
       .then(function (stream) {
+        if (requestGeneration !== state.camera.requestGeneration || !camEnable.checked) {
+          stream.getTracks().forEach(function (track) { try { track.stop(); } catch (error) {} });
+          return null;
+        }
         state.camera.stream = stream;
         state.camera.enabled = true;
         var video = document.createElement("video");
@@ -4973,6 +4998,7 @@
           updateScreenLight();
           if (!options.silentSuccess) toast("摄像头已开启");
           renderCameraLoop();
+          return stream;
         });
       })
       .catch(function (err) {
@@ -4983,7 +5009,31 @@
         camEnable.checked = false;
         updateScreenLight();
         updateCameraDetailsVisibility();
+        return null;
+      })
+      .then(function (stream) {
+        if (state.camera.startPromise === startTask) state.camera.startPromise = null;
+        return stream;
       });
+    state.camera.startPromise = startTask;
+    return startTask;
+  }
+
+  function ensureCameraReadyForRecording() {
+    if (!camEnable.checked) return Promise.resolve(true);
+    var liveTrack = state.camera.stream && state.camera.stream.getVideoTracks().find(function (track) {
+      return track && track.readyState !== "ended";
+    });
+    if (state.camera.enabled && liveTrack) return Promise.resolve(true);
+    updateV011ProjectStatus("正在连接摄像头；就绪后才会开始录制。");
+    return startCamera({ silentSuccess: true, silentError: true }).then(function (stream) {
+      var ready = !!(stream && state.camera.enabled);
+      if (ready) return true;
+      setPanelOpen(true);
+      updateV011ProjectStatus("摄像头未就绪，本次录制未开始。请检查摄像头权限，或关闭“摄像头画中画”后重试。");
+      toast("摄像头未就绪，已取消录制，避免生成没有画中画的视频");
+      return false;
+    });
   }
 
   function applyBubbleStyle() {
@@ -5522,6 +5572,8 @@
     state.rec.lastSavedFileName = "";
     state.rec.lastSavedViaNative = false;
     state.rec.lastSavedToBrowserFolder = false;
+    state.rec.autoSavePromise = null;
+    state.rec.autoSaveError = "";
     state.rec.compositionReady = false;
     state.rec.compositionOutputPath = "";
     state.rec.compositionRelativePath = "";
@@ -5570,6 +5622,7 @@
     state.rec.webcamExt = "";
     state.rec.webcamMime = "";
     state.rec.webcamSavedPath = "";
+    state.rec.webcamCompositeBaked = false;
     state.rec.lastFileName = "";
     state.rec.seconds = 0;
     state.rec.paused = false;
@@ -5800,11 +5853,17 @@
   function updateOutputActions() {
     var hasMovie = hasCompletedRecording();
     var active = !!state.rec.active;
+    var savingOriginal = !!state.rec.autoSavePromise;
     if (!hasMovie) {
       recExport.textContent = "保存录制";
       recExport.title = "录制完成后保存合成视频；如需文件夹，请在项目区打开保存位置";
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "录制完成后在新页面编辑原始录制";
+    } else if (savingOriginal) {
+      recExport.textContent = "正在自动保存…";
+      recExport.title = "停止录制后正在自动保存原始素材";
+      recOpen.textContent = "编辑原始录制";
+      recOpen.title = "原始素材保存完成后可在新页面编辑";
     } else if (state.rec.compositionReady) {
       recExport.textContent = "打开合成视频";
       recExport.title = "打开刚导出的带画中画合成视频";
@@ -5817,12 +5876,14 @@
       recOpen.title = "在新页面编辑最后生成的原始录制";
     } else if (state.rec.nativeAvailable) {
       recExport.textContent = "保存合成视频";
-      recExport.title = "先保存原始素材，再导出带画中画的最终 MP4";
+      recExport.title = state.rec.autoSaveError
+        ? "自动保存原始素材失败；点击后会重试并导出带画中画的最终 MP4"
+        : "原始素材已自动保存；点击导出带画中画的最终 MP4";
       recOpen.textContent = "编辑原始录制";
-      recOpen.title = "先保存原始录制，再新开编辑页面";
+      recOpen.title = "在新页面编辑已自动保存的原始录制";
     } else if (state.rec.projectFolder.handle) {
       recExport.textContent = "保存合成视频";
-      recExport.title = "先保存原始素材；如本地成片服务不可用，会提示处理方式";
+      recExport.title = "原始素材已自动保存；连接本地成片服务后可导出合成视频";
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "本地服务连接后可在新页面编辑原始录制";
     } else {
@@ -5831,8 +5892,9 @@
       recOpen.textContent = "编辑原始录制";
       recOpen.title = "录制完成并保存到项目文件夹后可编辑";
     }
-    recExport.disabled = active;
-    recOpen.disabled = active || !hasMovie;
+    recExport.disabled = active || savingOriginal;
+    recOpen.disabled = active || savingOriginal || !hasMovie;
+    if (!active) recStart.disabled = savingOriginal;
   }
 
   function refreshProjectFolderStatus() {
@@ -6097,7 +6159,10 @@
         state.rec.lastSavedPath = projectFolderLabel() + "/" + relativePath;
         state.rec.lastSavedViaNative = false;
         state.rec.lastSavedToBrowserFolder = true;
-        return finalizeSavedRecording(relativePath, fileName, (blob && blob.type) || state.rec.lastMime, state.rec.seconds, { webcam: webcamAsset })
+        return finalizeSavedRecording(relativePath, fileName, (blob && blob.type) || state.rec.lastMime, state.rec.seconds, {
+          webcam: webcamAsset,
+          webcamCompositeBaked: !!state.rec.webcamCompositeBaked,
+        })
           .then(function () { return { ok: true, fileName: fileName, path: relativePath, overwritten: overwritten }; });
       });
   }
@@ -6120,10 +6185,61 @@
           state.rec.lastSavedFileName || fileName,
           (blob && blob.type) || state.rec.lastMime,
           state.rec.seconds,
-          { webcam: webcamAsset },
+          {
+            webcam: webcamAsset,
+            webcamCompositeBaked: !!state.rec.webcamCompositeBaked,
+          },
         ).then(function () { return saved; });
       });
     });
+  }
+
+  function autoSaveBrowserRecording() {
+    if (!state.rec.lastBlob) return Promise.resolve(false);
+    if (state.rec.lastSavedViaNative && state.rec.lastSavedPath) return Promise.resolve(true);
+    if (state.rec.lastSavedToBrowserFolder && state.rec.lastSavedPath) return Promise.resolve(true);
+    if (state.rec.autoSavePromise) return state.rec.autoSavePromise;
+
+    var fileName = outputFileName(state.rec.lastExt);
+    var saveTask = null;
+    if (state.rec.projectFolder.mode === "native" && state.rec.nativeAvailable) {
+      saveTask = saveBlobViaNative(state.rec.lastBlob, fileName);
+    } else if (state.rec.projectFolder.handle) {
+      saveTask = saveBlobToBrowserFolder(state.rec.lastBlob, fileName);
+    }
+    if (!saveTask) {
+      state.rec.autoSaveError = "项目文件夹或本地保存服务不可用";
+      updateOutputActions();
+      return Promise.resolve(false);
+    }
+
+    state.rec.autoSaveError = "";
+    state.rec.autoSavePromise = Promise.resolve(saveTask)
+      .then(function (saved) {
+        if (!saved) throw new Error("项目文件夹不可用");
+        state.rec.autoSaveError = "";
+        refreshProjectFolderStatus();
+        updateV011ProjectStatus(state.rec.webcamSavedPath
+          ? "原始录制和独立摄像头素材已自动保存；可保存合成视频或编辑原始录制。"
+          : "原始录制已自动保存；可保存合成视频或编辑原始录制。");
+        toast(state.rec.webcamSavedPath
+          ? "原始录制和独立摄像头素材已自动保存到项目文件夹"
+          : "原始录制已自动保存到项目文件夹");
+        return true;
+      })
+      .catch(function (error) {
+        state.rec.autoSaveError = error && error.message ? error.message : String(error);
+        updateV011ProjectStatus("原始录制仍保留在当前页面；自动保存失败，导出时会自动重试。");
+        toast("原始录制自动保存失败：" + state.rec.autoSaveError);
+        return false;
+      })
+      .then(function (saved) {
+        state.rec.autoSavePromise = null;
+        updateOutputActions();
+        return saved;
+      });
+    updateOutputActions();
+    return state.rec.autoSavePromise;
   }
 
   function populateNativeSources(payload) {
@@ -7404,12 +7520,27 @@
   }
 
   function startBrowserRecording() {
-    resetCompletedRecordingState();
-    requestMicAccess(function () {
-      doCountdown(function () {
-        _startRecordingInner();
+    if (state.rec.browserStarting) return;
+    state.rec.browserStarting = true;
+    ensureCameraReadyForRecording()
+      .then(function (cameraReady) {
+        if (!cameraReady) {
+          state.rec.browserStarting = false;
+          return;
+        }
+        resetCompletedRecordingState();
+        requestMicAccess(function () {
+          doCountdown(function () {
+            _startRecordingInner();
+          });
+          state.rec.browserStarting = false;
+        });
+      })
+      .catch(function (error) {
+        state.rec.browserStarting = false;
+        setPanelOpen(true);
+        toast("录制准备失败：" + (error && error.message ? error.message : error));
       });
-    });
   }
 
   function startNativeRecording() {
@@ -7499,7 +7630,11 @@
   }
 
   function startRecording() {
-    if (state.countdown.active || state.rec.active) return;
+    if (state.countdown.active || state.rec.active || state.rec.browserStarting) return;
+    if (state.rec.autoSavePromise) {
+      toast("正在自动保存上一段原始录制，请稍候");
+      return;
+    }
     if (!selectedProjectFolderAvailable()) {
       setPanelOpen(true);
       updateV011ProjectStatus("开始录制前请先设置项目文件夹；本次录制及附带内容都会保存到该目录。");
@@ -7580,6 +7715,7 @@
       var tracks = [vTrack].concat(mixedBrowserAudioTracks(inputAudioTracks));
       var outputStream = new MediaStream(tracks);
 
+      state.rec.webcamCompositeBaked = !!(composeChk.checked && state.camera.enabled && state.camera.stream);
       var hasIndependentWebcam = startWebcamSidecarRecording();
       state.rec.composeRaf = requestAnimationFrame(composeDrawLoop);
       if (hideBubbleChk.checked && state.camera.enabled) {
@@ -7623,6 +7759,7 @@
           updateOutputActions();
           toast("原始录制已就绪（" + ext.toUpperCase() + "）" + (hasIndependentWebcam && state.rec.webcamBlob ? "，已保留独立摄像头素材" : "") + "，可保存合成视频或编辑");
           revealPanelAfterRecordingStops();
+          autoSaveBrowserRecording();
         });
       };
       recorder.start(1000);
@@ -7679,6 +7816,7 @@
         var useComposedOutput = composeChk.checked && !isDesktopSurface;
         state.rec.selectedDisplaySurface = displaySurface;
         state.rec.usingDirectDisplay = !useComposedOutput;
+        state.rec.webcamCompositeBaked = !!(useComposedOutput && state.camera.enabled && state.camera.stream);
 
         if (displaySurface === "browser") {
           toast("当前采集源是浏览器标签页；录制桌面请在共享窗口中选择「整个屏幕」");
@@ -7774,6 +7912,7 @@
             updateOutputActions();
             toast("原始录制已就绪（" + ext.toUpperCase() + "）" + (hasIndependentWebcam && state.rec.webcamBlob ? "，已保留独立摄像头素材" : "") + "，可保存合成视频或编辑");
             revealPanelAfterRecordingStops();
+            autoSaveBrowserRecording();
           });
         };
         recorder.start(1000);
@@ -7947,6 +8086,12 @@
     if (!state.rec.lastBlob) {
       return Promise.reject(new Error("还没有可保存的录制，先录制一段"));
     }
+    if (state.rec.autoSavePromise) {
+      return state.rec.autoSavePromise.then(function (saved) {
+        if (saved) return true;
+        return ensureRecordingSavedForComposition();
+      });
+    }
     var fileName = outputFileName(state.rec.lastExt);
     if (state.rec.lastSavedViaNative && state.rec.lastSavedPath) return Promise.resolve(true);
     if (state.rec.lastSavedToBrowserFolder && state.rec.lastSavedPath) return Promise.resolve(true);
@@ -8064,6 +8209,12 @@
     var bridge = nativeBridge();
     if (!bridge || !state.rec.nativeAvailable || typeof bridge.writeProjectFile !== "function") {
       return Promise.reject(new Error("本地项目服务未连接，无法打开独立编辑页"));
+    }
+    if (state.rec.autoSavePromise) {
+      return state.rec.autoSavePromise.then(function (saved) {
+        if (!saved) throw new Error("原始录制自动保存失败，请重试");
+        return saveProjectForDetachedEditor("open-detached-editor");
+      });
     }
     if (state.rec.nativeRecordingReady) {
       return saveProjectForDetachedEditor("open-detached-editor");

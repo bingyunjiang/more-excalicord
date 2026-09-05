@@ -225,6 +225,27 @@ if grep -q 'composeChk\.checked && cam\.enabled && cam\.stream && !state\.rec\.w
   echo "canvas/frame picture-in-picture must not be disabled by webcam sidecar recording"
   exit 1
 fi
+if ! grep -q 'autoSaveBrowserRecording' "$repo_root/src/studio-recorder.js"; then
+  echo "browser recordings must auto-save after recording stops"
+  exit 1
+fi
+if ! grep -q '正在自动保存上一段原始录制，请稍候' "$repo_root/src/studio-recorder.js"; then
+  echo "a new recording must not replace material while auto-save is running"
+  exit 1
+fi
+if ! grep -q 'ensureCameraReadyForRecording' "$repo_root/src/studio-recorder.js" || \
+   ! grep -q '摄像头未就绪，已取消录制' "$repo_root/src/studio-recorder.js"; then
+  echo "camera picture-in-picture must be ready before browser recording starts"
+  exit 1
+fi
+if ! grep -q 'webcamCompositeBaked: !!state.rec.webcamCompositeBaked' "$repo_root/src/studio-recorder.js"; then
+  echo "browser recording metadata must distinguish baked and independent webcam composition"
+  exit 1
+fi
+if grep -q '先保存原始素材，再导出' "$repo_root/src/studio-recorder.js"; then
+  echo "composition tooltip must not imply a separate manual original-save step"
+  exit 1
+fi
 if ! grep -q 'white-space: nowrap' "$repo_root/src/recorder.css" || \
    ! grep -q '.ec-mini-tele-label' "$repo_root/src/recorder.css"; then
   echo "mini teleprompter button layout contract missing"
